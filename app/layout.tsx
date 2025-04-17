@@ -15,15 +15,24 @@ export default function RootLayout({ children }) {
                 <Link href="/" className="flex-shrink-0">
                   <span className="gold-gradient-text font-bold text-xl">PairTrade</span>
                 </Link>
-                <div className="ml-4 sm:ml-10 flex items-baseline space-x-1 sm:space-x-4 overflow-x-auto scrollbar-hide">
+                <div className="hidden md:flex ml-10 items-baseline space-x-4">
                   <NavLink href="/">Home</NavLink>
                   <NavLink href="/stocks">Stocks</NavLink>
                   <NavLink href="/watchlists">Watchlists</NavLink>
-                  <NavLink href="/pair-analyzer">Analyzer</NavLink>
-                  <NavLink href="/backtest">Ratio</NavLink>
-                  <NavLink href="/backtest-spread">Spread</NavLink>
+                  <NavLink href="/pair-analyzer">Pair Analyzer</NavLink>
+                  <NavLink href="/backtest">Ratio Backtest</NavLink>
+                  <NavLink href="/backtest-spread">Spread Backtest</NavLink>
                   <NavLink href="/pricing">Pricing</NavLink>
                 </div>
+              </div>
+              <div className="md:hidden flex items-center overflow-x-auto scrollbar-hide space-x-1 py-2">
+                <NavLink href="/">Home</NavLink>
+                <NavLink href="/stocks">Stocks</NavLink>
+                <NavLink href="/watchlists">Lists</NavLink>
+                <NavLink href="/pair-analyzer">Analyzer</NavLink>
+                <NavLink href="/backtest">Ratio</NavLink>
+                <NavLink href="/backtest-spread">Spread</NavLink>
+                <NavLink href="/pricing">Pricing</NavLink>
               </div>
             </div>
           </div>
