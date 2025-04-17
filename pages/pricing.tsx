@@ -95,12 +95,14 @@ export default function Pricing() {
       <div className="card p-3 sm:p-6">
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-8 text-center">Select Your Plan</h2>
 
-        <div className="grid grid-cols-1 gap-6 sm:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
           {pricingPlans.map((plan, index) => (
             <div
               key={index}
               className={`relative rounded-xl overflow-hidden ${
-                plan.popular ? "border-2 border-gold-400 shadow-lg shadow-gold-400/10" : "border border-navy-700"
+                plan.popular
+                  ? "border-2 border-gold-400 md:transform md:scale-105 shadow-lg shadow-gold-400/10"
+                  : "border border-navy-700"
               }`}
             >
               {plan.popular && (
@@ -111,31 +113,27 @@ export default function Pricing() {
               <div
                 className={`p-4 sm:p-6 ${plan.popular ? "bg-gradient-to-b from-navy-800 to-navy-900" : "bg-navy-800/50"}`}
               >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">{plan.name}</h3>
-                    <div className="flex items-end mb-2 sm:mb-4">
-                      <span className="text-2xl sm:text-4xl font-bold text-gold-400">${plan.price}</span>
-                      <span className="text-gray-300 ml-1 sm:ml-2">/{plan.period}</span>
-                    </div>
-                    {plan.saving && (
-                      <div className="inline-block bg-green-900/30 text-green-300 px-2 py-0.5 rounded-md text-xs sm:text-sm font-medium mb-2 sm:mb-4">
-                        {plan.saving}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleSubscribe(plan.name)}
-                    className={`px-3 py-2 sm:px-4 sm:py-3 rounded-md text-sm sm:text-base font-medium transition-colors ${
-                      plan.popular
-                        ? "bg-gold-400 hover:bg-gold-500 text-navy-950"
-                        : "bg-navy-700 hover:bg-navy-600 text-white"
-                    }`}
-                  >
-                    {plan.cta}
-                  </button>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">{plan.name}</h3>
+                <div className="flex items-end mb-2 sm:mb-4">
+                  <span className="text-2xl sm:text-4xl font-bold text-gold-400">${plan.price}</span>
+                  <span className="text-gray-300 ml-1 sm:ml-2">/{plan.period}</span>
                 </div>
+                {plan.saving && (
+                  <div className="inline-block bg-green-900/30 text-green-300 px-2 py-0.5 rounded-md text-xs sm:text-sm font-medium mb-2 sm:mb-4">
+                    {plan.saving}
+                  </div>
+                )}
                 <p className="text-sm sm:text-base text-gray-300 mb-4 sm:mb-6">{plan.description}</p>
+                <button
+                  onClick={() => handleSubscribe(plan.name)}
+                  className={`w-full px-3 py-2 sm:px-4 sm:py-3 rounded-md text-sm sm:text-base font-medium transition-colors ${
+                    plan.popular
+                      ? "bg-gold-400 hover:bg-gold-500 text-navy-950"
+                      : "bg-navy-700 hover:bg-navy-600 text-white"
+                  }`}
+                >
+                  {plan.cta}
+                </button>
               </div>
               <div className="p-4 sm:p-6 bg-navy-900/50">
                 <p className="font-medium text-white mb-3 sm:mb-4 text-sm sm:text-base">What's included:</p>
@@ -161,7 +159,7 @@ export default function Pricing() {
 
       <div className="card p-3 sm:p-6">
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Frequently Asked Questions</h2>
-        <div className="grid grid-cols-1 gap-4 sm:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
           <div>
             <h3 className="text-base sm:text-lg font-medium text-gold-400 mb-1 sm:mb-2">Can I change plans later?</h3>
             <p className="text-sm sm:text-base text-gray-300">
