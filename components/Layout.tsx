@@ -38,7 +38,7 @@ export default function Layout({ children }) {
               PairTrade
             </Link>
 
-            <div className="flex space-x-8">
+            <div className="hidden md:flex space-x-8">
               <NavLink href="/" current={router.pathname === "/"}>
                 Home
               </NavLink>
@@ -56,6 +56,29 @@ export default function Layout({ children }) {
               </NavLink>
               <NavLink href="/backtest-spread" current={router.pathname === "/backtest-spread"}>
                 Spread Backtest
+              </NavLink>
+              <NavLink href="/pricing" current={router.pathname === "/pricing"}>
+                Pricing
+              </NavLink>
+            </div>
+            <div className="md:hidden flex items-center overflow-x-auto scrollbar-hide space-x-1 py-2">
+              <NavLink href="/" current={router.pathname === "/"}>
+                Home
+              </NavLink>
+              <NavLink href="/stocks" current={router.pathname === "/stocks"}>
+                Stocks
+              </NavLink>
+              <NavLink href="/watchlists" current={router.pathname === "/watchlists"}>
+                Lists
+              </NavLink>
+              <NavLink href="/pair-analyzer" current={router.pathname === "/pair-analyzer"}>
+                Analyzer
+              </NavLink>
+              <NavLink href="/backtest" current={router.pathname === "/backtest"}>
+                Ratio
+              </NavLink>
+              <NavLink href="/backtest-spread" current={router.pathname === "/backtest-spread"}>
+                Spread
               </NavLink>
               <NavLink href="/pricing" current={router.pathname === "/pricing"}>
                 Pricing
