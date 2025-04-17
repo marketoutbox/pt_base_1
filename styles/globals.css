@@ -11,14 +11,6 @@
   --gold-500: #e6c200;
 }
 
-html,
-body {
-  width: 100%;
-  overflow-x: hidden;
-  margin: 0;
-  padding: 0;
-}
-
 body {
   font-family: "Inter", sans-serif;
   color: #ffffff;
@@ -55,37 +47,26 @@ input[type="date"] {
   scrollbar-color: rgba(58, 72, 148, 0.5) rgba(42, 54, 112, 0.2);
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.scrollbar-hide {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
-
 @layer components {
   .card {
-    @apply bg-navy-900/80 border border-navy-800 rounded-lg backdrop-blur-sm;
+    @apply bg-navy-900/80 border border-navy-800 rounded-lg p-6 backdrop-blur-sm;
   }
 
   .input-field {
     @apply w-full px-4 py-3 bg-navy-800/80 border border-navy-700 rounded-md text-white placeholder-gray-400 
-    focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-transparent;
+  focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-transparent;
   }
 
   .btn-primary {
     @apply px-6 py-3 bg-gold-400 hover:bg-gold-500 text-navy-950 font-medium rounded-md 
-    transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 
-    focus:ring-offset-navy-950 disabled:opacity-70 disabled:cursor-not-allowed;
+  transition-colors focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-2 
+  focus:ring-offset-navy-950 disabled:opacity-70 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
     @apply px-6 py-3 bg-navy-800 hover:bg-navy-700 text-white font-medium rounded-md 
-    transition-colors focus:outline-none focus:ring-2 focus:ring-navy-700 focus:ring-offset-2 
-    focus:ring-offset-navy-950 disabled:opacity-70 disabled:cursor-not-allowed;
+  transition-colors focus:outline-none focus:ring-2 focus:ring-navy-700 focus:ring-offset-2 
+  focus:ring-offset-navy-950 disabled:opacity-70 disabled:cursor-not-allowed;
   }
 
   .table-header {
@@ -94,5 +75,19 @@ input[type="date"] {
 
   .table-cell {
     @apply px-6 py-4 whitespace-nowrap text-sm text-white;
+  }
+}
+
+/* Mobile-specific styles */
+@media (max-width: 640px) {
+  .nav-links {
+    overflow-x: auto;
+    white-space: nowrap;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none;
   }
 }
