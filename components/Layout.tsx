@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/router"
 import { useEffect, useState } from "react"
 import { Menu, X } from "lucide-react"
+import Footer from "./Footer"
 
 export default function Layout({ children }) {
   const router = useRouter()
@@ -23,14 +24,17 @@ export default function Layout({ children }) {
       <div className="min-h-screen bg-gradient-to-b from-[#0f1428] via-navy-950 to-navy-900 bg-fixed">
         <nav>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-20">
+            <div className="flex items-center justify-between h-16">
               <div className="flex-shrink-0 flex items-center">
-                <img src="/assets/pt_logo.png" alt="PairTrade Logo" className="h-12" />
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-500 flex items-center justify-center">
+                  <span className="text-navy-950 font-bold text-lg">PT</span>
+                </div>
               </div>
             </div>
           </div>
         </nav>
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
+        <Footer />
       </div>
     )
   }
@@ -39,9 +43,12 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-gradient-to-b from-[#0f1428] via-navy-950 to-navy-900 bg-fixed">
       <nav>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="flex items-center justify-between h-16">
             <div className="flex-shrink-0 flex items-center">
-              <img src="/assets/pt_logo.png" alt="PairTrade Logo" className="h-16" />
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-500 flex items-center justify-center mr-2">
+                <span className="text-navy-950 font-bold text-lg">PT</span>
+              </div>
+              <span className="text-white font-bold text-xl">PairTrade</span>
             </div>
 
             {/* Desktop Navigation */}
@@ -173,6 +180,7 @@ export default function Layout({ children }) {
         )}
       </nav>
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
+      <Footer />
     </div>
   )
 }
