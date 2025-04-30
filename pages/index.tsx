@@ -104,22 +104,6 @@ export default function Home() {
     }
   }, [animationStep, isClient])
 
-  // Sample testimonials
-  const testimonials = [
-    {
-      quote: "This platform helped me identify profitable pair trades I would have otherwise missed.",
-      author: "Sarah K., Quantitative Trader",
-    },
-    {
-      quote: "The backtesting tools saved me countless hours of analysis and improved my strategy performance.",
-      author: "Michael R., Portfolio Manager",
-    },
-    {
-      quote: "The statistical analysis tools are powerful yet intuitive. Perfect for both beginners and pros.",
-      author: "David L., Hedge Fund Analyst",
-    },
-  ]
-
   // Sample statistics
   const statistics = [
     { label: "Pairs Analyzed", value: "10,000+" },
@@ -643,25 +627,6 @@ export default function Home() {
             <div key={index} className="card text-center p-6">
               <p className="text-4xl font-bold text-gold-400 mb-2">{stat.value}</p>
               <p className="text-gray-300">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">What Traders Say</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <div key={index} className="card p-6">
-              <svg className="h-8 w-8 text-gold-400 mb-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-              </svg>
-              <p className="text-gray-300 mb-4 italic">{testimonial.quote}</p>
-              <p className="text-gold-400 font-medium">{testimonial.author}</p>
             </div>
           ))}
         </div>
