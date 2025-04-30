@@ -104,14 +104,6 @@ export default function Home() {
     }
   }, [animationStep, isClient])
 
-  // Sample statistics
-  const statistics = [
-    { label: "Pairs Analyzed", value: "10,000+" },
-    { label: "Success Rate", value: "68%" },
-    { label: "Avg. Annual Return", value: "14.2%" },
-    { label: "Market Neutrality", value: "97%" },
-  ]
-
   return (
     <div className="space-y-16">
       {/* Hero Section */}
@@ -617,18 +609,6 @@ export default function Home() {
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      {/* Statistics Section */}
-      <section className="py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {statistics.map((stat, index) => (
-            <div key={index} className="card text-center p-6">
-              <p className="text-4xl font-bold text-gold-400 mb-2">{stat.value}</p>
-              <p className="text-gray-300">{stat.label}</p>
-            </div>
-          ))}
         </div>
       </section>
 
