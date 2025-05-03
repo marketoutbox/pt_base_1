@@ -749,7 +749,7 @@ export default function Home() {
               >
                 {/* Background */}
                 <rect width="600" height="400" rx="10" fill="#192042" />
-                
+
                 {/* Grid lines */}
                 <line x1="50" y1="50" x2="50" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
                 <line x1="150" y1="50" x2="150" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
@@ -757,61 +757,79 @@ export default function Home() {
                 <line x1="350" y1="50" x2="350" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
                 <line x1="450" y1="50" x2="450" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
                 <line x1="550" y1="50" x2="550" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
-                
+
                 <line x1="50" y1="50" x2="550" y2="50" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
                 <line x1="50" y1="125" x2="550" y2="125" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
                 <line x1="50" y1="200" x2="550" y2="200" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
                 <line x1="50" y1="275" x2="550" y2="275" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
                 <line x1="50" y1="350" x2="550" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
-                
+
                 {/* Chart title */}
-                <text x="300" y="30" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">Pair Trading Signals</text>
-                
+                <text x="300" y="30" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">
+                  Pair Trading Signals
+                </text>
+
                 {/* Line 1 - Stock A */}
-                <path 
-                  d="M50,250 C100,230 150,260 200,240 C250,220 300,150 350,120 C400,90 450,130 500,150 C525,160 550,140" 
-                  stroke="#ffd700" 
-                  strokeWidth="3" 
+                <path
+                  d="M50,250 C100,230 150,260 200,240 C250,220 300,150 350,120 C400,90 450,130 500,150 C525,160 550,140"
+                  stroke="#ffd700"
+                  strokeWidth="3"
                   fill="none"
                 />
-                
+
                 {/* Line 2 - Stock B */}
-                <path 
-                  d="M50,200 C100,220 150,190 200,210 C250,230 300,280 350,300 C400,320 450,280 500,260 C525,250 550,270" 
-                  stroke="#3a4894" 
-                  strokeWidth="3" 
+                <path
+                  d="M50,200 C100,220 150,190 200,210 C250,230 300,280 350,300 C400,320 450,280 500,260 C525,250 550,270"
+                  stroke="#3a4894"
+                  strokeWidth="3"
                   fill="none"
                 />
-                
+
                 {/* Buy signal - when blue line is above gold line */}
                 <circle cx="150" cy="190" r="8" fill="#192042" stroke="#4ade80" strokeWidth="2" />
                 <path d="M150,170 L150,140" stroke="#4ade80" strokeWidth="2" />
                 <path d="M145,145 L150,140 L155,145" stroke="#4ade80" strokeWidth="2" />
-                <text x="150" y="130" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">BUY</text>
-                
+                <text x="150" y="130" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">
+                  BUY
+                </text>
+
                 {/* Sell signal - when gold line is above blue line */}
                 <circle cx="350" cy="120" r="8" fill="#192042" stroke="#ef4444" strokeWidth="2" />
                 <path d="M350,100 L350,70" stroke="#ef4444" strokeWidth="2" />
                 <path d="M345,75 L350,70 L355,75" stroke="#ef4444" strokeWidth="2" />
-                <text x="350" y="60" textAnchor="middle" fill="#ef4444" fontSize="12" fontWeight="bold">SELL</text>
-                
+                <text x="350" y="60" textAnchor="middle" fill="#ef4444" fontSize="12" fontWeight="bold">
+                  SELL
+                </text>
+
                 {/* Buy signal - when blue line is above gold line */}
                 <circle cx="500" cy="260" r="8" fill="#192042" stroke="#4ade80" strokeWidth="2" />
                 <path d="M500,240 L500,210" stroke="#4ade80" strokeWidth="2" />
                 <path d="M495,215 L500,210 L505,215" stroke="#4ade80" strokeWidth="2" />
-                <text x="500" y="200" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">BUY</text>
-                
+                <text x="500" y="200" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">
+                  BUY
+                </text>
+
                 {/* Legend */}
                 <rect x="400" y="30" width="15" height="3" fill="#ffd700" />
-                <text x="420" y="35" fill="white" fontSize="12">Stock A</text>
-                
+                <text x="420" y="35" fill="white" fontSize="12">
+                  Stock A
+                </text>
+
                 <rect x="480" y="30" width="15" height="3" fill="#3a4894" />
-                <text x="500" y="35" fill="white" fontSize="12">Stock B</text>
-                
+                <text x="500" y="35" fill="white" fontSize="12">
+                  Stock B
+                </text>
+
                 {/* Z-Score label */}
-                <text x="70" y="370" fill="white" fontSize="12" fontWeight="bold">Z-Score Signals</text>
-                <text x="70" y="385" fill="#4ade80" fontSize="10\">Buy when lines cross (Z-Score < -2)</text>
-                <text x="300" y="385" fill="#ef4444" fontSize="10">Sell when lines diverge (Z-Score > 2)</text>
+                <text x="70" y="370" fill="white" fontSize="12" fontWeight="bold">
+                  Z-Score Signals
+                </text>
+                <text x="70" y="385" fill="#4ade80" fontSize="10">
+                  Buy when lines cross (Z-Score &lt; -2)
+                </text>
+                <text x="300" y="385" fill="#ef4444" fontSize="10">
+                  Sell when lines diverge (Z-Score &gt; 2)
+                </text>
               </svg>
             </div>
           </div>
