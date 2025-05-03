@@ -461,6 +461,14 @@ export default function Home() {
 
       {/* How It Works Section */}
       <section className="py-12">
+        {/* Title and description outside the card */}
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold text-white mb-4">How Pair Trading Works</h2>
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            Our platform simplifies the pair trading process from analysis to execution
+          </p>
+        </div>
+
         <div className="card">
           <div className="text-center mb-8">
             <h2 className="text-4xl font-bold text-white mb-4">How Pair Trading Works</h2>
