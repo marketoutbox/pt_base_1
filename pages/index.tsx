@@ -721,7 +721,7 @@ export default function Home() {
 
       {/* CTA Section */}
       <section className="py-8">
-        <div className="bg-gold-400 rounded-xl shadow-lg">
+        <div className="bg-gold-400 rounded-xl shadow-lg" style={{ backgroundColor: "#ffd700" }}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center p-8">
             <div>
               <h2 className="text-3xl font-bold text-navy-900 mb-4">Ready to Start Pair Trading?</h2>
