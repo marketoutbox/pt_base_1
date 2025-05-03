@@ -764,17 +764,17 @@ export default function Home() {
                   <line x1="50" y1="350" x2="550" y2="350" stroke="#192042" strokeWidth="1" />
                 </g>
 
-                {/* Stock A - starts higher, crosses with B, then goes lower */}
+                {/* Stock A - with multiple crossovers */}
                 <path
-                  d="M50,100 C100,120 150,150 200,180 C250,210 300,230 350,250 C400,270 450,290 500,310 C525,320 550,330"
+                  d="M50,150 C100,120 150,100 200,150 C250,200 300,250 350,200 C400,150 450,100 500,150 C525,175 550,200"
                   stroke="#192042"
                   strokeWidth="4"
                   fill="none"
                 />
 
-                {/* Stock B - starts lower, crosses with A, then goes higher */}
+                {/* Stock B - with multiple crossovers */}
                 <path
-                  d="M50,300 C100,280 150,260 200,230 C250,200 300,170 350,150 C400,130 450,110 500,90 C525,80 550,70"
+                  d="M50,250 C100,280 150,300 200,250 C250,200 300,150 350,200 C400,250 450,300 500,250 C525,225 550,200"
                   stroke="#192042"
                   strokeWidth="4"
                   fill="none"
