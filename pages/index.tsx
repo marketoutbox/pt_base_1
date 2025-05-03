@@ -742,61 +742,76 @@ export default function Home() {
               <svg
                 width="100%"
                 height="300"
-                viewBox="0 0 800 600"
+                viewBox="0 0 600 400"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 className="rounded-lg"
               >
                 {/* Background */}
-                <rect width="800" height="600" rx="20" fill="#192042" opacity="0.7" />
-                {/* Desk */}
-                <rect x="100" y="400" width="600" height="20" rx="5" fill="#2a3670" />
-                <rect x="150" y="420" width="500" height="100" rx="5" fill="#1e2756" />
-                {/* Person */}
-                <circle cx="400" cy="300" r="60" fill="#3a4894" /> {/* Head */}
-                <path d="M400 360 L400 450 Q400 470 380 470 L420 470 Q400 470 400 450 Z" fill="#3a4894" /> {/* Body */}
-                {/* Laptop */}
-                <rect x="300" y="350" width="200" height="120" rx="5" fill="#1e2756" stroke="#3a4894" strokeWidth="2" />{" "}
-                {/* Laptop base */}
-                <rect x="310" y="360" width="180" height="100" rx="2" fill="#0f1428" stroke="#3a4894" strokeWidth="1" />{" "}
-                {/* Screen */}
-                {/* Charts on screen */}
-                {/* Line chart */}
-                <polyline
-                  points="320,410 335,390 350,420 365,380 380,400 395,370 410,390 425,360 440,380 455,350 470,370 485,340"
-                  stroke="#ffd700"
-                  strokeWidth="2"
+                <rect width="600" height="400" rx="10" fill="#192042" />
+                
+                {/* Grid lines */}
+                <line x1="50" y1="50" x2="50" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
+                <line x1="150" y1="50" x2="150" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
+                <line x1="250" y1="50" x2="250" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
+                <line x1="350" y1="50" x2="350" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
+                <line x1="450" y1="50" x2="450" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
+                <line x1="550" y1="50" x2="550" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
+                
+                <line x1="50" y1="50" x2="550" y2="50" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
+                <line x1="50" y1="125" x2="550" y2="125" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
+                <line x1="50" y1="200" x2="550" y2="200" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
+                <line x1="50" y1="275" x2="550" y2="275" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
+                <line x1="50" y1="350" x2="550" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
+                
+                {/* Chart title */}
+                <text x="300" y="30" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">Pair Trading Signals</text>
+                
+                {/* Line 1 - Stock A */}
+                <path 
+                  d="M50,250 C100,230 150,260 200,240 C250,220 300,150 350,120 C400,90 450,130 500,150 C525,160 550,140" 
+                  stroke="#ffd700" 
+                  strokeWidth="3" 
                   fill="none"
                 />
-                {/* Bar chart */}
-                <rect x="320" y="430" width="10" height="20" fill="#3a4894" />
-                <rect x="340" y="425" width="10" height="25" fill="#3a4894" />
-                <rect x="360" y="415" width="10" height="35" fill="#3a4894" />
-                <rect x="380" y="420" width="10" height="30" fill="#3a4894" />
-                <rect x="400" y="410" width="10" height="40" fill="#3a4894" />
-                <rect x="420" y="425" width="10" height="25" fill="#3a4894" />
-                <rect x="440" y="415" width="10" height="35" fill="#3a4894" />
-                <rect x="460" y="430" width="10" height="20" fill="#3a4894" />
-                {/* Candlestick chart */}
-                <line x1="320" y1="380" x2="320" y2="400" stroke="#ffd700" strokeWidth="1" />
-                <rect x="317" y="380" width="6" height="10" fill="#ffd700" />
-                <rect x="317" y="390" width="6" height="10" fill="#192042" stroke="#ffd700" strokeWidth="1" />
-                <line x1="340" y1="375" x2="340" y2="405" stroke="#ffd700" strokeWidth="1" />
-                <rect x="337" y="375" width="6" height="15" fill="#ffd700" />
-                <rect x="337" y="390" width="6" height="15" fill="#192042" stroke="#ffd700" strokeWidth="1" />
-                {/* Hands typing */}
-                <circle cx="370" cy="470" r="8" fill="#3a4894" />
-                <circle cx="430" cy="470" r="8" fill="#3a4894" />
-                {/* Decorative elements */}
-                <circle cx="200" cy="200" r="50" fill="#ffd700" opacity="0.1" />
-                <circle cx="600" cy="300" r="70" fill="#ffd700" opacity="0.1" />
-                {/* Data points */}
-                <circle cx="335" cy="390" r="3" fill="#ffd700" />
-                <circle cx="365" cy="380" r="3" fill="#ffd700" />
-                <circle cx="395" cy="370" r="3" fill="#ffd700" />
-                <circle cx="425" cy="360" r="3" fill="#ffd700" />
-                <circle cx="455" cy="350" r="3" fill="#ffd700" />
-                <circle cx="485" cy="340" r="3" fill="#ffd700" />
+                
+                {/* Line 2 - Stock B */}
+                <path 
+                  d="M50,200 C100,220 150,190 200,210 C250,230 300,280 350,300 C400,320 450,280 500,260 C525,250 550,270" 
+                  stroke="#3a4894" 
+                  strokeWidth="3" 
+                  fill="none"
+                />
+                
+                {/* Buy signal - when blue line is above gold line */}
+                <circle cx="150" cy="190" r="8" fill="#192042" stroke="#4ade80" strokeWidth="2" />
+                <path d="M150,170 L150,140" stroke="#4ade80" strokeWidth="2" />
+                <path d="M145,145 L150,140 L155,145" stroke="#4ade80" strokeWidth="2" />
+                <text x="150" y="130" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">BUY</text>
+                
+                {/* Sell signal - when gold line is above blue line */}
+                <circle cx="350" cy="120" r="8" fill="#192042" stroke="#ef4444" strokeWidth="2" />
+                <path d="M350,100 L350,70" stroke="#ef4444" strokeWidth="2" />
+                <path d="M345,75 L350,70 L355,75" stroke="#ef4444" strokeWidth="2" />
+                <text x="350" y="60" textAnchor="middle" fill="#ef4444" fontSize="12" fontWeight="bold">SELL</text>
+                
+                {/* Buy signal - when blue line is above gold line */}
+                <circle cx="500" cy="260" r="8" fill="#192042" stroke="#4ade80" strokeWidth="2" />
+                <path d="M500,240 L500,210" stroke="#4ade80" strokeWidth="2" />
+                <path d="M495,215 L500,210 L505,215" stroke="#4ade80" strokeWidth="2" />
+                <text x="500" y="200" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">BUY</text>
+                
+                {/* Legend */}
+                <rect x="400" y="30" width="15" height="3" fill="#ffd700" />
+                <text x="420" y="35" fill="white" fontSize="12">Stock A</text>
+                
+                <rect x="480" y="30" width="15" height="3" fill="#3a4894" />
+                <text x="500" y="35" fill="white" fontSize="12">Stock B</text>
+                
+                {/* Z-Score label */}
+                <text x="70" y="370" fill="white" fontSize="12" fontWeight="bold">Z-Score Signals</text>
+                <text x="70" y="385" fill="#4ade80" fontSize="10\">Buy when lines cross (Z-Score < -2)</text>
+                <text x="300" y="385" fill="#ef4444" fontSize="10">Sell when lines diverge (Z-Score > 2)</text>
               </svg>
             </div>
           </div>
