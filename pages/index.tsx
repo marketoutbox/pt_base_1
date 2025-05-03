@@ -330,7 +330,7 @@ export default function Home() {
       </section>
 
       {/* Why Pair Trading Section */}
-      <section className="py-16">
+      <section className="py-8">
         {/* Title and description outside the card */}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-4">Why Pair Trading?</h2>
@@ -460,7 +460,7 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-12">
+      <section className="py-8">
         {/* Title and description outside the card */}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-4">How Pair Trading Works</h2>
@@ -720,7 +720,7 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-12">
+      <section className="py-8">
         <div className="card bg-gradient-to-r from-navy-900 to-navy-800 border-2 border-gold-400/30">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center p-8">
             <div>
