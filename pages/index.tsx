@@ -737,12 +737,67 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+
             <div className="hidden md:block">
-              <img
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/attachments/gen-images/public/focused-trader-TkKOcO2Cq87nDnOcLeJdkkHgkqRMoJ.png"
-                alt="Trader analyzing charts"
-                className="rounded-lg shadow-lg"
-              />
+              <svg
+                width="100%"
+                height="300"
+                viewBox="0 0 800 600"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="rounded-lg"
+              >
+                {/* Background */}
+                <rect width="800" height="600" rx="20" fill="#192042" opacity="0.7" />
+                {/* Desk */}
+                <rect x="100" y="400" width="600" height="20" rx="5" fill="#2a3670" />
+                <rect x="150" y="420" width="500" height="100" rx="5" fill="#1e2756" />
+                {/* Person */}
+                <circle cx="400" cy="300" r="60" fill="#3a4894" /> {/* Head */}
+                <path d="M400 360 L400 450 Q400 470 380 470 L420 470 Q400 470 400 450 Z" fill="#3a4894" /> {/* Body */}
+                {/* Laptop */}
+                <rect x="300" y="350" width="200" height="120" rx="5" fill="#1e2756" stroke="#3a4894" strokeWidth="2" />{" "}
+                {/* Laptop base */}
+                <rect x="310" y="360" width="180" height="100" rx="2" fill="#0f1428" stroke="#3a4894" strokeWidth="1" />{" "}
+                {/* Screen */}
+                {/* Charts on screen */}
+                {/* Line chart */}
+                <polyline
+                  points="320,410 335,390 350,420 365,380 380,400 395,370 410,390 425,360 440,380 455,350 470,370 485,340"
+                  stroke="#ffd700"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                {/* Bar chart */}
+                <rect x="320" y="430" width="10" height="20" fill="#3a4894" />
+                <rect x="340" y="425" width="10" height="25" fill="#3a4894" />
+                <rect x="360" y="415" width="10" height="35" fill="#3a4894" />
+                <rect x="380" y="420" width="10" height="30" fill="#3a4894" />
+                <rect x="400" y="410" width="10" height="40" fill="#3a4894" />
+                <rect x="420" y="425" width="10" height="25" fill="#3a4894" />
+                <rect x="440" y="415" width="10" height="35" fill="#3a4894" />
+                <rect x="460" y="430" width="10" height="20" fill="#3a4894" />
+                {/* Candlestick chart */}
+                <line x1="320" y1="380" x2="320" y2="400" stroke="#ffd700" strokeWidth="1" />
+                <rect x="317" y="380" width="6" height="10" fill="#ffd700" />
+                <rect x="317" y="390" width="6" height="10" fill="#192042" stroke="#ffd700" strokeWidth="1" />
+                <line x1="340" y1="375" x2="340" y2="405" stroke="#ffd700" strokeWidth="1" />
+                <rect x="337" y="375" width="6" height="15" fill="#ffd700" />
+                <rect x="337" y="390" width="6" height="15" fill="#192042" stroke="#ffd700" strokeWidth="1" />
+                {/* Hands typing */}
+                <circle cx="370" cy="470" r="8" fill="#3a4894" />
+                <circle cx="430" cy="470" r="8" fill="#3a4894" />
+                {/* Decorative elements */}
+                <circle cx="200" cy="200" r="50" fill="#ffd700" opacity="0.1" />
+                <circle cx="600" cy="300" r="70" fill="#ffd700" opacity="0.1" />
+                {/* Data points */}
+                <circle cx="335" cy="390" r="3" fill="#ffd700" />
+                <circle cx="365" cy="380" r="3" fill="#ffd700" />
+                <circle cx="395" cy="370" r="3" fill="#ffd700" />
+                <circle cx="425" cy="360" r="3" fill="#ffd700" />
+                <circle cx="455" cy="350" r="3" fill="#ffd700" />
+                <circle cx="485" cy="340" r="3" fill="#ffd700" />
+              </svg>
             </div>
           </div>
         </div>
