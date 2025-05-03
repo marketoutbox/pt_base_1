@@ -470,13 +470,6 @@ export default function Home() {
         </div>
 
         <div className="card">
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-white mb-4">How Pair Trading Works</h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Our platform simplifies the pair trading process from analysis to execution
-            </p>
-          </div>
-
           <div className="flex border-b border-navy-700 mb-8">
             <button
               onClick={() => setActiveTab("what")}
