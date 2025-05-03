@@ -339,46 +339,46 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-16">
             {/* Advantage 1 - Market Neutrality */}
-            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
                 <Shield className="h-7 w-7 text-gold-400" />
               </div>
               <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Market Neutrality</h3>
               <p className="text-gray-300 text-center">
                 Hedge against market risk by simultaneously taking long and short positions in correlated securities,
-                providing protection against broad market movements.
+                providing protection against broad market movements and reducing exposure to systematic risk.
               </p>
             </div>
 
             {/* Advantage 2 - Statistical Edge */}
-            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
                 <BarChart2 className="h-7 w-7 text-gold-400" />
               </div>
               <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Statistical Edge</h3>
               <p className="text-gray-300 text-center">
                 Leverage mean reversion principles and statistical analysis to identify high-probability trades with
-                quantifiable risk-reward profiles.
+                quantifiable risk-reward profiles based on historical price relationships.
               </p>
             </div>
 
             {/* Advantage 3 - Consistent Returns */}
-            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
                 <Zap className="h-7 w-7 text-gold-400" />
               </div>
               <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Consistent Returns</h3>
               <p className="text-gray-300 text-center">
                 Generate alpha regardless of market direction through disciplined statistical arbitrage that can perform
-                in bull, bear, and sideways markets.
+                in bull, bear, and sideways markets, providing more reliable performance.
               </p>
             </div>
 
             {/* Advantage 4 - Reduced Volatility */}
-            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
                 <svg
                   className="h-7 w-7 text-gold-400"
                   xmlns="http://www.w3.org/2000/svg"
@@ -397,13 +397,13 @@ export default function Home() {
               <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Reduced Volatility</h3>
               <p className="text-gray-300 text-center">
                 Experience lower portfolio volatility compared to directional strategies, leading to more stable returns
-                and improved risk-adjusted performance.
+                and improved risk-adjusted performance metrics like Sharpe and Sortino ratios.
               </p>
             </div>
 
             {/* Advantage 5 - Diversification Benefits */}
-            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
                 <svg
                   className="h-7 w-7 text-gold-400"
                   xmlns="http://www.w3.org/2000/svg"
@@ -424,13 +424,13 @@ export default function Home() {
               <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Diversification Benefits</h3>
               <p className="text-gray-300 text-center">
                 Add a truly uncorrelated strategy to your portfolio that performs independently of traditional asset
-                classes and market conditions.
+                classes and market conditions, enhancing overall portfolio diversification.
               </p>
             </div>
 
             {/* Advantage 6 - Lower Capital Requirements */}
-            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
                 <svg
                   className="h-7 w-7 text-gold-400"
                   xmlns="http://www.w3.org/2000/svg"
@@ -450,7 +450,7 @@ export default function Home() {
               <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Lower Capital Requirements</h3>
               <p className="text-gray-300 text-center">
                 Utilize margin more efficiently with offsetting positions, allowing you to deploy capital strategically
-                and potentially increase returns.
+                and potentially increase returns while maintaining appropriate risk management.
               </p>
             </div>
           </div>
