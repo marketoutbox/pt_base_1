@@ -332,114 +332,126 @@ export default function Home() {
       {/* Why Pair Trading Section */}
       <section className="py-16 bg-gradient-to-b from-navy-950/50 to-navy-900/30 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-white mb-4">Why Pair Trading?</h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
               Statistical arbitrage through pair trading offers unique advantages over traditional trading strategies
             </p>
           </div>
 
-          <div className="space-y-20">
-            {/* Feature 1 - Market Neutrality */}
-            <div className="flex flex-col md:flex-row items-center gap-12">
-              <div className="md:w-1/2 order-2 md:order-1">
-                <div className="relative">
-                  <div className="absolute -left-4 -top-4 w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center">
-                    <Shield className="h-8 w-8 text-gold-400" />
-                  </div>
-                  <div className="pl-16">
-                    <h3 className="text-2xl font-semibold text-gold-400 mb-4">Market Neutrality</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      Hedge against market risk by simultaneously taking long and short positions in correlated
-                      securities. This approach provides protection against broad market movements, allowing you to
-                      focus on the relative performance between two assets rather than absolute price changes.
-                    </p>
-                    <div className="mt-4 pl-4 border-l-2 border-gold-400/30">
-                      <p className="text-gray-400 italic">
-                        "When the market crashed in 2020, our pair trading strategies remained profitable while
-                        directional strategies suffered significant drawdowns."
-                      </p>
-                    </div>
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Advantage 1 - Market Neutrality */}
+            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+                <Shield className="h-7 w-7 text-gold-400" />
               </div>
-              <div className="md:w-1/2 order-1 md:order-2">
-                <div className="bg-navy-800/30 p-6 rounded-lg border border-navy-700/50 shadow-lg">
-                  <img
-                    src="/placeholder.svg?key=c38b0"
-                    alt="Market Neutrality Visualization"
-                    className="w-full rounded"
-                  />
-                </div>
-              </div>
+              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Market Neutrality</h3>
+              <p className="text-gray-300 text-center">
+                Hedge against market risk by simultaneously taking long and short positions in correlated securities,
+                providing protection against broad market movements.
+              </p>
             </div>
 
-            {/* Feature 2 - Statistical Edge */}
-            <div className="flex flex-col md:flex-row items-center gap-12">
-              <div className="md:w-1/2">
-                <div className="bg-navy-800/30 p-6 rounded-lg border border-navy-700/50 shadow-lg">
-                  <img
-                    src="/placeholder.svg?key=rhaor"
-                    alt="Statistical Edge Visualization"
-                    className="w-full rounded"
-                  />
-                </div>
+            {/* Advantage 2 - Statistical Edge */}
+            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+                <BarChart2 className="h-7 w-7 text-gold-400" />
               </div>
-              <div className="md:w-1/2">
-                <div className="relative">
-                  <div className="absolute -left-4 -top-4 w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center">
-                    <BarChart2 className="h-8 w-8 text-gold-400" />
-                  </div>
-                  <div className="pl-16">
-                    <h3 className="text-2xl font-semibold text-gold-400 mb-4">Statistical Edge</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      Leverage mean reversion principles and statistical analysis to identify high-probability trades.
-                      By quantifying the relationship between correlated securities, you can identify when prices
-                      deviate from their historical norms and capitalize on their eventual convergence.
-                    </p>
-                    <div className="mt-4 pl-4 border-l-2 border-gold-400/30">
-                      <p className="text-gray-400 italic">
-                        "Our backtests show that pairs with a z-score above 2.5 revert to the mean 78% of the time
-                        within 15 trading days."
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Statistical Edge</h3>
+              <p className="text-gray-300 text-center">
+                Leverage mean reversion principles and statistical analysis to identify high-probability trades with
+                quantifiable risk-reward profiles.
+              </p>
             </div>
 
-            {/* Feature 3 - Consistent Returns */}
-            <div className="flex flex-col md:flex-row items-center gap-12">
-              <div className="md:w-1/2 order-2 md:order-1">
-                <div className="relative">
-                  <div className="absolute -left-4 -top-4 w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center">
-                    <Zap className="h-8 w-8 text-gold-400" />
-                  </div>
-                  <div className="pl-16">
-                    <h3 className="text-2xl font-semibold text-gold-400 mb-4">Consistent Returns</h3>
-                    <p className="text-gray-300 leading-relaxed">
-                      Generate alpha regardless of market direction through disciplined statistical arbitrage. Pair
-                      trading strategies can perform in bull, bear, and sideways markets, providing a consistent source
-                      of returns that are uncorrelated with traditional investment approaches.
-                    </p>
-                    <div className="mt-4 pl-4 border-l-2 border-gold-400/30">
-                      <p className="text-gray-400 italic">
-                        "Our pair trading portfolio has delivered positive returns in 9 out of the last 10 quarters,
-                        with significantly lower volatility than the S&P 500."
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            {/* Advantage 3 - Consistent Returns */}
+            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+                <Zap className="h-7 w-7 text-gold-400" />
               </div>
-              <div className="md:w-1/2 order-1 md:order-2">
-                <div className="bg-navy-800/30 p-6 rounded-lg border border-navy-700/50 shadow-lg">
-                  <img
-                    src="/placeholder.svg?key=s4h50"
-                    alt="Consistent Returns Visualization"
-                    className="w-full rounded"
-                  />
-                </div>
+              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Consistent Returns</h3>
+              <p className="text-gray-300 text-center">
+                Generate alpha regardless of market direction through disciplined statistical arbitrage that can perform
+                in bull, bear, and sideways markets.
+              </p>
+            </div>
+
+            {/* Advantage 4 - Reduced Volatility */}
+            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+                <svg
+                  className="h-7 w-7 text-gold-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 12h2l4 10 4-18 4 18 4-10h2"></path>
+                </svg>
               </div>
+              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Reduced Volatility</h3>
+              <p className="text-gray-300 text-center">
+                Experience lower portfolio volatility compared to directional strategies, leading to more stable returns
+                and improved risk-adjusted performance.
+              </p>
+            </div>
+
+            {/* Advantage 5 - Diversification Benefits */}
+            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+                <svg
+                  className="h-7 w-7 text-gold-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M8 12h8"></path>
+                  <path d="M12 8v8"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Diversification Benefits</h3>
+              <p className="text-gray-300 text-center">
+                Add a truly uncorrelated strategy to your portfolio that performs independently of traditional asset
+                classes and market conditions.
+              </p>
+            </div>
+
+            {/* Advantage 6 - Lower Capital Requirements */}
+            <div className="bg-navy-800/40 rounded-lg border border-navy-700/30 p-6 transition-all hover:bg-navy-800/60">
+              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5 mx-auto">
+                <svg
+                  className="h-7 w-7 text-gold-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Lower Capital Requirements</h3>
+              <p className="text-gray-300 text-center">
+                Utilize margin more efficiently with offsetting positions, allowing you to deploy capital strategically
+                and potentially increase returns.
+              </p>
             </div>
           </div>
         </div>
