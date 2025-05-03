@@ -104,6 +104,30 @@ export default function Home() {
     }
   }, [animationStep, isClient])
 
+  // Sample testimonials
+  const testimonials = [
+    {
+      quote: "This platform helped me identify profitable pair trades I would have otherwise missed.",
+      author: "Sarah K., Quantitative Trader",
+    },
+    {
+      quote: "The backtesting tools saved me countless hours of analysis and improved my strategy performance.",
+      author: "Michael R., Portfolio Manager",
+    },
+    {
+      quote: "The statistical analysis tools are powerful yet intuitive. Perfect for both beginners and pros.",
+      author: "David L., Hedge Fund Analyst",
+    },
+  ]
+
+  // Sample statistics
+  const statistics = [
+    { label: "Pairs Analyzed", value: "10,000+" },
+    { label: "Success Rate", value: "68%" },
+    { label: "Avg. Annual Return", value: "14.2%" },
+    { label: "Market Neutrality", value: "97%" },
+  ]
+
   return (
     <div className="space-y-16">
       {/* Hero Section */}
@@ -305,49 +329,117 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Key Benefits Section */}
-      <section className="py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">Why Pair Trading?</h2>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Statistical arbitrage through pair trading offers unique advantages over traditional trading strategies
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="card transform transition-all hover:translate-y-[-8px]">
-            <div className="flex flex-col items-center text-center p-6">
-              <div className="w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center mb-6">
-                <Shield className="h-8 w-8 text-gold-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3">Market Neutrality</h3>
-              <p className="text-gray-300">
-                Hedge against market risk by simultaneously taking long and short positions in correlated securities
-              </p>
-            </div>
+      {/* Why Pair Trading Section */}
+      <section className="py-16 bg-gradient-to-b from-navy-950/50 to-navy-900/30 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4">Why Pair Trading?</h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Statistical arbitrage through pair trading offers unique advantages over traditional trading strategies
+            </p>
           </div>
 
-          <div className="card transform transition-all hover:translate-y-[-8px]">
-            <div className="flex flex-col items-center text-center p-6">
-              <div className="w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center mb-6">
-                <BarChart2 className="h-8 w-8 text-gold-400" />
+          <div className="space-y-20">
+            {/* Feature 1 - Market Neutrality */}
+            <div className="flex flex-col md:flex-row items-center gap-12">
+              <div className="md:w-1/2 order-2 md:order-1">
+                <div className="relative">
+                  <div className="absolute -left-4 -top-4 w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center">
+                    <Shield className="h-8 w-8 text-gold-400" />
+                  </div>
+                  <div className="pl-16">
+                    <h3 className="text-2xl font-semibold text-gold-400 mb-4">Market Neutrality</h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      Hedge against market risk by simultaneously taking long and short positions in correlated
+                      securities. This approach provides protection against broad market movements, allowing you to
+                      focus on the relative performance between two assets rather than absolute price changes.
+                    </p>
+                    <div className="mt-4 pl-4 border-l-2 border-gold-400/30">
+                      <p className="text-gray-400 italic">
+                        "When the market crashed in 2020, our pair trading strategies remained profitable while
+                        directional strategies suffered significant drawdowns."
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3">Statistical Edge</h3>
-              <p className="text-gray-300">
-                Leverage mean reversion principles and statistical analysis to identify high-probability trades
-              </p>
+              <div className="md:w-1/2 order-1 md:order-2">
+                <div className="bg-navy-800/30 p-6 rounded-lg border border-navy-700/50 shadow-lg">
+                  <img
+                    src="/placeholder.svg?key=c38b0"
+                    alt="Market Neutrality Visualization"
+                    className="w-full rounded"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="card transform transition-all hover:translate-y-[-8px]">
-            <div className="flex flex-col items-center text-center p-6">
-              <div className="w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center mb-6">
-                <Zap className="h-8 w-8 text-gold-400" />
+            {/* Feature 2 - Statistical Edge */}
+            <div className="flex flex-col md:flex-row items-center gap-12">
+              <div className="md:w-1/2">
+                <div className="bg-navy-800/30 p-6 rounded-lg border border-navy-700/50 shadow-lg">
+                  <img
+                    src="/placeholder.svg?key=rhaor"
+                    alt="Statistical Edge Visualization"
+                    className="w-full rounded"
+                  />
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3">Consistent Returns</h3>
-              <p className="text-gray-300">
-                Generate alpha regardless of market direction through disciplined statistical arbitrage
-              </p>
+              <div className="md:w-1/2">
+                <div className="relative">
+                  <div className="absolute -left-4 -top-4 w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center">
+                    <BarChart2 className="h-8 w-8 text-gold-400" />
+                  </div>
+                  <div className="pl-16">
+                    <h3 className="text-2xl font-semibold text-gold-400 mb-4">Statistical Edge</h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      Leverage mean reversion principles and statistical analysis to identify high-probability trades.
+                      By quantifying the relationship between correlated securities, you can identify when prices
+                      deviate from their historical norms and capitalize on their eventual convergence.
+                    </p>
+                    <div className="mt-4 pl-4 border-l-2 border-gold-400/30">
+                      <p className="text-gray-400 italic">
+                        "Our backtests show that pairs with a z-score above 2.5 revert to the mean 78% of the time
+                        within 15 trading days."
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature 3 - Consistent Returns */}
+            <div className="flex flex-col md:flex-row items-center gap-12">
+              <div className="md:w-1/2 order-2 md:order-1">
+                <div className="relative">
+                  <div className="absolute -left-4 -top-4 w-16 h-16 bg-navy-800 rounded-full flex items-center justify-center">
+                    <Zap className="h-8 w-8 text-gold-400" />
+                  </div>
+                  <div className="pl-16">
+                    <h3 className="text-2xl font-semibold text-gold-400 mb-4">Consistent Returns</h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      Generate alpha regardless of market direction through disciplined statistical arbitrage. Pair
+                      trading strategies can perform in bull, bear, and sideways markets, providing a consistent source
+                      of returns that are uncorrelated with traditional investment approaches.
+                    </p>
+                    <div className="mt-4 pl-4 border-l-2 border-gold-400/30">
+                      <p className="text-gray-400 italic">
+                        "Our pair trading portfolio has delivered positive returns in 9 out of the last 10 quarters,
+                        with significantly lower volatility than the S&P 500."
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="md:w-1/2 order-1 md:order-2">
+                <div className="bg-navy-800/30 p-6 rounded-lg border border-navy-700/50 shadow-lg">
+                  <img
+                    src="/placeholder.svg?key=s4h50"
+                    alt="Consistent Returns Visualization"
+                    className="w-full rounded"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -609,6 +701,37 @@ export default function Home() {
               </div>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Statistics Section */}
+      <section className="py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {statistics.map((stat, index) => (
+            <div key={index} className="card text-center p-6">
+              <p className="text-4xl font-bold text-gold-400 mb-2">{stat.value}</p>
+              <p className="text-gray-300">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="py-12">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold text-white mb-4">What Traders Say</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {testimonials.map((testimonial, index) => (
+            <div key={index} className="card p-6">
+              <svg className="h-8 w-8 text-gold-400 mb-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+              </svg>
+              <p className="text-gray-300 mb-4 italic">{testimonial.quote}</p>
+              <p className="text-gold-400 font-medium">{testimonial.author}</p>
+            </div>
+          ))}
         </div>
       </section>
 
