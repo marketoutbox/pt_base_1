@@ -749,7 +749,7 @@ export default function Home() {
                 style={{ background: "transparent" }}
               >
                 {/* Subtle grid lines */}
-                <g opacity="0.2">
+                <g opacity="0.15">
                   <line x1="50" y1="50" x2="50" y2="350" stroke="#192042" strokeWidth="1" />
                   <line x1="150" y1="50" x2="150" y2="350" stroke="#192042" strokeWidth="1" />
                   <line x1="250" y1="50" x2="250" y2="350" stroke="#192042" strokeWidth="1" />
@@ -764,45 +764,19 @@ export default function Home() {
                   <line x1="50" y1="350" x2="550" y2="350" stroke="#192042" strokeWidth="1" />
                 </g>
 
-                {/* Main price line */}
+                {/* Stock A - starts higher, crosses with B, then goes lower */}
                 <path
-                  d="M50,200 C100,180 150,220 200,190 C250,160 300,140 350,170 C400,200 450,230 500,210 C525,200 550,180"
+                  d="M50,100 C100,120 150,150 200,180 C250,210 300,230 350,250 C400,270 450,290 500,310 C525,320 550,330"
                   stroke="#192042"
-                  strokeWidth="3"
+                  strokeWidth="4"
                   fill="none"
                 />
 
-                {/* Upper Bollinger Band */}
+                {/* Stock B - starts lower, crosses with A, then goes higher */}
                 <path
-                  d="M50,150 C100,130 150,170 200,140 C250,110 300,90 350,120 C400,150 450,180 500,160 C525,150 550,130"
+                  d="M50,300 C100,280 150,260 200,230 C250,200 300,170 350,150 C400,130 450,110 500,90 C525,80 550,70"
                   stroke="#192042"
-                  strokeWidth="2"
-                  strokeDasharray="5,5"
-                  fill="none"
-                />
-
-                {/* Lower Bollinger Band */}
-                <path
-                  d="M50,250 C100,230 150,270 200,240 C250,210 300,190 350,220 C400,250 450,280 500,260 C525,250 550,230"
-                  stroke="#192042"
-                  strokeWidth="2"
-                  strokeDasharray="5,5"
-                  fill="none"
-                />
-
-                {/* Fill between bands */}
-                <path
-                  d="M50,150 C100,130 150,170 200,140 C250,110 300,90 350,120 C400,150 450,180 500,160 C525,150 550,130 L550,230 C525,250 500,260 450,280 C400,250 350,220 300,190 C250,210 200,240 150,270 C100,230 50,250 Z"
-                  fill="#192042"
-                  opacity="0.1"
-                />
-
-                {/* Second price line (crossing) */}
-                <path
-                  d="M50,220 C100,250 150,240 200,210 C250,180 300,160 350,190 C400,220 450,200 500,180 C525,170 550,190"
-                  stroke="#192042"
-                  strokeWidth="3"
-                  opacity="0.7"
+                  strokeWidth="4"
                   fill="none"
                 />
               </svg>
