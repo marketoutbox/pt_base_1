@@ -330,129 +330,127 @@ export default function Home() {
       </section>
 
       {/* Why Pair Trading Section */}
-      <section className="py-16 bg-gradient-to-b from-navy-950/50 to-navy-900/30 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">Why Pair Trading?</h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Statistical arbitrage through pair trading offers unique advantages over traditional trading strategies
+      <section className="py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold text-white mb-4">Why Pair Trading?</h2>
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            Statistical arbitrage through pair trading offers unique advantages over traditional trading strategies
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-16 gap-y-16 px-4">
+          {/* Advantage 1 - Market Neutrality */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
+              <Shield className="h-7 w-7 text-gold-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Market Neutrality</h3>
+            <p className="text-gray-300 text-center">
+              Hedge against market risk by simultaneously taking long and short positions in correlated securities,
+              providing protection against broad market movements and reducing exposure to systematic risk.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-16">
-            {/* Advantage 1 - Market Neutrality */}
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
-                <Shield className="h-7 w-7 text-gold-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Market Neutrality</h3>
-              <p className="text-gray-300 text-center">
-                Hedge against market risk by simultaneously taking long and short positions in correlated securities,
-                providing protection against broad market movements and reducing exposure to systematic risk.
-              </p>
+          {/* Advantage 2 - Statistical Edge */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
+              <BarChart2 className="h-7 w-7 text-gold-400" />
             </div>
+            <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Statistical Edge</h3>
+            <p className="text-gray-300 text-center">
+              Leverage mean reversion principles and statistical analysis to identify high-probability trades with
+              quantifiable risk-reward profiles based on historical price relationships.
+            </p>
+          </div>
 
-            {/* Advantage 2 - Statistical Edge */}
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
-                <BarChart2 className="h-7 w-7 text-gold-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Statistical Edge</h3>
-              <p className="text-gray-300 text-center">
-                Leverage mean reversion principles and statistical analysis to identify high-probability trades with
-                quantifiable risk-reward profiles based on historical price relationships.
-              </p>
+          {/* Advantage 3 - Consistent Returns */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
+              <Zap className="h-7 w-7 text-gold-400" />
             </div>
+            <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Consistent Returns</h3>
+            <p className="text-gray-300 text-center">
+              Generate alpha regardless of market direction through disciplined statistical arbitrage that can perform
+              in bull, bear, and sideways markets, providing more reliable performance.
+            </p>
+          </div>
 
-            {/* Advantage 3 - Consistent Returns */}
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
-                <Zap className="h-7 w-7 text-gold-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Consistent Returns</h3>
-              <p className="text-gray-300 text-center">
-                Generate alpha regardless of market direction through disciplined statistical arbitrage that can perform
-                in bull, bear, and sideways markets, providing more reliable performance.
-              </p>
+          {/* Advantage 4 - Reduced Volatility */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
+              <svg
+                className="h-7 w-7 text-gold-400"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 12h2l4 10 4-18 4 18 4-10h2"></path>
+              </svg>
             </div>
+            <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Reduced Volatility</h3>
+            <p className="text-gray-300 text-center">
+              Experience lower portfolio volatility compared to directional strategies, leading to more stable returns
+              and improved risk-adjusted performance metrics like Sharpe and Sortino ratios.
+            </p>
+          </div>
 
-            {/* Advantage 4 - Reduced Volatility */}
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
-                <svg
-                  className="h-7 w-7 text-gold-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 12h2l4 10 4-18 4 18 4-10h2"></path>
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Reduced Volatility</h3>
-              <p className="text-gray-300 text-center">
-                Experience lower portfolio volatility compared to directional strategies, leading to more stable returns
-                and improved risk-adjusted performance metrics like Sharpe and Sortino ratios.
-              </p>
+          {/* Advantage 5 - Diversification Benefits */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
+              <svg
+                className="h-7 w-7 text-gold-400"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 12h8"></path>
+                <path d="M12 8v8"></path>
+              </svg>
             </div>
+            <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Diversification Benefits</h3>
+            <p className="text-gray-300 text-center">
+              Add a truly uncorrelated strategy to your portfolio that performs independently of traditional asset
+              classes and market conditions, enhancing overall portfolio diversification.
+            </p>
+          </div>
 
-            {/* Advantage 5 - Diversification Benefits */}
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
-                <svg
-                  className="h-7 w-7 text-gold-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <path d="M8 12h8"></path>
-                  <path d="M12 8v8"></path>
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Diversification Benefits</h3>
-              <p className="text-gray-300 text-center">
-                Add a truly uncorrelated strategy to your portfolio that performs independently of traditional asset
-                classes and market conditions, enhancing overall portfolio diversification.
-              </p>
+          {/* Advantage 6 - Lower Capital Requirements */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
+              <svg
+                className="h-7 w-7 text-gold-400"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+              </svg>
             </div>
-
-            {/* Advantage 6 - Lower Capital Requirements */}
-            <div className="flex flex-col items-center">
-              <div className="flex items-center justify-center w-14 h-14 rounded-full bg-navy-700/60 mb-5">
-                <svg
-                  className="h-7 w-7 text-gold-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Lower Capital Requirements</h3>
-              <p className="text-gray-300 text-center">
-                Utilize margin more efficiently with offsetting positions, allowing you to deploy capital strategically
-                and potentially increase returns while maintaining appropriate risk management.
-              </p>
-            </div>
+            <h3 className="text-xl font-semibold text-gold-400 mb-3 text-center">Lower Capital Requirements</h3>
+            <p className="text-gray-300 text-center">
+              Utilize margin more efficiently with offsetting positions, allowing you to deploy capital strategically
+              and potentially increase returns while maintaining appropriate risk management.
+            </p>
           </div>
         </div>
       </section>
