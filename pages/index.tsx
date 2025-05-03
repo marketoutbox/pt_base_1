@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
-import { ArrowRight, TrendingDown, TrendingUp, BarChart2, Shield, Zap, Clock } from "lucide-react"
+import { ArrowRight, TrendingDown, TrendingUp, BarChart2, Shield, Zap, Clock, MessageCircle, Phone } from "lucide-react"
 
 export default function Home() {
   const [isClient, setIsClient] = useState(false)
@@ -721,16 +721,21 @@ export default function Home() {
 
       {/* CTA Section */}
       <section className="py-8">
-        <div className="card bg-gradient-to-r from-navy-900 to-navy-800 border-2 border-gold-400/30">
+        <div className="bg-gold-400 rounded-xl shadow-lg">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center p-8">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-4">Ready to Start Pair Trading?</h2>
-              <p className="text-xl text-gray-300 mb-6">
+              <h2 className="text-3xl font-bold text-navy-900 mb-4">Ready to Start Pair Trading?</h2>
+              <p className="text-xl text-navy-800 mb-6">
                 Join thousands of traders using our platform to find statistical edges in the market
               </p>
-              <Link href="/stocks" className="btn-primary inline-flex items-center">
-                Get Started Now <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
+              <div className="flex flex-wrap gap-4">
+                <Link href="/contact" className="btn-secondary inline-flex items-center">
+                  <Phone className="mr-2 h-5 w-5" /> Contact Us
+                </Link>
+                <Link href="/chat" className="btn-secondary inline-flex items-center">
+                  <MessageCircle className="mr-2 h-5 w-5" /> Live Chat
+                </Link>
+              </div>
             </div>
             <div className="hidden md:block">
               <img
