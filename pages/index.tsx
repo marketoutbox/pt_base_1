@@ -746,90 +746,65 @@ export default function Home() {
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 className="rounded-lg"
+                style={{ background: "transparent" }}
               >
-                {/* Background */}
-                <rect width="600" height="400" rx="10" fill="#192042" />
+                {/* Subtle grid lines */}
+                <g opacity="0.2">
+                  <line x1="50" y1="50" x2="50" y2="350" stroke="#192042" strokeWidth="1" />
+                  <line x1="150" y1="50" x2="150" y2="350" stroke="#192042" strokeWidth="1" />
+                  <line x1="250" y1="50" x2="250" y2="350" stroke="#192042" strokeWidth="1" />
+                  <line x1="350" y1="50" x2="350" y2="350" stroke="#192042" strokeWidth="1" />
+                  <line x1="450" y1="50" x2="450" y2="350" stroke="#192042" strokeWidth="1" />
+                  <line x1="550" y1="50" x2="550" y2="350" stroke="#192042" strokeWidth="1" />
 
-                {/* Grid lines */}
-                <line x1="50" y1="50" x2="50" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
-                <line x1="150" y1="50" x2="150" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
-                <line x1="250" y1="50" x2="250" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
-                <line x1="350" y1="50" x2="350" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
-                <line x1="450" y1="50" x2="450" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
-                <line x1="550" y1="50" x2="550" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
+                  <line x1="50" y1="50" x2="550" y2="50" stroke="#192042" strokeWidth="1" />
+                  <line x1="50" y1="125" x2="550" y2="125" stroke="#192042" strokeWidth="1" />
+                  <line x1="50" y1="200" x2="550" y2="200" stroke="#192042" strokeWidth="1" />
+                  <line x1="50" y1="275" x2="550" y2="275" stroke="#192042" strokeWidth="1" />
+                  <line x1="50" y1="350" x2="550" y2="350" stroke="#192042" strokeWidth="1" />
+                </g>
 
-                <line x1="50" y1="50" x2="550" y2="50" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
-                <line x1="50" y1="125" x2="550" y2="125" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
-                <line x1="50" y1="200" x2="550" y2="200" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
-                <line x1="50" y1="275" x2="550" y2="275" stroke="#3a4894" strokeWidth="1" opacity="0.3" />
-                <line x1="50" y1="350" x2="550" y2="350" stroke="#3a4894" strokeWidth="1" opacity="0.5" />
-
-                {/* Chart title */}
-                <text x="300" y="30" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">
-                  Pair Trading Signals
-                </text>
-
-                {/* Line 1 - Stock A */}
+                {/* Main price line */}
                 <path
-                  d="M50,250 C100,230 150,260 200,240 C250,220 300,150 350,120 C400,90 450,130 500,150 C525,160 550,140"
-                  stroke="#ffd700"
+                  d="M50,200 C100,180 150,220 200,190 C250,160 300,140 350,170 C400,200 450,230 500,210 C525,200 550,180"
+                  stroke="#192042"
                   strokeWidth="3"
                   fill="none"
                 />
 
-                {/* Line 2 - Stock B */}
+                {/* Upper Bollinger Band */}
                 <path
-                  d="M50,200 C100,220 150,190 200,210 C250,230 300,280 350,300 C400,320 450,280 500,260 C525,250 550,270"
-                  stroke="#3a4894"
-                  strokeWidth="3"
+                  d="M50,150 C100,130 150,170 200,140 C250,110 300,90 350,120 C400,150 450,180 500,160 C525,150 550,130"
+                  stroke="#192042"
+                  strokeWidth="2"
+                  strokeDasharray="5,5"
                   fill="none"
                 />
 
-                {/* Buy signal - when blue line is above gold line */}
-                <circle cx="150" cy="190" r="8" fill="#192042" stroke="#4ade80" strokeWidth="2" />
-                <path d="M150,170 L150,140" stroke="#4ade80" strokeWidth="2" />
-                <path d="M145,145 L150,140 L155,145" stroke="#4ade80" strokeWidth="2" />
-                <text x="150" y="130" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">
-                  BUY
-                </text>
+                {/* Lower Bollinger Band */}
+                <path
+                  d="M50,250 C100,230 150,270 200,240 C250,210 300,190 350,220 C400,250 450,280 500,260 C525,250 550,230"
+                  stroke="#192042"
+                  strokeWidth="2"
+                  strokeDasharray="5,5"
+                  fill="none"
+                />
 
-                {/* Sell signal - when gold line is above blue line */}
-                <circle cx="350" cy="120" r="8" fill="#192042" stroke="#ef4444" strokeWidth="2" />
-                <path d="M350,100 L350,70" stroke="#ef4444" strokeWidth="2" />
-                <path d="M345,75 L350,70 L355,75" stroke="#ef4444" strokeWidth="2" />
-                <text x="350" y="60" textAnchor="middle" fill="#ef4444" fontSize="12" fontWeight="bold">
-                  SELL
-                </text>
+                {/* Fill between bands */}
+                <path
+                  d="M50,150 C100,130 150,170 200,140 C250,110 300,90 350,120 C400,150 450,180 500,160 C525,150 550,130 L550,230 C525,250 500,260 450,280 C400,250 350,220 300,190 C250,210 200,240 150,270 C100,230 50,250 Z"
+                  fill="#192042"
+                  opacity="0.1"
+                />
 
-                {/* Buy signal - when blue line is above gold line */}
-                <circle cx="500" cy="260" r="8" fill="#192042" stroke="#4ade80" strokeWidth="2" />
-                <path d="M500,240 L500,210" stroke="#4ade80" strokeWidth="2" />
-                <path d="M495,215 L500,210 L505,215" stroke="#4ade80" strokeWidth="2" />
-                <text x="500" y="200" textAnchor="middle" fill="#4ade80" fontSize="12" fontWeight="bold">
-                  BUY
-                </text>
-
-                {/* Legend */}
-                <rect x="400" y="30" width="15" height="3" fill="#ffd700" />
-                <text x="420" y="35" fill="white" fontSize="12">
-                  Stock A
-                </text>
-
-                <rect x="480" y="30" width="15" height="3" fill="#3a4894" />
-                <text x="500" y="35" fill="white" fontSize="12">
-                  Stock B
-                </text>
-
-                {/* Z-Score label */}
-                <text x="70" y="370" fill="white" fontSize="12" fontWeight="bold">
-                  Z-Score Signals
-                </text>
-                <text x="70" y="385" fill="#4ade80" fontSize="10">
-                  Buy when lines cross (Z-Score &lt; -2)
-                </text>
-                <text x="300" y="385" fill="#ef4444" fontSize="10">
-                  Sell when lines diverge (Z-Score &gt; 2)
-                </text>
+                {/* Second price line (crossing) */}
+                <path
+                  d="M50,220 C100,250 150,240 200,210 C250,180 300,160 350,190 C400,220 450,200 500,180 C525,170 550,190"
+                  stroke="#192042"
+                  strokeWidth="3"
+                  opacity="0.7"
+                  fill="none"
+                />
               </svg>
             </div>
           </div>
