@@ -744,9 +744,10 @@ export default function Home() {
                 height="300"
                 viewBox="0 0 800 500"
                 xmlns="http://www.w3.org/2000/svg"
-                className="rounded-lg"
+                className="rounded-2xl shadow-inner"
+                style={{ border: "1px solid rgba(184, 134, 11, 0.2)" }}
               >
-                <rect width="800" height="500" fill="#f9f9f9" />
+                <rect width="800" height="500" fill="#fff8e1" rx="20" ry="20" />
                 <path
                   d="M100,120 C120,125 130,130 150,130 C170,130 180,115 200,110 C220,105 230,100 250,100 C270,100 280,115 300,120 C320,125 330,100 350,90 C370,80 380,75 400,80 C420,85 430,95 450,100 C470,105 480,95 500,90 C520,85 530,100 550,110 C570,120 580,90 600,80 C620,70 630,95 650,100 C670,105 680,95 700,90"
                   fill="none"
