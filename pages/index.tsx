@@ -330,7 +330,7 @@ export default function Home() {
       </section>
 
       {/* Why Pair Trading Section */}
-      <section className="py-8">
+      <section className="py-4">
         {/* Title and description outside the card */}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-4">Why Pair Trading?</h2>
@@ -460,7 +460,7 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-8">
+      <section className="py-4">
         {/* Title and description outside the card */}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-4">How Pair Trading Works</h2>
@@ -720,13 +720,14 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-8">
+      <section className="py-4">
         <div className="bg-gold-400 rounded-xl shadow-lg" style={{ backgroundColor: "#ffd700" }}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center p-8">
             <div>
               <h2 className="text-3xl font-bold text-navy-900 mb-4">Ready to Start Pair Trading?</h2>
               <p className="text-xl text-navy-800 mb-6">
-                Join thousands of traders using our platform to find statistical edges in the market
+                If you have any questions or doubts about pair trading strategies, feel free to contact us or connect
+                via live chat for personalized assistance.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/contact" className="btn-secondary inline-flex items-center">
