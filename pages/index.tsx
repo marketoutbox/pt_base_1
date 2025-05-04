@@ -739,64 +739,55 @@ export default function Home() {
             </div>
 
             <div className="hidden md:block">
-              <svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+              <svg width="100%" height="300" viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg">
                 {/* Background with rounded corners */}
-                <rect width="800" height="500" fill="#ffed8c" rx="20" ry="20"></rect>
+                <rect width="600" height="300" fill="#ffed8c" rx="15" ry="15"></rect>
 
                 {/* Light blue channel for normal trading range */}
-                <path
-                  d="M 50 150 C 150 180, 250 120, 350 150 C 450 180, 550 120, 650 150 C 750 180, 850 120, 950 150"
-                  fill="none"
-                  stroke="#e6f7ff"
-                  strokeWidth="100"
-                  strokeOpacity="0.5"
-                />
+                <rect x="50" y="100" width="500" height="100" fill="#e6f7ff" fillOpacity="0.5" rx="10" ry="10"></rect>
 
                 {/* Upper band - dark red */}
                 <path
-                  d="M 50 150 C 150 180, 250 120, 350 150 C 450 180, 550 120, 650 150 C 750 180, 850 120, 950 150"
+                  d="M 50 100 C 100 90, 150 110, 200 100 C 250 90, 300 110, 350 100 C 400 90, 450 110, 500 100 C 550 90"
                   fill="none"
                   stroke="#990000"
-                  strokeWidth="3"
+                  strokeWidth="2.5"
                 />
-                <text x="960" y="150" fontSize="14" fill="#990000">
+                <text x="50" y="85" fontSize="12" fill="#990000" fontFamily="Arial">
                   Upper Band
                 </text>
 
                 {/* Lower band - dark green */}
                 <path
-                  d="M 50 350 C 150 380, 250 320, 350 350 C 450 380, 550 320, 650 350 C 750 380, 850 320, 950 350"
+                  d="M 50 200 C 100 210, 150 190, 200 200 C 250 210, 300 190, 350 200 C 400 210, 450 190, 500 200 C 550 210"
                   fill="none"
                   stroke="#006600"
-                  strokeWidth="3"
+                  strokeWidth="2.5"
                 />
-                <text x="960" y="350" fontSize="14" fill="#006600">
+                <text x="50" y="225" fontSize="12" fill="#006600" fontFamily="Arial">
                   Lower Band
                 </text>
 
                 {/* Oscillating line (spread) - dark grey with more turns */}
                 <path
-                  d="M 50 250 
-           C 100 200, 125 150, 150 150 
-           C 175 150, 200 200, 225 250 
-           C 250 300, 275 350, 300 350 
-           C 325 350, 350 300, 375 250 
-           C 400 200, 425 150, 450 150 
-           C 475 150, 500 200, 525 250 
-           C 550 300, 575 350, 600 350 
-           C 625 350, 650 300, 675 250 
-           C 700 200, 725 150, 750 150"
+                  d="M 50 150 
+                     C 75 100, 100 100, 125 100 
+                     C 150 100, 175 150, 200 150 
+                     C 225 150, 250 200, 275 200 
+                     C 300 200, 325 150, 350 150 
+                     C 375 150, 400 100, 425 100 
+                     C 450 100, 475 150, 500 150 
+                     C 525 150, 550 200, 575 200"
                   fill="none"
                   stroke="#333333"
-                  strokeWidth="4"
+                  strokeWidth="3"
                 />
 
                 {/* Entry/exit points */}
-                <circle cx="150" cy="150" r="8" fill="white" stroke="#333333" strokeWidth="2" />
-                <circle cx="300" cy="350" r="8" fill="white" stroke="#333333" strokeWidth="2" />
-                <circle cx="450" cy="150" r="8" fill="white" stroke="#333333" strokeWidth="2" />
-                <circle cx="600" cy="350" r="8" fill="white" stroke="#333333" strokeWidth="2" />
-                <circle cx="750" cy="150" r="8" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="125" cy="100" r="6" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="275" cy="200" r="6" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="425" cy="100" r="6" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="575" cy="200" r="6" fill="white" stroke="#333333" strokeWidth="2" />
               </svg>
             </div>
           </div>
