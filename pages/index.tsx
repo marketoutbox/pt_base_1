@@ -739,50 +739,64 @@ export default function Home() {
             </div>
 
             <div className="hidden md:block">
-              <svg
-                width="100%"
-                height="300"
-                viewBox="0 0 800 500"
-                xmlns="http://www.w3.org/2000/svg"
-                className="rounded-2xl"
-              >
-                <rect width="800" height="500" fill="#FEF9E7" rx="20" ry="20" />
+              <svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+                {/* Background with rounded corners */}
+                <rect width="800" height="500" fill="#ffed8c" rx="20" ry="20"></rect>
 
-                {/* Upper band - blue line */}
+                {/* Light blue channel for normal trading range */}
                 <path
-                  d="M100,150 C150,130 200,140 250,120 C300,100 350,130 400,150 C450,170 500,140 550,120 C600,100 650,130 700,150"
+                  d="M 50 150 C 150 180, 250 120, 350 150 C 450 180, 550 120, 650 150 C 750 180, 850 120, 950 150"
                   fill="none"
-                  stroke="#4285F4"
-                  strokeWidth="2.5"
+                  stroke="#e6f7ff"
+                  strokeWidth="100"
+                  strokeOpacity="0.5"
                 />
 
-                {/* Lower band - red line */}
+                {/* Upper band - dark red */}
                 <path
-                  d="M100,350 C150,370 200,350 250,330 C300,310 350,350 400,370 C450,390 500,350 550,330 C600,310 650,350 700,370"
+                  d="M 50 150 C 150 180, 250 120, 350 150 C 450 180, 550 120, 650 150 C 750 180, 850 120, 950 150"
                   fill="none"
-                  stroke="#DB4437"
-                  strokeWidth="2.5"
-                />
-
-                {/* Spread/oscillation - green line */}
-                <path
-                  d="M100,250 C130,200 160,150 190,250 C220,350 250,150 280,200 C310,250 340,350 370,250 C400,150 430,300 460,350 C490,400 520,250 550,200 C580,150 610,300 640,350 C670,400 685,300 700,250"
-                  fill="none"
-                  stroke="#0F9D58"
+                  stroke="#990000"
                   strokeWidth="3"
                 />
-
-                {/* Entry and exit points */}
-                <circle cx="100" cy="250" r="6" fill="white" stroke="#0F9D58" strokeWidth="2" />
-                <circle cx="700" cy="250" r="6" fill="white" stroke="#0F9D58" strokeWidth="2" />
-
-                {/* Labels */}
-                <text x="150" y="120" fontFamily="Arial" fontSize="12" fontWeight="bold" fill="#4285F4">
+                <text x="960" y="150" fontSize="14" fill="#990000">
                   Upper Band
                 </text>
-                <text x="150" y="380" fontFamily="Arial" fontSize="12" fontWeight="bold" fill="#DB4437">
+
+                {/* Lower band - dark green */}
+                <path
+                  d="M 50 350 C 150 380, 250 320, 350 350 C 450 380, 550 320, 650 350 C 750 380, 850 320, 950 350"
+                  fill="none"
+                  stroke="#006600"
+                  strokeWidth="3"
+                />
+                <text x="960" y="350" fontSize="14" fill="#006600">
                   Lower Band
                 </text>
+
+                {/* Oscillating line (spread) - dark grey with more turns */}
+                <path
+                  d="M 50 250 
+           C 100 200, 125 150, 150 150 
+           C 175 150, 200 200, 225 250 
+           C 250 300, 275 350, 300 350 
+           C 325 350, 350 300, 375 250 
+           C 400 200, 425 150, 450 150 
+           C 475 150, 500 200, 525 250 
+           C 550 300, 575 350, 600 350 
+           C 625 350, 650 300, 675 250 
+           C 700 200, 725 150, 750 150"
+                  fill="none"
+                  stroke="#333333"
+                  strokeWidth="4"
+                />
+
+                {/* Entry/exit points */}
+                <circle cx="150" cy="150" r="8" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="300" cy="350" r="8" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="450" cy="150" r="8" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="600" cy="350" r="8" fill="white" stroke="#333333" strokeWidth="2" />
+                <circle cx="750" cy="150" r="8" fill="white" stroke="#333333" strokeWidth="2" />
               </svg>
             </div>
           </div>
