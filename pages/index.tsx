@@ -739,55 +739,51 @@ export default function Home() {
             </div>
 
             <div className="hidden md:block">
-              <svg width="100%" height="300" viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg">
-                {/* Background with rounded corners */}
-                <rect width="600" height="300" fill="#ffed8c" rx="15" ry="15"></rect>
+              <svg
+                width="100%"
+                height="300"
+                viewBox="0 0 800 500"
+                xmlns="http://www.w3.org/2000/svg"
+                className="rounded-lg"
+              >
+                {/* Background */}
+                <rect width="800" height="500" fill="transparent" />
 
-                {/* Light blue channel for normal trading range */}
-                <rect x="50" y="100" width="500" height="100" fill="#e6f7ff" fillOpacity="0.5" rx="10" ry="10"></rect>
-
-                {/* Upper band - dark red */}
+                {/* Upper band (Stock A) - with smooth curve */}
                 <path
-                  d="M 50 100 C 100 90, 150 110, 200 100 C 250 90, 300 110, 350 100 C 400 90, 450 110, 500 100 C 550 90"
+                  d="M100,120 C120,125 130,130 150,130 C170,130 180,115 200,110 C220,105 230,100 250,100 C270,100 280,115 300,120 C320,125 330,100 350,90 C370,80 380,75 400,80 C420,85 430,95 450,100 C470,105 480,95 500,90 C520,85 530,100 550,110 C570,120 580,90 600,80 C620,70 630,95 650,100 C670,105 680,95 700,90"
                   fill="none"
-                  stroke="#990000"
-                  strokeWidth="2.5"
-                />
-                <text x="50" y="85" fontSize="12" fill="#990000" fontFamily="Arial">
-                  Upper Band
-                </text>
-
-                {/* Lower band - dark green */}
-                <path
-                  d="M 50 200 C 100 210, 150 190, 200 200 C 250 210, 300 190, 350 200 C 400 210, 450 190, 500 200 C 550 210"
-                  fill="none"
-                  stroke="#006600"
-                  strokeWidth="2.5"
-                />
-                <text x="50" y="225" fontSize="12" fill="#006600" fontFamily="Arial">
-                  Lower Band
-                </text>
-
-                {/* Oscillating line (spread) - dark grey with more turns */}
-                <path
-                  d="M 50 150 
-                     C 75 100, 100 100, 125 100 
-                     C 150 100, 175 150, 200 150 
-                     C 225 150, 250 200, 275 200 
-                     C 300 200, 325 150, 350 150 
-                     C 375 150, 400 100, 425 100 
-                     C 450 100, 475 150, 500 150 
-                     C 525 150, 550 200, 575 200"
-                  fill="none"
-                  stroke="#333333"
-                  strokeWidth="3"
+                  stroke="#192042"
+                  strokeWidth="4"
                 />
 
-                {/* Entry/exit points */}
-                <circle cx="125" cy="100" r="6" fill="white" stroke="#333333" strokeWidth="2" />
-                <circle cx="275" cy="200" r="6" fill="white" stroke="#333333" strokeWidth="2" />
-                <circle cx="425" cy="100" r="6" fill="white" stroke="#333333" strokeWidth="2" />
-                <circle cx="575" cy="200" r="6" fill="white" stroke="#333333" strokeWidth="2" />
+                {/* Lower band (Stock B) - with smooth curve */}
+                <path
+                  d="M100,320 C120,325 130,335 150,340 C170,345 180,325 200,310 C220,295 230,320 250,330 C270,340 280,345 300,350 C320,355 330,330 350,320 C370,310 380,325 400,330 C420,335 430,320 450,310 C470,300 480,325 500,340 C520,355 530,330 550,320 C570,310 580,340 600,350 C620,360 630,340 650,330 C670,320 680,335 700,340"
+                  fill="none"
+                  stroke="#192042"
+                  strokeWidth="4"
+                />
+
+                {/* Fill color between the bands to emphasize the channel */}
+                <path
+                  d="M100,120 C120,125 130,130 150,130 C170,130 180,115 200,110 C220,105 230,100 250,100 C270,100 280,115 300,120 C320,125 330,100 350,90 C370,80 380,75 400,80 C420,85 430,95 450,100 C470,105 480,95 500,90 C520,85 530,100 550,110 C570,120 580,90 600,80 C620,70 630,95 650,100 C670,105 680,95 700,90
+                         L700,340 C680,335 670,320 650,330 C630,340 620,360 600,350 C580,340 570,310 550,320 C530,330 520,355 500,340 C480,325 470,300 450,310 C430,320 420,335 400,330 C380,325 370,310 350,320 C330,330 320,355 300,350 C280,345 270,340 250,330 C230,320 220,295 200,310 C180,325 170,345 150,340 C130,335 120,325 100,320 Z"
+                  fill="#192042"
+                  fillOpacity="0.1"
+                />
+
+                {/* Spread/Price oscillation crossing outside the bands */}
+                <path
+                  d="M100,260 C130,210 160,70 190,130 C220,190 250,370 280,400 C310,330 340,100 370,150 C400,200 430,50 460,210 C490,380 520,260 550,180 C580,100 610,400 640,290 C670,180 685,250 700,280"
+                  fill="none"
+                  stroke="#ffd700"
+                  strokeWidth="3.5"
+                />
+
+                {/* Entry and exit points */}
+                <circle cx="100" cy="260" r="7" fill="#ffd700" stroke="#192042" strokeWidth="2" />
+                <circle cx="700" cy="280" r="7" fill="#ffd700" stroke="#192042" strokeWidth="2" />
               </svg>
             </div>
           </div>
