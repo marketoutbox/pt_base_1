@@ -483,9 +483,10 @@ export default function PairAnalyzer() {
       const meanRatio = ratios.reduce((sum, val) => sum + val, 0) / ratios.length
       const stdDevRatio = Math.sqrt(ratios.reduce((sum, val) => sum + Math.pow(val - meanRatio, 2), 0) / ratios.length)
 
-      // Calculate min/max z-score
-      const minZScore = Math.min(...zScores)
-      const maxZScore = Math.max(...zScores)
+      // Calculate min/max z-score - FIX: Filter out NaN values before calculating min/max
+      const validZScores = zScores.filter((z) => !isNaN(z))
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Calculate correlation
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
@@ -635,9 +636,10 @@ export default function PairAnalyzer() {
         spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
       )
 
-      // Calculate min/max z-score
-      const minZScore = Math.min(...zScores)
-      const maxZScore = Math.max(...zScores)
+      // Calculate min/max z-score - FIX: Filter out NaN values before calculating min/max
+      const validZScores = zScores.filter((z) => !isNaN(z))
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Calculate correlation
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
@@ -797,9 +799,10 @@ export default function PairAnalyzer() {
         spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
       )
 
-      // Calculate min/max z-score
-      const minZScore = Math.min(...zScores)
-      const maxZScore = Math.max(...zScores)
+      // Calculate min/max z-score - FIX: Filter out NaN values before calculating min/max
+      const validZScores = zScores.filter((z) => !isNaN(z))
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Calculate correlation
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
