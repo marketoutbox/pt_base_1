@@ -27,6 +27,10 @@ export default function PairAnalyzer() {
   // Shared parameters
   const [zScoreLookback, setZScoreLookback] = useState(30)
 
+  // Trade parameters for practical half-life calculation
+  const [entryThreshold, setEntryThreshold] = useState(2.0)
+  const [exitThreshold, setExitThreshold] = useState(0.5)
+
   // Ratio model parameters
   const [ratioLookbackWindow, setRatioLookbackWindow] = useState(60)
 
@@ -362,6 +366,66 @@ export default function PairAnalyzer() {
     }
   }
 
+  // New function to calculate practical trade half-life
+  const calculatePracticalTradeHalfLife = (zScores, entryThreshold = 2.0, exitThreshold = 0.5) => {
+    const tradeCycles = []
+    let inTrade = false
+    let entryDay = 0
+    let entryDirection = ""
+
+    // Find all historical trade cycles
+    for (let i = 0; i < zScores.length; i++) {
+      // Entry condition
+      if (!inTrade && Math.abs(zScores[i]) >= entryThreshold) {
+        inTrade = true
+        entryDay = i
+        entryDirection = zScores[i] > 0 ? "positive" : "negative"
+      }
+
+      // Exit condition - reached target
+      if (inTrade) {
+        if (
+          (entryDirection === "positive" && zScores[i] <= exitThreshold) ||
+          (entryDirection === "negative" && zScores[i] >= -exitThreshold)
+        ) {
+          tradeCycles.push(i - entryDay) // Days to complete the trade
+          inTrade = false
+        }
+
+        // Exit condition - max holding period reached (optional)
+        if (i - entryDay > 100) {
+          // Abandon analysis if trade takes too long
+          inTrade = false
+        }
+      }
+    }
+
+    // Calculate statistics on trade cycles
+    if (tradeCycles.length === 0)
+      return {
+        tradeCycleLength: 0,
+        isValid: false,
+        sampleSize: 0,
+        successRate: 0,
+        medianCycleLength: 0,
+      }
+
+    const avgCycleLength = tradeCycles.reduce((sum, val) => sum + val, 0) / tradeCycles.length
+    const successRate = tradeCycles.length / (tradeCycles.length + (inTrade ? 1 : 0)) // Account for incomplete trades
+
+    // Sort for median calculation
+    const sortedCycles = [...tradeCycles].sort((a, b) => a - b)
+    const medianCycleLength = sortedCycles[Math.floor(sortedCycles.length / 2)]
+
+    return {
+      tradeCycleLength: avgCycleLength,
+      medianCycleLength,
+      successRate,
+      sampleSize: tradeCycles.length,
+      isValid: tradeCycles.length >= 5 && successRate > 0.7, // Minimum sample size and success rate
+    }
+  }
+
   // Add Hurst Exponent calculation to measure persistence vs mean-reversion
   const calculateHurstExponent = (data) => {
     const n = data.length
@@ -483,7 +547,7 @@ export default function PairAnalyzer() {
       const meanRatio = ratios.reduce((sum, val) => sum + val, 0) / ratios.length
       const stdDevRatio = Math.sqrt(ratios.reduce((sum, val) => sum + Math.pow(val - meanRatio, 2), 0) / ratios.length)
 
-      // Calculate min/max z-score - FIX: Filter out NaN values before calculating min/max
+      // Calculate min/max z-score - Filter out NaN values before calculating min/max
       const validZScores = zScores.filter((z) => !isNaN(z))
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
@@ -497,6 +561,9 @@ export default function PairAnalyzer() {
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(ratios)
       const hurstExponent = calculateHurstExponent(ratios)
+
+      // Calculate practical trade half-life
+      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
       // Prepare table data (last 30 days or less)
       const tableData = []
@@ -547,6 +614,7 @@ export default function PairAnalyzer() {
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
+          practicalTradeHalfLife,
           modelType: "ratio",
         },
         tableData,
@@ -636,7 +704,7 @@ export default function PairAnalyzer() {
         spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
       )
 
-      // Calculate min/max z-score - FIX: Filter out NaN values before calculating min/max
+      // Calculate min/max z-score - Filter out NaN values before calculating min/max
       const validZScores = zScores.filter((z) => !isNaN(z))
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
@@ -650,6 +718,9 @@ export default function PairAnalyzer() {
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
       const hurstExponent = calculateHurstExponent(spreads)
+
+      // Calculate practical trade half-life
+      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
       // Prepare table data (last 30 days or less)
       const tableData = []
@@ -704,6 +775,7 @@ export default function PairAnalyzer() {
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
+          practicalTradeHalfLife,
           modelType: "ols",
         },
         tableData,
@@ -799,7 +871,7 @@ export default function PairAnalyzer() {
         spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
       )
 
-      // Calculate min/max z-score - FIX: Filter out NaN values before calculating min/max
+      // Calculate min/max z-score - Filter out NaN values before calculating min/max
       const validZScores = zScores.filter((z) => !isNaN(z))
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
@@ -813,6 +885,9 @@ export default function PairAnalyzer() {
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
       const hurstExponent = calculateHurstExponent(spreads)
+
+      // Calculate practical trade half-life
+      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
       // Prepare table data (last 30 days or less)
       const tableData = []
@@ -867,6 +942,7 @@ export default function PairAnalyzer() {
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
+          practicalTradeHalfLife,
           modelType: "kalman",
         },
         tableData,
@@ -1100,6 +1176,39 @@ export default function PairAnalyzer() {
           </div>
         </div>
 
+        {/* Trade parameters section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold text-white mb-4">Trade Parameters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Entry Z-Score Threshold</label>
+              <input
+                type="number"
+                value={entryThreshold}
+                onChange={(e) => setEntryThreshold(Number.parseFloat(e.target.value))}
+                min="1"
+                max="4"
+                step="0.1"
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Z-score threshold for trade entry (absolute value)</p>
+            </div>
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Exit Z-Score Threshold</label>
+              <input
+                type="number"
+                value={exitThreshold}
+                onChange={(e) => setExitThreshold(Number.parseFloat(e.target.value))}
+                min="0"
+                max="2"
+                step="0.1"
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Z-score threshold for trade exit (absolute value)</p>
+            </div>
+          </div>
+        </div>
+
         <div className="flex justify-center mt-8">
           <button onClick={runAnalysis} disabled={isLoading} className="btn-primary">
             {isLoading ? (
@@ -1186,11 +1295,25 @@ export default function PairAnalyzer() {
                     <span className="text-gold-400 font-medium">{analysisData.statistics.maxZScore.toFixed(4)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-300">Half-Life (days):</span>
+                    <span className="text-gray-300">Statistical Half-Life (days):</span>
                     <span
                       className={`font-medium ${analysisData.statistics.halfLifeValid ? "text-gold-400" : "text-red-400"}`}
                     >
                       {analysisData.statistics.halfLifeValid ? analysisData.statistics.halfLife.toFixed(2) : "Invalid"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Practical Trade Cycle (days):</span>
+                    <span
+                      className={`font-medium ${
+                        analysisData.statistics.practicalTradeHalfLife.isValid ? "text-gold-400" : "text-red-400"
+                      }`}
+                    >
+                      {analysisData.statistics.practicalTradeHalfLife.isValid
+                        ? `${analysisData.statistics.practicalTradeHalfLife.tradeCycleLength.toFixed(1)} (${(
+                            analysisData.statistics.practicalTradeHalfLife.successRate * 100
+                          ).toFixed(0)}% success)`
+                        : "Insufficient data"}
                     </span>
                   </div>
                   <div className="flex justify-between">
