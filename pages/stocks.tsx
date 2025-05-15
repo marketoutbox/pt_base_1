@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from "react"
 import { saveStockData, getStockData } from "../lib/indexedDB"
 import StockTable from "../components/StockTable"
 
+// Add these imports at the top of the file
+import { checkDatabaseIntegrity, resetDatabase } from "../lib/indexedDB"
+
 export default function Stocks() {
   // Initialize with empty values and update after mount
   const [csvUrl, setCsvUrl] = useState("")
@@ -160,6 +163,60 @@ export default function Stocks() {
     }
   }, [refreshInterval, csvUrl, fetchFromGoogleSheet, isClient]) // Include isClient in dependencies
 
+  // Add this function inside the Stocks component, before the return statement
+  async function handleDatabaseReset() {
+    try {
+      setLoading(true)
+      setMessage({ text: "Resetting database...", type: "info" })
+
+      const result = await resetDatabase()
+
+      if (result.success) {
+        setMessage({
+          text: "Database reset successful. Please try your operation again.",
+          type: "success",
+        })
+      } else {
+        setMessage({
+          text: `Error resetting database: ${result.error?.message || "Unknown error"}`,
+          type: "error",
+        })
+      }
+    } catch (error) {
+      console.error("Error in handleDatabaseReset:", error)
+      setMessage({
+        text: `Error: ${error.message || "Unknown error"}`,
+        type: "error",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Add this useEffect after the other useEffects in the component
+  useEffect(() => {
+    async function checkDatabase() {
+      try {
+        const integrity = await checkDatabaseIntegrity()
+
+        if (!integrity.isValid) {
+          console.warn("Database integrity check failed:", integrity)
+          setMessage({
+            text: `Database issue detected: Missing ${integrity.missingStores.join(", ")} store(s). Use the Reset Database button below to fix.`,
+            type: "warning",
+          })
+        }
+      } catch (error) {
+        console.error("Error checking database:", error)
+      }
+    }
+
+    if (isClient) {
+      checkDatabase()
+    }
+  }, [isClient])
+
+  // Modify the fetchStockData function to handle database errors better
   async function fetchStockData() {
     if (!symbols.trim()) {
       setMessage({ text: "Please enter at least one stock symbol", type: "error" })
@@ -177,12 +234,19 @@ export default function Stocks() {
     let allStockData = []
     let successCount = 0
     let errorCount = 0
+    let databaseErrorOccurred = false
 
     for (const symbol of symbolList) {
       try {
         console.log(`Fetching data for: ${symbol}`)
 
         const response = await fetch(`/api/stocks?symbol=${symbol}`)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`)
+        }
+
         const data = await response.json()
 
         if (!data || !data.timestamp || !data.indicators?.quote?.[0]) {
@@ -205,9 +269,18 @@ export default function Stocks() {
 
         console.log(`Formatted Data for ${symbol}:`, formattedData)
 
-        await saveStockData(symbol, formattedData)
-        allStockData = [...allStockData, ...formattedData]
-        successCount++
+        try {
+          await saveStockData(symbol, formattedData)
+          allStockData = [...allStockData, ...formattedData]
+          successCount++
+        } catch (dbError) {
+          console.error(`Database error for ${symbol}:`, dbError)
+          databaseErrorOccurred = true
+          errorCount++
+
+          // Still add the data to the state for display
+          allStockData = [...allStockData, ...formattedData]
+        }
       } catch (error) {
         console.error(`Error fetching stock data for ${symbol}:`, error)
         errorCount++
@@ -217,7 +290,12 @@ export default function Stocks() {
     setStocks(allStockData)
     setLoading(false)
 
-    if (successCount > 0) {
+    if (databaseErrorOccurred) {
+      setMessage({
+        text: `Database error occurred. Some data couldn't be saved. Try using the Reset Database button below.`,
+        type: "error",
+      })
+    } else if (successCount > 0) {
       setMessage({
         text: `Successfully fetched data for ${successCount} symbol${successCount > 1 ? "s" : ""}${errorCount > 0 ? ` (${errorCount} failed)` : ""}`,
         type: "success",
@@ -519,6 +597,38 @@ export default function Stocks() {
           }`}
         >
           {message.text}
+        </div>
+      )}
+
+      {message.text && (message.type === "error" || message.type === "warning") && (
+        <div className="mt-2 flex items-center">
+          <button
+            onClick={handleDatabaseReset}
+            disabled={loading}
+            className="px-3 py-1 bg-red-700 hover:bg-red-600 text-white text-sm rounded flex items-center"
+          >
+            {loading ? (
+              <>
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-4 w-4"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Resetting...
+              </>
+            ) : (
+              <>Reset Database</>
+            )}
+          </button>
+          <span className="ml-2 text-sm text-gray-400">Try this if you're seeing database errors</span>
         </div>
       )}
 
