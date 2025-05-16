@@ -567,13 +567,20 @@ export default function PairAnalyzer() {
 
       // Prepare table data (last 30 days or less)
       const tableData = []
-      const numDaysToShow = Math.min(30, dates.length)
-      for (let i = dates.length - numDaysToShow; i < dates.length; i++) {
+      for (let i = 0; i < dates.length; i++) {
         tableData.push({
           date: dates[i],
           priceA: stockAPrices[i],
           priceB: stockBPrices[i],
-          ratio: ratios[i],
+          ...(analysisData?.statistics?.modelType !== "ratio"
+            ? {
+                alpha: analysisData?.alphas?.[i] || 0,
+                hedgeRatio: analysisData?.hedgeRatios?.[i] || 0,
+              }
+            : {}),
+          ...(analysisData?.statistics?.modelType === "ratio"
+            ? { ratio: ratios[i] }
+            : { spread: analysisData?.spreads?.[i] || 0 }),
           zScore: zScores[i],
         })
       }
@@ -724,15 +731,18 @@ export default function PairAnalyzer() {
 
       // Prepare table data (last 30 days or less)
       const tableData = []
-      const numDaysToShow = Math.min(30, dates.length)
-      for (let i = dates.length - numDaysToShow; i < dates.length; i++) {
+      for (let i = 0; i < dates.length; i++) {
         tableData.push({
           date: dates[i],
           priceA: stockAPrices[i],
           priceB: stockBPrices[i],
-          alpha: alphas[i],
-          hedgeRatio: hedgeRatios[i],
-          spread: spreads[i],
+          ...(analysisData?.statistics?.modelType !== "ratio"
+            ? {
+                alpha: alphas[i],
+                hedgeRatio: hedgeRatios[i],
+              }
+            : {}),
+          ...(analysisData?.statistics?.modelType === "ratio" ? { ratio: ratios[i] } : { spread: spreads[i] }),
           zScore: zScores[i],
         })
       }
@@ -891,15 +901,18 @@ export default function PairAnalyzer() {
 
       // Prepare table data (last 30 days or less)
       const tableData = []
-      const numDaysToShow = Math.min(30, dates.length)
-      for (let i = dates.length - numDaysToShow; i < dates.length; i++) {
+      for (let i = 0; i < dates.length; i++) {
         tableData.push({
           date: dates[i],
           priceA: stockAPrices[i],
           priceB: stockBPrices[i],
-          alpha: alphas[i],
-          hedgeRatio: hedgeRatios[i],
-          spread: spreads[i],
+          ...(analysisData?.statistics?.modelType !== "ratio"
+            ? {
+                alpha: alphas[i],
+                hedgeRatio: hedgeRatios[i],
+              }
+            : {}),
+          ...(analysisData?.statistics?.modelType === "ratio" ? { ratio: ratios[i] } : { spread: spreads[i] }),
           zScore: zScores[i],
         })
       }
@@ -1725,58 +1738,58 @@ export default function PairAnalyzer() {
           </div>
 
           <div className="card">
-            <h2 className="text-2xl font-bold text-white mb-6">
-              Data Table (Last {analysisData.tableData.length} Days)
-            </h2>
+            <h2 className="text-2xl font-bold text-white mb-6">Data Table ({analysisData.tableData.length} Days)</h2>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-navy-700">
-                <thead className="bg-navy-800">
-                  <tr>
-                    <th className="table-header">Date</th>
-                    <th className="table-header">{selectedPair.stockA} Price</th>
-                    <th className="table-header">{selectedPair.stockB} Price</th>
-                    {analysisData.statistics.modelType !== "ratio" && (
-                      <>
-                        <th className="table-header">Alpha (α)</th>
-                        <th className="table-header">Hedge Ratio (β)</th>
-                      </>
-                    )}
-                    <th className="table-header">
-                      {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"}
-                    </th>
-                    <th className="table-header">Z-score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy-800">
-                  {analysisData.tableData.map((row, index) => (
-                    <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
-                      <td className="table-cell">{row.date}</td>
-                      <td className="table-cell">{row.priceA.toFixed(2)}</td>
-                      <td className="table-cell">{row.priceB.toFixed(2)}</td>
+              <div className="max-h-[500px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-navy-700">
+                  <thead className="bg-navy-800 sticky top-0 z-10">
+                    <tr>
+                      <th className="table-header">Date</th>
+                      <th className="table-header">{selectedPair.stockA} Price</th>
+                      <th className="table-header">{selectedPair.stockB} Price</th>
                       {analysisData.statistics.modelType !== "ratio" && (
                         <>
-                          <td className="table-cell">{row.alpha.toFixed(4)}</td>
-                          <td className="table-cell">{row.hedgeRatio.toFixed(4)}</td>
+                          <th className="table-header">Alpha (α)</th>
+                          <th className="table-header">Hedge Ratio (β)</th>
                         </>
                       )}
-                      <td className="table-cell">
-                        {analysisData.statistics.modelType === "ratio" ? row.ratio.toFixed(4) : row.spread.toFixed(4)}
-                      </td>
-                      <td
-                        className={`table-cell font-medium ${
-                          row.zScore > 2 || row.zScore < -2
-                            ? "text-gold-400"
-                            : row.zScore > 1 || row.zScore < -1
-                              ? "text-gold-400/70"
-                              : "text-white"
-                        }`}
-                      >
-                        {row.zScore.toFixed(4)}
-                      </td>
+                      <th className="table-header">
+                        {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"}
+                      </th>
+                      <th className="table-header">Z-score</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-navy-800">
+                    {analysisData.tableData.map((row, index) => (
+                      <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
+                        <td className="table-cell">{row.date}</td>
+                        <td className="table-cell">{row.priceA.toFixed(2)}</td>
+                        <td className="table-cell">{row.priceB.toFixed(2)}</td>
+                        {analysisData.statistics.modelType !== "ratio" && (
+                          <>
+                            <td className="table-cell">{row.alpha.toFixed(4)}</td>
+                            <td className="table-cell">{row.hedgeRatio.toFixed(4)}</td>
+                          </>
+                        )}
+                        <td className="table-cell">
+                          {analysisData.statistics.modelType === "ratio" ? row.ratio.toFixed(4) : row.spread.toFixed(4)}
+                        </td>
+                        <td
+                          className={`table-cell font-medium ${
+                            row.zScore > 2 || row.zScore < -2
+                              ? "text-gold-400"
+                              : row.zScore > 1 || row.zScore < -1
+                                ? "text-gold-400/70"
+                                : "text-white"
+                          }`}
+                        >
+                          {row.zScore.toFixed(4)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </>
