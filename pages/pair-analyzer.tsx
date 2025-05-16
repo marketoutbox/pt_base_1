@@ -565,22 +565,14 @@ export default function PairAnalyzer() {
       // Calculate practical trade half-life
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
-      // Prepare table data (last 30 days or less)
+      // Prepare table data for all days
       const tableData = []
       for (let i = 0; i < dates.length; i++) {
         tableData.push({
           date: dates[i],
           priceA: stockAPrices[i],
           priceB: stockBPrices[i],
-          ...(analysisData?.statistics?.modelType !== "ratio"
-            ? {
-                alpha: analysisData?.alphas?.[i] || 0,
-                hedgeRatio: analysisData?.hedgeRatios?.[i] || 0,
-              }
-            : {}),
-          ...(analysisData?.statistics?.modelType === "ratio"
-            ? { ratio: ratios[i] }
-            : { spread: analysisData?.spreads?.[i] || 0 }),
+          ratio: ratios[i],
           zScore: zScores[i],
         })
       }
@@ -729,20 +721,16 @@ export default function PairAnalyzer() {
       // Calculate practical trade half-life
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
-      // Prepare table data (last 30 days or less)
+      // Prepare table data for all days
       const tableData = []
       for (let i = 0; i < dates.length; i++) {
         tableData.push({
           date: dates[i],
           priceA: stockAPrices[i],
           priceB: stockBPrices[i],
-          ...(analysisData?.statistics?.modelType !== "ratio"
-            ? {
-                alpha: alphas[i],
-                hedgeRatio: hedgeRatios[i],
-              }
-            : {}),
-          ...(analysisData?.statistics?.modelType === "ratio" ? { ratio: ratios[i] } : { spread: spreads[i] }),
+          alpha: alphas[i],
+          hedgeRatio: hedgeRatios[i],
+          spread: spreads[i],
           zScore: zScores[i],
         })
       }
@@ -899,20 +887,16 @@ export default function PairAnalyzer() {
       // Calculate practical trade half-life
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
-      // Prepare table data (last 30 days or less)
+      // Prepare table data for all days
       const tableData = []
       for (let i = 0; i < dates.length; i++) {
         tableData.push({
           date: dates[i],
           priceA: stockAPrices[i],
           priceB: stockBPrices[i],
-          ...(analysisData?.statistics?.modelType !== "ratio"
-            ? {
-                alpha: alphas[i],
-                hedgeRatio: hedgeRatios[i],
-              }
-            : {}),
-          ...(analysisData?.statistics?.modelType === "ratio" ? { ratio: ratios[i] } : { spread: spreads[i] }),
+          alpha: alphas[i],
+          hedgeRatio: hedgeRatios[i],
+          spread: spreads[i],
           zScore: zScores[i],
         })
       }
@@ -984,6 +968,14 @@ export default function PairAnalyzer() {
       runKalmanAnalysis()
     }
   }
+
+  // Safe formatter function to handle undefined values
+  const safeFormat = (value, decimals = 2) => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return "N/A";
+    }
+    return Number(value).toFixed(decimals);
+  };
 
   return (
     <div className="space-y-8">
@@ -1277,7 +1269,7 @@ export default function PairAnalyzer() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-300">Correlation:</span>
-                    <span className="text-gold-400 font-medium">{analysisData.statistics.correlation.toFixed(4)}</span>
+                    <span className="text-gold-400 font-medium">{safeFormat(analysisData.statistics.correlation, 4)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">
@@ -1285,8 +1277,8 @@ export default function PairAnalyzer() {
                     </span>
                     <span className="text-gold-400 font-medium">
                       {analysisData.statistics.modelType === "ratio"
-                        ? analysisData.statistics.meanRatio.toFixed(4)
-                        : analysisData.statistics.meanSpread.toFixed(4)}
+                        ? safeFormat(analysisData.statistics.meanRatio, 4)
+                        : safeFormat(analysisData.statistics.meanSpread, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1295,24 +1287,24 @@ export default function PairAnalyzer() {
                     </span>
                     <span className="text-gold-400 font-medium">
                       {analysisData.statistics.modelType === "ratio"
-                        ? analysisData.statistics.stdDevRatio.toFixed(4)
-                        : analysisData.statistics.stdDevSpread.toFixed(4)}
+                        ? safeFormat(analysisData.statistics.stdDevRatio, 4)
+                        : safeFormat(analysisData.statistics.stdDevSpread, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Min Z-score:</span>
-                    <span className="text-gold-400 font-medium">{analysisData.statistics.minZScore.toFixed(4)}</span>
+                    <span className="text-gold-400 font-medium">{safeFormat(analysisData.statistics.minZScore, 4)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Max Z-score:</span>
-                    <span className="text-gold-400 font-medium">{analysisData.statistics.maxZScore.toFixed(4)}</span>
+                    <span className="text-gold-400 font-medium">{safeFormat(analysisData.statistics.maxZScore, 4)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Statistical Half-Life (days):</span>
                     <span
                       className={`font-medium ${analysisData.statistics.halfLifeValid ? "text-gold-400" : "text-red-400"}`}
                     >
-                      {analysisData.statistics.halfLifeValid ? analysisData.statistics.halfLife.toFixed(2) : "Invalid"}
+                      {analysisData.statistics.halfLifeValid ? safeFormat(analysisData.statistics.halfLife, 2) : "Invalid"}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1323,9 +1315,10 @@ export default function PairAnalyzer() {
                       }`}
                     >
                       {analysisData.statistics.practicalTradeHalfLife.isValid
-                        ? `${analysisData.statistics.practicalTradeHalfLife.tradeCycleLength.toFixed(1)} (${(
-                            analysisData.statistics.practicalTradeHalfLife.successRate * 100
-                          ).toFixed(0)}% success)`
+                        ? `${safeFormat(analysisData.statistics.practicalTradeHalfLife.tradeCycleLength, 1)} (${safeFormat(
+                            analysisData.statistics.practicalTradeHalfLife.successRate * 100,
+                            0
+                          )}% success)`
                         : "Insufficient data"}
                     </span>
                   </div>
@@ -1340,7 +1333,7 @@ export default function PairAnalyzer() {
                             : "text-gold-400"
                       }`}
                     >
-                      {analysisData.statistics.hurstExponent.toFixed(4)}
+                      {safeFormat(analysisData.statistics.hurstExponent, 4)}
                       {analysisData.statistics.hurstExponent < 0.5
                         ? " (Mean-reverting)"
                         : analysisData.statistics.hurstExponent > 0.5
@@ -1357,13 +1350,13 @@ export default function PairAnalyzer() {
                   <div className="flex justify-between">
                     <span className="text-gray-300">Test Statistic:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.statistic.toFixed(4)}
+                      {safeFormat(analysisData.statistics.adfResults.statistic, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">p-value:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.pValue.toFixed(4)}
+                      {safeFormat(analysisData.statistics.adfResults.pValue, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1446,9 +1439,9 @@ export default function PairAnalyzer() {
                           ></div>
                           <span className="text-gray-300">
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
-                              ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                              ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${safeFormat(analysisData.zScores[analysisData.zScores.length - 1], 2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${safeFormat(analysisData.zScores[analysisData.zScores.length - 1], 2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
@@ -1510,7 +1503,7 @@ export default function PairAnalyzer() {
                       <span className="text-gray-400 text-sm">{selectedPair.stockA} Position:</span>
                       <p className="text-white font-medium">
                         {analysisData.stockAPrices.length > 0
-                          ? `${(5000).toFixed(2)} (${(5000 / analysisData.stockAPrices[analysisData.stockAPrices.length - 1]).toFixed(0)} shares)`
+                          ? `${safeFormat(5000, 2)} (${safeFormat(5000 / analysisData.stockAPrices[analysisData.stockAPrices.length - 1], 0)} shares)`
                           : "N/A"}
                       </p>
                     </div>
@@ -1519,13 +1512,14 @@ export default function PairAnalyzer() {
                       <p className="text-white font-medium">
                         {analysisData.stockBPrices.length > 0 &&
                         (analysisData.hedgeRatios ? analysisData.hedgeRatios.length > 0 : analysisData.ratios)
-                          ? `${(5000).toFixed(2)} (${(
+                          ? `${safeFormat(5000, 2)} (${safeFormat(
                               (5000 / analysisData.stockBPrices[analysisData.stockBPrices.length - 1]) *
                                 (analysisData.hedgeRatios
                                   ? analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
                                   : analysisData.stockAPrices[analysisData.stockAPrices.length - 1] /
-                                    analysisData.stockBPrices[analysisData.stockBPrices.length - 1])
-                            ).toFixed(0)} shares)`
+                                    analysisData.stockBPrices[analysisData.stockBPrices.length - 1]),
+                              0
+                            )} shares)`
                           : "N/A"}
                       </p>
                     </div>
@@ -1557,7 +1551,7 @@ export default function PairAnalyzer() {
                         <YAxis tick={{ fill: "#dce5f3" }} />
                         <Tooltip
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [value.toFixed(4), "Hedge Ratio (β)"]}
+                          formatter={(value) => [safeFormat(value, 4), "Hedge Ratio (β)"]}
                           labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
                         <Line type="monotone" dataKey="hedgeRatio" stroke="#ffd700" dot={false} />
@@ -1602,7 +1596,7 @@ export default function PairAnalyzer() {
                       <YAxis tick={{ fill: "#dce5f3" }} />
                       <Tooltip
                         contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                        formatter={(value) => [value.toFixed(4), "Value"]}
+                        formatter={(value) => [safeFormat(value, 4), "Value"]}
                         labelFormatter={(label) => new Date(label).toLocaleDateString()}
                       />
                       <Line type="monotone" dataKey="value" stroke="#ffd700" dot={false} />
@@ -1642,7 +1636,7 @@ export default function PairAnalyzer() {
                       <YAxis tick={{ fill: "#dce5f3" }} />
                       <Tooltip
                         contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                        formatter={(value) => [value.toFixed(4), "Z-Score"]}
+                        formatter={(value) => [safeFormat(value, 4), "Z-Score"]}
                         labelFormatter={(label) => new Date(label).toLocaleDateString()}
                       />
                       <ReferenceLine y={0} stroke="#ffffff" />
@@ -1687,7 +1681,7 @@ export default function PairAnalyzer() {
                       <Tooltip
                         cursor={{ strokeDasharray: "3 3" }}
                         contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                        formatter={(value) => [value.toFixed(2), ""]}
+                        formatter={(value) => [safeFormat(value, 2), ""]}
                       />
                       <Scatter
                         name="Stock Prices"
@@ -1763,37 +1757,8 @@ export default function PairAnalyzer() {
                     {analysisData.tableData.map((row, index) => (
                       <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
                         <td className="table-cell">{row.date}</td>
-                        <td className="table-cell">{row.priceA.toFixed(2)}</td>
-                        <td className="table-cell">{row.priceB.toFixed(2)}</td>
+                        <td className="table-cell">{safeFormat(row.priceA, 2)}</td>
+                        <td className="table-cell">{safeFormat(row.priceB, 2)}</td>
                         {analysisData.statistics.modelType !== "ratio" && (
                           <>
-                            <td className="table-cell">{row.alpha.toFixed(4)}</td>
-                            <td className="table-cell">{row.hedgeRatio.toFixed(4)}</td>
-                          </>
-                        )}
-                        <td className="table-cell">
-                          {analysisData.statistics.modelType === "ratio" ? row.ratio.toFixed(4) : row.spread.toFixed(4)}
-                        </td>
-                        <td
-                          className={`table-cell font-medium ${
-                            row.zScore > 2 || row.zScore < -2
-                              ? "text-gold-400"
-                              : row.zScore > 1 || row.zScore < -1
-                                ? "text-gold-400/70"
-                                : "text-white"
-                          }`}
-                        >
-                          {row.zScore.toFixed(4)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
+
