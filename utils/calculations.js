@@ -1,10 +1,10 @@
 /**
  * Calculate ratio model statistics for pair trading
- * @param stockA First stock data
- * @param stockB Second stock data
- * @returns Object containing ratio model statistics
+ * @param {Array} stockA First stock data
+ * @param {Array} stockB Second stock data
+ * @returns {Object} Object containing ratio model statistics
  */
-export function calculateRatioModel(stockA: any[], stockB: any[]) {
+export function calculateRatioModel(stockA, stockB) {
   if (!stockA?.length || !stockB?.length) {
     return {
       ratios: [],
@@ -28,7 +28,7 @@ export function calculateRatioModel(stockA: any[], stockB: any[]) {
       if (!itemB || itemB.close === 0 || itemB.close === undefined) return null
       return itemA.close / itemB.close
     })
-    .filter((ratio): ratio is number => ratio !== null)
+    .filter((ratio) => ratio !== null)
 
   if (ratios.length === 0) {
     return {
@@ -73,10 +73,10 @@ export function calculateRatioModel(stockA: any[], stockB: any[]) {
 
 /**
  * Calculate the half-life of mean reversion for a time series
- * @param timeSeries Array of values
- * @returns Half-life value in periods
+ * @param {Array<number>} timeSeries Array of values
+ * @returns {number} Half-life value in periods
  */
-function calculateHalfLife(timeSeries: number[]): number {
+function calculateHalfLife(timeSeries) {
   if (timeSeries.length < 2) return 0
 
   // Create lagged series (y and x)
@@ -112,12 +112,12 @@ function calculateHalfLife(timeSeries: number[]): number {
 
 /**
  * Get trading signals based on z-score thresholds
- * @param zScore Current z-score
- * @param entryThreshold Z-score threshold for entry (positive value)
- * @param exitThreshold Z-score threshold for exit (positive value)
- * @returns Trading signal object
+ * @param {number} zScore Current z-score
+ * @param {number} entryThreshold Z-score threshold for entry (positive value)
+ * @param {number} exitThreshold Z-score threshold for exit (positive value)
+ * @returns {Object} Trading signal object
  */
-export function getRatioModelSignal(zScore: number, entryThreshold = 2, exitThreshold = 0.5) {
+export function getRatioModelSignal(zScore, entryThreshold = 2, exitThreshold = 0.5) {
   const absZScore = Math.abs(zScore)
 
   if (zScore > entryThreshold) {
