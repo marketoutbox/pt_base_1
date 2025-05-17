@@ -3,7 +3,7 @@
  * @param {Array<number>} data - Array of values
  * @returns {number} - Z-score of the last element in the array
  */
-export default function calculateZScore(data) {
+function calculateZScoreExplicit(data) {
   if (!data || data.length === 0) return 0
 
   const mean = data.reduce((sum, val) => sum + val, 0) / data.length
@@ -25,8 +25,11 @@ export function calculateRollingZScores(data, windowSize) {
   for (let i = 0; i < data.length; i++) {
     const windowStart = Math.max(0, i - windowSize + 1)
     const window = data.slice(windowStart, i + 1)
-    zScores.push(calculateZScore(window))
+    zScores.push(calculateZScoreExplicit(window))
   }
 
   return zScores
 }
+
+// Export the function as default
+export default calculateZScoreExplicit
