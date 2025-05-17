@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
-import calculateZScore from "../utils/calculations"
 import {
   LineChart,
   Line,
@@ -88,8 +87,15 @@ export default function PairAnalyzer() {
     setSelectedPair((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Add a function to sort data by date in ascending order (oldest to newest)
+  const sortByDateAscending = (data) => {
+    return [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  }
+
+  // Modify the filterByDate function to also sort the data
   const filterByDate = (data) => {
-    return data.filter((entry) => entry.date >= fromDate && entry.date <= toDate)
+    const filtered = data.filter((entry) => entry.date >= fromDate && entry.date <= toDate)
+    return sortByDateAscending(filtered)
   }
 
   // OLS regression for hedge ratio calculation
@@ -485,6 +491,17 @@ export default function PairAnalyzer() {
     return hurstExponent
   }
 
+  // Define a local z-score calculation function to avoid import issues
+  const calculateZScore = (data) => {
+    if (!data || data.length === 0) return 0
+
+    const mean = data.reduce((sum, val) => sum + val, 0) / data.length
+    const stdDev = Math.sqrt(data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length)
+
+    // Return the z-score of the last element
+    return stdDev === 0 ? 0 : (data[data.length - 1] - mean) / stdDev
+  }
+
   const runRatioAnalysis = async () => {
     if (!selectedPair.stockA || !selectedPair.stockB) {
       setError("Please select both stocks for analysis.")
@@ -512,6 +529,8 @@ export default function PairAnalyzer() {
         return
       }
 
+      // In the runRatioAnalysis function, after fetching the data, ensure it's sorted
+      // Find this line in runRatioAnalysis:
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
@@ -660,6 +679,7 @@ export default function PairAnalyzer() {
         return
       }
 
+      // Similarly, update the same lines in runOLSAnalysis and runKalmanAnalysis functions
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
@@ -820,6 +840,7 @@ export default function PairAnalyzer() {
         return
       }
 
+      // Similarly, update the same lines in runOLSAnalysis and runKalmanAnalysis functions
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
@@ -1524,6 +1545,10 @@ export default function PairAnalyzer() {
                   <h3 className="text-xl font-semibold text-white mb-4">Rolling Hedge Ratio Plot</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
+                      <LineChart\
+                  <h3 className="text-xl font-semibold text-white mb-4">Rolling Hedge Ratio Plot</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={analysisData.dates.map((date, i) => ({
                           date,
@@ -1781,5 +1806,5 @@ export default function PairAnalyzer() {
         </>
       )}
     </div>
-  )
+  )\
 }
