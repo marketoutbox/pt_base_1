@@ -540,7 +540,7 @@ export default function PairAnalyzer() {
       for (let i = 0; i < ratios.length; i++) {
         // Use the same lookback window as for ratio statistics
         const windowData = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
-        zScores.push(calculateZScore(windowData).pop())
+        zScores.push(calculateZScore(windowData))
       }
 
       // Calculate ratio statistics
@@ -694,7 +694,7 @@ export default function PairAnalyzer() {
       const zScores = []
       for (let i = 0; i < spreads.length; i++) {
         const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-        zScores.push(calculateZScore(windowData).pop())
+        zScores.push(calculateZScore(windowData))
       }
 
       // Calculate spread statistics
@@ -860,7 +860,7 @@ export default function PairAnalyzer() {
       const zScores = []
       for (let i = 0; i < spreads.length; i++) {
         const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-        zScores.push(calculateZScore(windowData).pop())
+        zScores.push(calculateZScore(windowData))
       }
 
       // Calculate spread statistics
@@ -1747,8 +1747,8 @@ export default function PairAnalyzer() {
                     {analysisData.tableData.map((row, index) => (
                       <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
                         <td className="table-cell">{row.date}</td>
-                        <td className="table-cell">{row.priceA.toFixed(2)}</td>
-                        <td className="table-cell">{row.priceB.toFixed(2)}</td>
+                        <td className="table-cell">{row.priceA?.toFixed(2) || "N/A"}</td>
+                        <td className="table-cell">{row.priceB?.toFixed(2) || "N/A"}</td>
                         {analysisData.statistics.modelType !== "ratio" && (
                           <>
                             <td className="table-cell">{row.alpha?.toFixed(4) || "N/A"}</td>
