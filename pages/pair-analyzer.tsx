@@ -92,9 +92,15 @@ export default function PairAnalyzer() {
     return [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   }
 
+  // Add a function to sort data by date in descending order (newest to oldest)
+  const sortByDateDescending = (data) => {
+    return [...data].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }
+
   // Modify the filterByDate function to also sort the data
   const filterByDate = (data) => {
     const filtered = data.filter((entry) => entry.date >= fromDate && entry.date <= toDate)
+    // Sort data from oldest to newest for proper analysis
     return sortByDateAscending(filtered)
   }
 
@@ -491,15 +497,52 @@ export default function PairAnalyzer() {
     return hurstExponent
   }
 
-  // Define a local z-score calculation function to avoid import issues
-  const calculateZScore = (data) => {
-    if (!data || data.length === 0) return 0
+  // Calculate z-scores for a time series using a lookback window
+  // This function calculates z-scores in reverse chronological order (newest to oldest)
+  const calculateZScoresReverse = (data, lookbackWindow) => {
+    const zScores = []
 
-    const mean = data.reduce((sum, val) => sum + val, 0) / data.length
-    const stdDev = Math.sqrt(data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length)
+    // Process data in reverse chronological order (newest to oldest)
+    for (let i = 0; i < data.length; i++) {
+      // For each point, look back (which means forward in the reversed array)
+      const windowStart = i
+      const windowEnd = Math.min(i + lookbackWindow, data.length)
+      const window = data.slice(windowStart, windowEnd)
 
-    // Return the z-score of the last element
-    return stdDev === 0 ? 0 : (data[data.length - 1] - mean) / stdDev
+      // Calculate z-score for the current point (which is the first in the window)
+      const mean = window.reduce((sum, val) => sum + val, 0) / window.length
+      const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
+
+      // The current point is the first in the window (index 0)
+      const zScore = stdDev === 0 ? 0 : (window[0] - mean) / stdDev
+      zScores.push(zScore)
+    }
+
+    return zScores
+  }
+
+  // Calculate z-scores for a time series using a lookback window
+  // This function calculates z-scores in chronological order (oldest to newest)
+  const calculateZScoresForward = (data, lookbackWindow) => {
+    const zScores = []
+
+    // Process data in chronological order (oldest to newest)
+    for (let i = 0; i < data.length; i++) {
+      // For each point, look back (which means backward in the array)
+      const windowStart = Math.max(0, i - lookbackWindow + 1)
+      const windowEnd = i + 1
+      const window = data.slice(windowStart, windowEnd)
+
+      // Calculate z-score for the current point (which is the last in the window)
+      const mean = window.reduce((sum, val) => sum + val, 0) / window.length
+      const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
+
+      // The current point is the last in the window
+      const zScore = stdDev === 0 ? 0 : (window[window.length - 1] - mean) / stdDev
+      zScores.push(zScore)
+    }
+
+    return zScores
   }
 
   const runRatioAnalysis = async () => {
@@ -529,8 +572,7 @@ export default function PairAnalyzer() {
         return
       }
 
-      // In the runRatioAnalysis function, after fetching the data, ensure it's sorted
-      // Find this line in runRatioAnalysis:
+      // Get the data and ensure it's sorted from oldest to newest
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
@@ -554,13 +596,8 @@ export default function PairAnalyzer() {
         ratios.push(pricesA[i].close / pricesB[i].close)
       }
 
-      // Calculate z-scores for ratios
-      const zScores = []
-      for (let i = 0; i < ratios.length; i++) {
-        // Use the same lookback window as for ratio statistics
-        const windowData = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
-        zScores.push(calculateZScore(windowData))
-      }
+      // Calculate z-scores for ratios using the forward-looking approach
+      const zScores = calculateZScoresForward(ratios, ratioLookbackWindow)
 
       // Calculate ratio statistics
       const meanRatio = ratios.reduce((sum, val) => sum + val, 0) / ratios.length
@@ -679,7 +716,7 @@ export default function PairAnalyzer() {
         return
       }
 
-      // Similarly, update the same lines in runOLSAnalysis and runKalmanAnalysis functions
+      // Get the data and ensure it's sorted from oldest to newest
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
@@ -710,12 +747,8 @@ export default function PairAnalyzer() {
         stockBPrices.push(pricesB[i].close)
       }
 
-      // Calculate z-scores for spreads
-      const zScores = []
-      for (let i = 0; i < spreads.length; i++) {
-        const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-        zScores.push(calculateZScore(windowData))
-      }
+      // Calculate z-scores for spreads using the forward-looking approach
+      const zScores = calculateZScoresForward(spreads, zScoreLookback)
 
       // Calculate spread statistics
       const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
@@ -840,7 +873,7 @@ export default function PairAnalyzer() {
         return
       }
 
-      // Similarly, update the same lines in runOLSAnalysis and runKalmanAnalysis functions
+      // Get the data and ensure it's sorted from oldest to newest
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
@@ -877,12 +910,8 @@ export default function PairAnalyzer() {
         spreads.push(spread)
       }
 
-      // Calculate z-scores for spreads
-      const zScores = []
-      for (let i = 0; i < spreads.length; i++) {
-        const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-        zScores.push(calculateZScore(windowData))
-      }
+      // Calculate z-scores for spreads using the forward-looking approach
+      const zScores = calculateZScoresForward(spreads, zScoreLookback)
 
       // Calculate spread statistics
       const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
@@ -1545,10 +1574,6 @@ export default function PairAnalyzer() {
                   <h3 className="text-xl font-semibold text-white mb-4">Rolling Hedge Ratio Plot</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart\
-                  <h3 className="text-xl font-semibold text-white mb-4">Rolling Hedge Ratio Plot</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={analysisData.dates.map((date, i) => ({
                           date,
@@ -1806,5 +1831,5 @@ export default function PairAnalyzer() {
         </>
       )}
     </div>
-  )\
+  )
 }
