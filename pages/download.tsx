@@ -1,144 +1,173 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import Layout from "../components/Layout"
-import Select from "../components/Select"
-import Button from "../components/Button"
-import { getDB, getStockData } from "../lib/indexedDB"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Download, AlertCircle } from "lucide-react"
+import { getAllStockSymbols, getStockData } from "../lib/indexedDB"
 
-export default function Download() {
-  const [stocks, setStocks] = useState<string[]>([])
-  const [selectedStock, setSelectedStock] = useState<string>("")
-  const [isLoading, setIsLoading] = useState<boolean>(false)
-  const [message, setMessage] = useState<string>("")
+export default function DownloadPage() {
+  const [symbols, setSymbols] = useState<string[]>([])
+  const [selectedSymbol, setSelectedSymbol] = useState<string>("")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Fetch available stocks from IndexedDB
   useEffect(() => {
-    async function fetchStocks() {
+    async function fetchSymbols() {
       try {
-        const db = await getDB()
-        const tx = db.transaction("stocks", "readonly")
-        const store = tx.objectStore("stocks")
-        const allStocks = await store.getAllKeys()
-        setStocks(allStocks as string[])
-        if (allStocks.length > 0) {
-          setSelectedStock(allStocks[0] as string)
-        }
-      } catch (error) {
-        console.error("Error fetching stocks:", error)
-        setMessage("Error loading stocks. Please check the console for details.")
+        setLoading(true)
+        const stockSymbols = await getAllStockSymbols()
+        setSymbols(stockSymbols)
+        setError(null)
+      } catch (err) {
+        console.error("Error fetching stock symbols:", err)
+        setError("Failed to load stock symbols from database")
+      } finally {
+        setLoading(false)
       }
     }
 
-    fetchStocks()
+    fetchSymbols()
   }, [])
 
-  // Handle stock selection change
-  const handleStockChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedStock(e.target.value)
-  }
-
-  // Download stock data as CSV
   const handleDownload = async () => {
-    if (!selectedStock) {
-      setMessage("Please select a stock first.")
+    if (!selectedSymbol) {
+      setError("Please select a stock symbol first")
       return
     }
 
-    setIsLoading(true)
-    setMessage("")
-
     try {
-      // Get stock data from IndexedDB
-      const stockData = await getStockData(selectedStock)
-      
-      if (!stockData || stockData.length === 0) {
-        setMessage(`No data available for ${selectedStock}.`)
-        setIsLoading(false)
+      setLoading(true)
+      const stockData = await getStockData(selectedSymbol)
+
+      if (!stockData || !stockData.data || stockData.data.length === 0) {
+        setError(`No data found for ${selectedSymbol}`)
+        setLoading(false)
         return
       }
 
-      // Convert to CSV
-      const headers = Object.keys(stockData[0]).join(",")
-      const rows = stockData.map(row => 
-        Object.values(row).map(value => 
-          typeof value === "string" && value.includes(",") 
-            ? `"${value}"` 
-            : value
-        ).join(",")
-      )
-      const csvContent = [headers, ...rows].join("\n")
+      // Convert data to CSV
+      const headers = ["date", "symbol", "open", "high", "low", "close"]
+      const csvContent = [
+        headers.join(","),
+        ...stockData.data.map((row) => {
+          return headers
+            .map((header) => {
+              // Handle special characters and commas in data
+              const value = row[header]
+              if (typeof value === "string" && (value.includes(",") || value.includes('"') || value.includes("\n"))) {
+                return `"${value.replace(/"/g, '""')}"`
+              }
+              return value
+            })
+            .join(",")
+        }),
+      ].join("\n")
 
-      // Create download link
+      // Create and download the file
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
       const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.setAttribute("href", url)
-      link.setAttribute("download", `${selectedStock}_data.csv`)
+      link.setAttribute("download", `${selectedSymbol}_data.csv`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
-      setMessage(`${selectedStock} data downloaded successfully.`)
-    } catch (error) {
-      console.error("Error downloading data:", error)
-      setMessage("Error downloading data. Please check the console for details.")
+      setError(null)
+    } catch (err) {
+      console.error("Error downloading stock data:", err)
+      setError(`Failed to download data for ${selectedSymbol}`)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <Layout title="Download Stock Data">
-      <div className="max-w-4xl mx-auto p-4 md:p-6">
-        <h1 className="text-2xl md:text-3xl font-bold mb-6 text-navy-100">Download Stock Data</h1>
-        
-        <div className="bg-gradient-to-b from-navy-900/80 to-navy-800/80 border border-navy-700/30 rounded-lg p-6 shadow-lg">
-          <div className="mb-6">
-            <label htmlFor="stock-select" className="block text-navy-100 mb-2 font-medium">
-              Select Stock
-            </label>
-            <Select
-              id="stock-select"
-              value={selectedStock}
-              onChange={handleStockChange}
-              disabled={stocks.length === 0 || isLoading}
-            >
-              {stocks.length === 0 ? (
-                <option value="">No stocks available</option>
-              ) : (
-                stocks.map((stock) => (
-                  <option key={stock} value={stock}>
-                    {stock}
-                  </option>
-                ))
-              )}
-            </Select>
-          </div>
+    <Layout>
+      <div className="container mx-auto px-4 py-8">
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle>Download Stock Data</CardTitle>
+            <CardDescription>Export your stored stock data as CSV files</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <Button 
-            onClick={handleDownload} 
-            disabled={!selectedStock || isLoading}
-            primary
-            className="w-full md:w-auto"
-          >
-            {isLoading ? "Preparing Download..." : "Download CSV"}
-          </Button>
+            {symbols.length === 0 && !loading ? (
+              <Alert>
+                <AlertDescription>
+                  No stock data found in the database. Please import or fetch some stock data first.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label htmlFor="stock-select" className="text-sm font-medium">
+                    Select Stock
+                  </label>
+                  <Select
+                    disabled={loading || symbols.length === 0}
+                    value={selectedSymbol}
+                    onValueChange={setSelectedSymbol}
+                  >
+                    <SelectTrigger id="stock-select">
+                      <SelectValue placeholder="Select a stock" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {symbols.map((symbol) => (
+                        <SelectItem key={symbol} value={symbol}>
+                          {symbol}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {message && (
-            <div className={`mt-4 p-3 rounded-md ${message.includes("Error") ? "bg-red-900/20 text-red-300" : "bg-green-900/20 text-green-300"}`}>
-              {message}
-            </div>
-          )}
-
-          <div className="mt-8 text-navy-300 text-sm">
-            <h3 className="font-medium text-navy-200 mb-2">About Downloaded Data</h3>
-            <p>The CSV file contains all historical price data stored in your browser for the selected stock. Data includes:</p>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Date</li>
-              <li>Symbol</li>
-              <li>Open, High, Low, Close prices</li>
-            </ul>
-          </div>
-        </div>
+                <Button onClick={handleDownload} disabled={loading || !selectedSymbol} className="w-full">
+                  {loading ? (
+                    <span className="flex items-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download CSV
+                    </span>
+                  )}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   )
