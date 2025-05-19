@@ -1,211 +1,99 @@
 "use client"
 
+import { type ReactNode, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/router"
-import { useEffect, useState } from "react"
 import { Menu, X } from "lucide-react"
-import Footer from "./Footer"
 
-export default function Layout({ children }) {
+interface LayoutProps {
+  children: ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const router = useRouter()
-  const [mounted, setMounted] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [mobileBacktestsOpen, setMobileBacktestsOpen] = useState(false)
 
-  // Only show the component after it's mounted on the client
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const navigation = [
+    { name: "Home", href: "/" },
+    { name: "Stocks", href: "/stocks" },
+    { name: "Watchlists", href: "/watchlists" },
+    { name: "Pair Analyzer", href: "/pair-analyzer" },
+    { name: "Backtest", href: "/backtest" },
+    { name: "Backtest Spread", href: "/backtest-spread" },
+    { name: "Download", href: "/download" }, // Added new Download link
+    { name: "Pricing", href: "/pricing" },
+  ]
 
-  if (!mounted) {
-    // Return a simple layout without router-dependent parts during SSR
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#0f1428] via-navy-950 to-navy-900 bg-fixed">
-        <nav>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex-shrink-0 flex items-center">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gold-400 to-gold-500 flex items-center justify-center">
-                  <span className="text-navy-950 font-bold text-lg">PT</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </nav>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
-        <Footer />
-      </div>
-    )
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0f1428] via-navy-950 to-navy-900 bg-fixed">
-      <nav>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+      <nav className="bg-white dark:bg-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex-shrink-0 flex items-center">
-              <img src="/assets/pt_logo.png" alt="PairTrade Logo" className="h-10" />
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex nav-links space-x-6">
-              <NavLink href="/" current={router.pathname === "/"}>
-                Home
-              </NavLink>
-              <NavLink href="/stocks" current={router.pathname === "/stocks"}>
-                Stocks
-              </NavLink>
-              <NavLink href="/watchlists" current={router.pathname === "/watchlists"}>
-                Watchlists
-              </NavLink>
-              <NavLink href="/pair-analyzer" current={router.pathname === "/pair-analyzer"}>
-                Pair Analyzer
-              </NavLink>
-
-              {/* Dropdown for backtests */}
-              <div
-                className="relative"
-                onMouseEnter={() => setDropdownOpen(true)}
-                onMouseLeave={() => setDropdownOpen(false)}
-              >
-                <button
-                  className={`px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center border ${
-                    router.pathname === "/backtest" || router.pathname === "/backtest-spread"
-                      ? "bg-gold-400 hover:bg-gold-500 text-navy-950 border-transparent"
-                      : "text-navy-100 border-transparent hover:border-gold-400"
-                  }`}
-                >
-                  Backtests
-                </button>
-
-                {dropdownOpen && (
-                  <div className="absolute left-0 mt-1 w-48 rounded-md shadow-lg bg-navy-800 ring-1 ring-black ring-opacity-5 z-10">
-                    <div className="py-1" role="menu" aria-orientation="vertical">
-                      <Link
-                        href="/backtest"
-                        className={`block px-4 py-2 text-sm ${
-                          router.pathname === "/backtest"
-                            ? "bg-gold-400 text-navy-950"
-                            : "text-navy-100 hover:bg-navy-700"
-                        }`}
-                        role="menuitem"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Ratio Backtest
-                      </Link>
-                      <Link
-                        href="/backtest-spread"
-                        className={`block px-4 py-2 text-sm ${
-                          router.pathname === "/backtest-spread"
-                            ? "bg-gold-400 text-navy-950"
-                            : "text-navy-100 hover:bg-navy-700"
-                        }`}
-                        role="menuitem"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Spread Backtest
-                      </Link>
-                    </div>
-                  </div>
-                )}
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <div className="flex-shrink-0 flex items-center">
+                <Link href="/" className="text-xl font-bold text-gray-800 dark:text-white">
+                  SED
+                </Link>
               </div>
-
-              <NavLink href="/pricing" current={router.pathname === "/pricing"}>
-                Pricing
-              </NavLink>
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                {navigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`${
+                      router.pathname === item.href
+                        ? "border-indigo-500 text-gray-900 dark:text-white"
+                        : "border-transparent text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700"
+                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
             </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
+            <div className="-mr-2 flex items-center sm:hidden">
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-300 hover:text-white hover:bg-navy-800 focus:outline-none"
+                onClick={toggleMenu}
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
               >
-                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                <span className="sr-only">Open main menu</span>
+                {isMenuOpen ? (
+                  <X className="block h-6 w-6" aria-hidden="true" />
+                ) : (
+                  <Menu className="block h-6 w-6" aria-hidden="true" />
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-navy-800">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-              <MobileNavLink href="/" current={router.pathname === "/"}>
-                Home
-              </MobileNavLink>
-              <MobileNavLink href="/stocks" current={router.pathname === "/stocks"}>
-                Stocks
-              </MobileNavLink>
-              <MobileNavLink href="/watchlists" current={router.pathname === "/watchlists"}>
-                Watchlists
-              </MobileNavLink>
-              <MobileNavLink href="/pair-analyzer" current={router.pathname === "/pair-analyzer"}>
-                Pair Analyzer
-              </MobileNavLink>
-
-              {/* Mobile Backtests Dropdown */}
-              <div>
-                <button
-                  onClick={() => setMobileBacktestsOpen(!mobileBacktestsOpen)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-base font-medium border ${
-                    router.pathname === "/backtest" || router.pathname === "/backtest-spread"
-                      ? "bg-gold-400 text-navy-950 border-transparent"
-                      : "text-navy-100 border-transparent hover:border-gold-400"
-                  }`}
+        {isMenuOpen && (
+          <div className="sm:hidden">
+            <div className="pt-2 pb-3 space-y-1">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`${
+                    router.pathname === item.href
+                      ? "bg-indigo-50 dark:bg-gray-700 border-indigo-500 text-indigo-700 dark:text-white"
+                      : "border-transparent text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-200"
+                  } block pl-3 pr-4 py-2 border-l-4 text-base font-medium`}
+                  onClick={toggleMenu}
                 >
-                  Backtests
-                </button>
-                {mobileBacktestsOpen && (
-                  <div className="pl-4 mt-1 space-y-1">
-                    <MobileNavLink href="/backtest" current={router.pathname === "/backtest"} isSubmenu>
-                      Ratio Backtest
-                    </MobileNavLink>
-                    <MobileNavLink href="/backtest-spread" current={router.pathname === "/backtest-spread"} isSubmenu>
-                      Spread Backtest
-                    </MobileNavLink>
-                  </div>
-                )}
-              </div>
-
-              <MobileNavLink href="/pricing" current={router.pathname === "/pricing"}>
-                Pricing
-              </MobileNavLink>
+                  {item.name}
+                </Link>
+              ))}
             </div>
           </div>
         )}
       </nav>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
-      <Footer />
+
+      <main>{children}</main>
     </div>
-  )
-}
-
-function NavLink({ href, current, children }) {
-  return (
-    <Link
-      href={href}
-      className={`px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center border ${
-        current
-          ? "bg-gold-400 hover:bg-gold-500 text-navy-950 border-transparent"
-          : "text-navy-100 border-transparent hover:border-gold-400"
-      }`}
-    >
-      {children}
-    </Link>
-  )
-}
-
-function MobileNavLink({ href, current, isSubmenu = false, children }) {
-  return (
-    <Link
-      href={href}
-      className={`block px-3 py-2 rounded-md text-base font-medium ${isSubmenu ? "ml-4" : ""} ${
-        current ? "bg-gold-400 text-navy-950" : "text-navy-100 hover:bg-navy-800"
-      }`}
-    >
-      {children}
-    </Link>
   )
 }
