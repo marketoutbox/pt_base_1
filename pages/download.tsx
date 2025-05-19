@@ -7,83 +7,107 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, AlertCircle } from "lucide-react"
-import { getAllStockSymbols, getStockData } from "../lib/indexedDB"
+import { getDB } from "../lib/indexedDB"
 
 export default function DownloadPage() {
-  const [symbols, setSymbols] = useState<string[]>([])
-  const [selectedSymbol, setSelectedSymbol] = useState<string>("")
+  const [stocks, setStocks] = useState([])
+  const [selectedStock, setSelectedStock] = useState("")
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(null)
 
+  // Fetch all available stocks from IndexedDB
   useEffect(() => {
-    async function fetchSymbols() {
+    async function fetchStocks() {
       try {
         setLoading(true)
-        const stockSymbols = await getAllStockSymbols()
-        setSymbols(stockSymbols)
-        setError(null)
+        const db = await getDB()
+        const tx = db.transaction("stocks", "readonly")
+        const store = tx.objectStore("stocks")
+        const allStocks = await store.getAll()
+
+        if (allStocks && allStocks.length > 0) {
+          // Extract just the symbols
+          const symbols = allStocks.map((stock) => stock.symbol)
+          setStocks(symbols)
+          if (symbols.length > 0) {
+            setSelectedStock(symbols[0])
+          }
+        }
+        setLoading(false)
       } catch (err) {
-        console.error("Error fetching stock symbols:", err)
-        setError("Failed to load stock symbols from database")
-      } finally {
+        console.error("Error fetching stocks:", err)
+        setError("Failed to load stocks from database. Please make sure you have stock data stored.")
         setLoading(false)
       }
     }
 
-    fetchSymbols()
+    fetchStocks()
   }, [])
 
+  // Handle stock selection change
+  const handleStockChange = (e) => {
+    setSelectedStock(e.target.value)
+  }
+
+  // Convert stock data to CSV and download
   const handleDownload = async () => {
-    if (!selectedSymbol) {
-      setError("Please select a stock symbol first")
-      return
-    }
+    if (!selectedStock) return
 
     try {
       setLoading(true)
-      const stockData = await getStockData(selectedSymbol)
+      const db = await getDB()
+      const tx = db.transaction("stocks", "readonly")
+      const store = tx.objectStore("stocks")
+      const stockData = await store.get(selectedStock)
 
-      if (!stockData || !stockData.data || stockData.data.length === 0) {
-        setError(`No data found for ${selectedSymbol}`)
-        setLoading(false)
-        return
+      if (stockData && stockData.data && stockData.data.length > 0) {
+        // Convert data to CSV
+        const csvContent = convertToCSV(stockData.data)
+
+        // Create download link
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.setAttribute("href", url)
+        link.setAttribute("download", `${selectedStock}_data.csv`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else {
+        setError(`No data found for ${selectedStock}`)
       }
-
-      // Convert data to CSV
-      const headers = ["date", "symbol", "open", "high", "low", "close"]
-      const csvContent = [
-        headers.join(","),
-        ...stockData.data.map((row) => {
-          return headers
-            .map((header) => {
-              // Handle special characters and commas in data
-              const value = row[header]
-              if (typeof value === "string" && (value.includes(",") || value.includes('"') || value.includes("\n"))) {
-                return `"${value.replace(/"/g, '""')}"`
-              }
-              return value
-            })
-            .join(",")
-        }),
-      ].join("\n")
-
-      // Create and download the file
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.setAttribute("href", url)
-      link.setAttribute("download", `${selectedSymbol}_data.csv`)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      setError(null)
+      setLoading(false)
     } catch (err) {
       console.error("Error downloading stock data:", err)
-      setError(`Failed to download data for ${selectedSymbol}`)
-    } finally {
+      setError("Failed to download stock data")
       setLoading(false)
     }
+  }
+
+  // Convert JSON data to CSV format
+  const convertToCSV = (data) => {
+    if (!data || data.length === 0) return ""
+
+    // Get headers from the first object
+    const headers = Object.keys(data[0])
+
+    // Create CSV header row
+    let csv = headers.join(",") + "\n"
+
+    // Add data rows
+    data.forEach((row) => {
+      const values = headers.map((header) => {
+        const value = row[header]
+        // Handle strings with commas by wrapping in quotes
+        if (typeof value === "string" && value.includes(",")) {
+          return `"${value}"`
+        }
+        return value
+      })
+      csv += values.join(",") + "\n"
+    })
+
+    return csv
   }
 
   return (
@@ -102,7 +126,7 @@ export default function DownloadPage() {
               </Alert>
             )}
 
-            {symbols.length === 0 && !loading ? (
+            {stocks.length === 0 && !loading ? (
               <Alert>
                 <AlertDescription>
                   No stock data found in the database. Please import or fetch some stock data first.
@@ -115,15 +139,15 @@ export default function DownloadPage() {
                     Select Stock
                   </label>
                   <Select
-                    disabled={loading || symbols.length === 0}
-                    value={selectedSymbol}
-                    onValueChange={setSelectedSymbol}
+                    disabled={loading || stocks.length === 0}
+                    value={selectedStock}
+                    onValueChange={setSelectedStock}
                   >
                     <SelectTrigger id="stock-select">
                       <SelectValue placeholder="Select a stock" />
                     </SelectTrigger>
                     <SelectContent>
-                      {symbols.map((symbol) => (
+                      {stocks.map((symbol) => (
                         <SelectItem key={symbol} value={symbol}>
                           {symbol}
                         </SelectItem>
@@ -132,7 +156,7 @@ export default function DownloadPage() {
                   </Select>
                 </div>
 
-                <Button onClick={handleDownload} disabled={loading || !selectedSymbol} className="w-full">
+                <Button onClick={handleDownload} disabled={loading || !selectedStock} className="w-full">
                   {loading ? (
                     <span className="flex items-center">
                       <svg
