@@ -89,7 +89,9 @@ export default function PairAnalyzer() {
   }
 
   const filterByDate = (data) => {
-    return data.filter((entry) => entry.date >= fromDate && entry.date <= toDate)
+    return data
+      .filter((entry) => entry.date >= fromDate && entry.date <= toDate)
+      .sort((a, b) => new Date(a.date) - new Date(b.date)) // Sort by date in ascending order (oldest to newest)
   }
 
   // OLS regression for hedge ratio calculation
