@@ -363,8 +363,8 @@ export default function PairAnalyzer() {
     const halfLife = -Math.log(2) / beta
 
     return {
-      halfLife: halfLife > 0 && halfLife < 252 ? halfLife : 0,
-      isValid: halfLife > 0 && halfLife < 252,
+      halfLife: beta < 0 ? halfLife : 0, // Return actual value if beta is negative
+      isValid: halfLife > 0 && halfLife < 252, // Still mark as valid only if within trading range
     }
   }
 
@@ -423,8 +423,8 @@ export default function PairAnalyzer() {
       // Calculate half-life
       const halfLife = beta < 0 ? -Math.log(2) / beta : null
 
-      // Check if half-life is valid
-      if (halfLife !== null && halfLife > 0 && halfLife < 252) {
+      // Check if half-life is valid (just needs to be positive)
+      if (halfLife !== null && halfLife > 0) {
         result.push(halfLife)
       } else {
         result.push(null)
@@ -637,7 +637,6 @@ export default function PairAnalyzer() {
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
       // Prepare table data (last 30 days or less)
-      // Prepare complete table data
       const tableData = []
       for (let i = 0; i < dates.length; i++) {
         tableData.push({
@@ -1371,7 +1370,9 @@ export default function PairAnalyzer() {
                     <span
                       className={`font-medium ${analysisData.statistics.halfLifeValid ? "text-gold-400" : "text-red-400"}`}
                     >
-                      {analysisData.statistics.halfLifeValid ? analysisData.statistics.halfLife.toFixed(2) : "Invalid"}
+                      {analysisData.statistics.halfLife > 0
+                        ? `${analysisData.statistics.halfLife.toFixed(2)}${!analysisData.statistics.halfLifeValid ? " (Too slow)" : ""}`
+                        : "Invalid"}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1853,7 +1854,7 @@ export default function PairAnalyzer() {
                               className={`${
                                 Number.parseFloat(row.halfLife) < 20
                                   ? "text-green-400"
-                                  : Number.parseFloat(row.halfLife) > 60
+                                  : Number.parseFloat(row.halfLife) > 252
                                     ? "text-red-400"
                                     : "text-gold-400"
                               }`}
