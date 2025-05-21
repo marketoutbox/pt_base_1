@@ -368,6 +368,72 @@ export default function PairAnalyzer() {
     }
   }
 
+  // Add rolling half-life calculation
+  const calculateRollingHalfLife = (data, windowSize) => {
+    const result = []
+
+    // Need at least windowSize + 1 data points to calculate half-life
+    if (data.length < windowSize + 1) {
+      return Array(data.length).fill(null)
+    }
+
+    // For each point where we have enough previous data
+    for (let i = 0; i < data.length; i++) {
+      if (i < windowSize - 1) {
+        // Not enough data yet
+        result.push(null)
+        continue
+      }
+
+      // Get window of data
+      const windowData = data.slice(Math.max(0, i - windowSize + 1), i + 1)
+
+      // Calculate mean of window
+      const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
+
+      // Calculate differences and lags
+      const y = []
+      const x = []
+
+      for (let j = 1; j < windowData.length; j++) {
+        y.push(windowData[j] - windowData[j - 1])
+        x.push(windowData[j - 1] - mean) // De-mean the data
+      }
+
+      // Calculate regression
+      let sumX = 0,
+        sumY = 0,
+        sumXY = 0,
+        sumX2 = 0
+      for (let j = 0; j < y.length; j++) {
+        sumX += x[j]
+        sumY += y[j]
+        sumXY += x[j] * y[j]
+        sumX2 += x[j] * x[j]
+      }
+
+      // Avoid division by zero
+      if (sumX2 === 0) {
+        result.push(null)
+        continue
+      }
+
+      const beta = (y.length * sumXY - sumX * sumY) / (y.length * sumX2 - sumX * sumX)
+
+      // Calculate half-life
+      const halfLife = beta < 0 ? -Math.log(2) / beta : null
+
+      // Check if half-life is valid
+      if (halfLife !== null && halfLife > 0 && halfLife < 252) {
+        result.push(halfLife)
+      } else {
+        result.push(null)
+      }
+    }
+
+    return result
+  }
+
   // New function to calculate practical trade half-life
   const calculatePracticalTradeHalfLife = (zScores, entryThreshold = 2.0, exitThreshold = 0.5) => {
     const tradeCycles = []
@@ -537,6 +603,9 @@ export default function PairAnalyzer() {
         ratios.push(pricesA[i].close / pricesB[i].close)
       }
 
+      // Calculate rolling half-life values
+      const rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
+
       // Calculate z-scores for ratios
       const zScores = []
       for (let i = 0; i < ratios.length; i++) {
@@ -577,6 +646,7 @@ export default function PairAnalyzer() {
           priceB: stockBPrices[i],
           ratio: ratios[i],
           zScore: zScores[i],
+          halfLife: rollingHalfLifes[i] !== null ? rollingHalfLifes[i].toFixed(2) : "N/A",
         })
       }
 
@@ -1748,6 +1818,7 @@ export default function PairAnalyzer() {
                         {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"}
                       </th>
                       <th className="table-header">Z-score</th>
+                      <th className="table-header">Half-Life</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-navy-800">
@@ -1775,6 +1846,23 @@ export default function PairAnalyzer() {
                           }`}
                         >
                           {row.zScore.toFixed(4)}
+                        </td>
+                        <td className="table-cell">
+                          {row.halfLife !== "N/A" ? (
+                            <span
+                              className={`${
+                                Number.parseFloat(row.halfLife) < 20
+                                  ? "text-green-400"
+                                  : Number.parseFloat(row.halfLife) > 60
+                                    ? "text-red-400"
+                                    : "text-gold-400"
+                              }`}
+                            >
+                              {row.halfLife}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">N/A</span>
+                          )}
                         </td>
                       </tr>
                     ))}
