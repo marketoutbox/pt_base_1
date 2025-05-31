@@ -94,7 +94,7 @@ export default function PairAnalyzer() {
       .sort((a, b) => new Date(a.date) - new Date(b.date)) // Sort by date in ascending order (oldest to newest)
   }
 
-  // OLS regression for hedge ratio calculation
+  // OLS regression for hedge ratio calculation with enhanced debugging
   const calculateHedgeRatio = (pricesA, pricesB, currentIndex, windowSize) => {
     const startIdx = Math.max(0, currentIndex - windowSize + 1)
     const endIdx = currentIndex + 1
@@ -105,24 +105,110 @@ export default function PairAnalyzer() {
       sumB2 = 0
     let count = 0
 
+    // Debug logging for the last calculation
+    const isDebugDate = currentIndex === pricesA.length - 1 // Last date
+    const windowDates = []
+    const windowPricesA = []
+    const windowPricesB = []
+
+    // Enhanced data processing with type checking
     for (let i = startIdx; i < endIdx; i++) {
-      sumA += pricesA[i].close
-      sumB += pricesB[i].close
-      sumAB += pricesA[i].close * pricesB[i].close
-      sumB2 += pricesB[i].close * pricesB[i].close
+      // Ensure data is numeric - explicit conversion
+      const priceA = typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+      const priceB = typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+
+      // Validate numeric conversion
+      if (isNaN(priceA) || isNaN(priceB)) {
+        console.error(`Invalid price data at index ${i}: TCS=${pricesA[i].close}, HCL=${pricesB[i].close}`)
+        continue
+      }
+
+      sumA += priceA
+      sumB += priceB
+      sumAB += priceA * priceB
+      sumB2 += priceB * priceB
       count++
+
+      if (isDebugDate) {
+        windowDates.push(pricesA[i].date)
+        windowPricesA.push(priceA)
+        windowPricesB.push(priceB)
+
+        // Log data types for first few entries
+        if (i >= endIdx - 3) {
+          console.log(`Data types - Day ${i}: TCS type=${typeof pricesA[i].close}, HCL type=${typeof pricesB[i].close}`)
+          console.log(`Original values: TCS=${pricesA[i].close}, HCL=${pricesB[i].close}`)
+          console.log(`Converted values: TCS=${priceA}, HCL=${priceB}`)
+        }
+      }
     }
 
     // Avoid division by zero
-    if (count === 0 || count * sumB2 - sumB * sumB === 0) return { beta: 1, alpha: 0 }
+    if (count === 0 || count * sumB2 - sumB * sumB === 0) {
+      console.warn("Division by zero or no valid data in OLS calculation")
+      return { beta: 1, alpha: 0 }
+    }
 
-    // Calculate beta (slope)
-    const beta = (count * sumAB - sumA * sumB) / (count * sumB2 - sumB * sumB)
+    // Calculate beta (slope) - Standard OLS formula
+    const numerator = count * sumAB - sumA * sumB
+    const denominator = count * sumB2 - sumB * sumB
+    const beta = numerator / denominator
 
     // Calculate alpha (intercept)
     const meanA = sumA / count
     const meanB = sumB / count
     const alpha = meanA - beta * meanB
+
+    if (isDebugDate) {
+      console.log("=== ENHANCED OLS DEBUG INFO ===")
+      console.log(`Window period: ${windowDates[0]} to ${windowDates[windowDates.length - 1]}`)
+      console.log(`Window size: ${count} days (requested: ${windowSize})`)
+      console.log(`Index range: ${startIdx} to ${endIdx - 1}`)
+      console.log("")
+      console.log("Raw sums:")
+      console.log(`  sumA (TCS): ${sumA}`)
+      console.log(`  sumB (HCL): ${sumB}`)
+      console.log(`  sumAB: ${sumAB}`)
+      console.log(`  sumB2: ${sumB2}`)
+      console.log("")
+      console.log("Means:")
+      console.log(`  meanA (TCS): ${meanA}`)
+      console.log(`  meanB (HCL): ${meanB}`)
+      console.log("")
+      console.log("OLS calculation:")
+      console.log(`  numerator: ${count} * ${sumAB} - ${sumA} * ${sumB} = ${numerator}`)
+      console.log(`  denominator: ${count} * ${sumB2} - ${sumB} * ${sumB} = ${denominator}`)
+      console.log(`  beta: ${numerator} / ${denominator} = ${beta}`)
+      console.log(`  alpha: ${meanA} - ${beta} * ${meanB} = ${alpha}`)
+      console.log("")
+      console.log("Sample window data (last 5 days):")
+      for (let i = Math.max(0, windowPricesA.length - 5); i < windowPricesA.length; i++) {
+        console.log(`  ${windowDates[i]}: TCS=${windowPricesA[i]}, HCL=${windowPricesB[i]}`)
+      }
+      console.log("")
+
+      // Manual verification for last 3 days
+      if (windowPricesA.length >= 3) {
+        const last3A = windowPricesA.slice(-3)
+        const last3B = windowPricesB.slice(-3)
+        const n = 3
+        const manualSumA = last3A.reduce((sum, val) => sum + val, 0)
+        const manualSumB = last3B.reduce((sum, val) => sum + val, 0)
+        const manualSumAB = last3A.reduce((sum, val, i) => sum + val * last3B[i], 0)
+        const manualSumB2 = last3B.reduce((sum, val) => sum + val * val, 0)
+
+        const manualNumerator = n * manualSumAB - manualSumA * manualSumB
+        const manualDenominator = n * manualSumB2 - manualSumB * manualSumB
+        const manualBeta = manualNumerator / manualDenominator
+        const manualAlpha = manualSumA / n - manualBeta * (manualSumB / n)
+
+        console.log("Manual verification (last 3 days):")
+        console.log(`  Data: TCS=[${last3A.join(", ")}], HCL=[${last3B.join(", ")}]`)
+        console.log(`  Sums: A=${manualSumA}, B=${manualSumB}, AB=${manualSumAB}, B2=${manualSumB2}`)
+        console.log(`  Beta: ${manualBeta}, Alpha: ${manualAlpha}`)
+      }
+      console.log("===============================")
+    }
 
     return { beta, alpha }
   }
@@ -735,6 +821,23 @@ export default function PairAnalyzer() {
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
+      // Add this right after the filterByDate calls in runOLSAnalysis
+      console.log("=== DATA VALIDATION ===")
+      console.log(`Filtered data length: TCS=${pricesA.length}, HCL=${pricesB.length}`)
+      console.log("Sample data types and values:")
+      for (let i = 0; i < Math.min(3, pricesA.length); i++) {
+        console.log(
+          `  Day ${i}: TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
+        )
+      }
+      console.log("Last few data points:")
+      for (let i = Math.max(0, pricesA.length - 3); i < pricesA.length; i++) {
+        console.log(
+          `  Day ${i}: ${pricesA[i].date} - TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
+        )
+      }
+      console.log("=======================")
+
       if (pricesA.length < olsLookbackWindow || pricesB.length < olsLookbackWindow) {
         setError(`Not enough data points for the selected lookback window (${olsLookbackWindow} days).`)
         setIsLoading(false)
@@ -749,17 +852,38 @@ export default function PairAnalyzer() {
       const stockBPrices = []
       const alphas = []
 
-      // Calculate rolling hedge ratios and spreads using OLS
+      // Replace the spread calculation loop in runOLSAnalysis with this enhanced version
       for (let i = 0; i < minLength; i++) {
         const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
-        const spread = pricesA[i].close - (alpha + beta * pricesB[i].close)
+
+        // Ensure numeric values for spread calculation
+        const currentPriceA =
+          typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+        const currentPriceB =
+          typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+
+        const spread = currentPriceA - (alpha + beta * currentPriceB)
 
         hedgeRatios.push(beta)
         alphas.push(alpha)
         spreads.push(spread)
         dates.push(pricesA[i].date)
-        stockAPrices.push(pricesA[i].close)
-        stockBPrices.push(pricesB[i].close)
+        stockAPrices.push(currentPriceA)
+        stockBPrices.push(currentPriceB)
+
+        // Debug the last calculation
+        if (i === minLength - 1) {
+          console.log("=== FINAL SPREAD CALCULATION ===")
+          console.log(`Date: ${pricesA[i].date}`)
+          console.log(`TCS price: ${currentPriceA}`)
+          console.log(`HCL price: ${currentPriceB}`)
+          console.log(`Alpha: ${alpha}`)
+          console.log(`Beta: ${beta}`)
+          console.log(`Expected TCS: ${alpha + beta * currentPriceB}`)
+          console.log(`Actual TCS: ${currentPriceA}`)
+          console.log(`Spread: ${spread}`)
+          console.log("================================")
+        }
       }
 
       // Calculate z-scores for spreads
@@ -1027,7 +1151,6 @@ export default function PairAnalyzer() {
       })
     } catch (error) {
       console.error("Error in analysis:", error)
-      setError("An error occurred during analysis. Please try again.")
     } finally {
       setIsLoading(false)
     }
