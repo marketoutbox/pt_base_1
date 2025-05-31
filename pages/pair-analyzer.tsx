@@ -213,6 +213,55 @@ export default function PairAnalyzer() {
     return { beta, alpha }
   }
 
+  // Add this function to help compare with ChatGPT implementation
+  const compareWithChatGPT = (pricesA, pricesB, windowSize = 60) => {
+    console.log("=== CHATGPT COMPARISON DATA ===")
+
+    // Get last 60 days of data
+    const endIdx = pricesA.length - 1
+    const startIdx = Math.max(0, endIdx - windowSize + 1)
+
+    console.log(`Comparison window: ${pricesA[startIdx].date} to ${pricesA[endIdx].date}`)
+    console.log(`Window size: ${endIdx - startIdx + 1} days`)
+
+    // Extract just the prices and dates for easy copying
+    const comparisonData = []
+    for (let i = startIdx; i <= endIdx; i++) {
+      comparisonData.push({
+        date: pricesA[i].date,
+        TCS: pricesA[i].close,
+        HCL: pricesB[i].close,
+      })
+    }
+
+    console.log("Raw data for ChatGPT (copy this):")
+    console.log("Date,TCS,HCL")
+    comparisonData.forEach((row) => {
+      console.log(`${row.date},${row.TCS},${row.HCL}`)
+    })
+
+    // Calculate our OLS result
+    const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, endIdx, windowSize)
+
+    console.log("\nOur OLS Results:")
+    console.log(`Beta: ${beta}`)
+    console.log(`Alpha: ${alpha}`)
+
+    // Calculate expected vs actual for last day
+    const lastTCS = pricesA[endIdx].close
+    const lastHCL = pricesB[endIdx].close
+    const expectedTCS = alpha + beta * lastHCL
+    const spread = lastTCS - expectedTCS
+
+    console.log(`\nLast day (${pricesA[endIdx].date}):`)
+    console.log(`Actual TCS: ${lastTCS}`)
+    console.log(`Expected TCS: ${expectedTCS}`)
+    console.log(`Spread: ${spread}`)
+    console.log("===============================")
+
+    return { beta, alpha, spread, data: comparisonData }
+  }
+
   // Kalman filter implementation for hedge ratio estimation
   const kalmanFilter = (pricesA, pricesB, processNoise = 0.01, measurementNoise = 0.1) => {
     const n = pricesA.length
@@ -851,6 +900,11 @@ export default function PairAnalyzer() {
       const stockAPrices = []
       const stockBPrices = []
       const alphas = []
+
+      // Add comparison data for ChatGPT
+      if (minLength > 60) {
+        compareWithChatGPT(pricesA, pricesB, 60)
+      }
 
       // Replace the spread calculation loop in runOLSAnalysis with this enhanced version
       for (let i = 0; i < minLength; i++) {
