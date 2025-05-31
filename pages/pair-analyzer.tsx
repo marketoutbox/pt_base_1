@@ -198,7 +198,7 @@ export default function PairAnalyzer() {
         const manualSumB2 = last3B.reduce((sum, val) => sum + val * val, 0)
 
         const manualNumerator = n * manualSumAB - manualSumA * manualSumB
-        const manualDenominator = n * manualSumB2 - manualSumB * sumB
+        const manualDenominator = n * manualSumB2 - sumB * sumB
         const manualBeta = manualNumerator / manualDenominator
         const manualAlpha = manualSumA / n - manualBeta * (manualSumB / n)
 
@@ -1028,11 +1028,47 @@ export default function PairAnalyzer() {
         }
       }
 
-      // Calculate z-scores for spreads
+      // Calculate z-scores for spreads using Gemini's methodology
       const zScores = []
-      for (let i = 0; i < spreads.length; i++) {
-        const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-        zScores.push(calculateZScore(windowData).pop())
+      for (let i = 0; i < minLength; i++) {
+        const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
+
+        // Calculate current day's spread
+        const currentPriceA =
+          typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+        const currentPriceB =
+          typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+        const currentSpread = currentPriceA - (alpha + beta * currentPriceB)
+
+        // Calculate window spreads using current alpha/beta for the entire window
+        const windowStart = Math.max(0, i - olsLookbackWindow + 1)
+        const windowSpreads = []
+
+        for (let j = windowStart; j <= i; j++) {
+          const windowPriceA =
+            typeof pricesA[j].close === "string" ? Number.parseFloat(pricesA[j].close) : pricesA[j].close
+          const windowPriceB =
+            typeof pricesB[j].close === "string" ? Number.parseFloat(pricesB[j].close) : pricesB[j].close
+          const windowSpread = windowPriceA - (alpha + beta * windowPriceB)
+          windowSpreads.push(windowSpread)
+        }
+
+        // Calculate z-score using sample standard deviation
+        if (windowSpreads.length > 1) {
+          const meanSpread = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
+          const sampleStdDev = Math.sqrt(
+            windowSpreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / (windowSpreads.length - 1),
+          )
+
+          if (sampleStdDev > 0) {
+            const zScore = (currentSpread - meanSpread) / sampleStdDev
+            zScores.push(zScore)
+          } else {
+            zScores.push(0)
+          }
+        } else {
+          zScores.push(0)
+        }
       }
 
       // Calculate spread statistics
