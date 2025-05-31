@@ -198,7 +198,7 @@ export default function PairAnalyzer() {
         const manualSumB2 = last3B.reduce((sum, val) => sum + val * val, 0)
 
         const manualNumerator = n * manualSumAB - manualSumA * manualSumB
-        const manualDenominator = n * manualSumB2 - manualSumB * manualSumB
+        const manualDenominator = n * manualSumB2 - manualSumB * sumB
         const manualBeta = manualNumerator / manualDenominator
         const manualAlpha = manualSumA / n - manualBeta * (manualSumB / n)
 
@@ -223,15 +223,24 @@ export default function PairAnalyzer() {
 
     console.log(`Comparison window: ${pricesA[startIdx].date} to ${pricesA[endIdx].date}`)
     console.log(`Window size: ${endIdx - startIdx + 1} days`)
+    console.log(`Start index: ${startIdx}, End index: ${endIdx}`)
 
     // Extract just the prices and dates for easy copying
     const comparisonData = []
+    const tcsValues = []
+    const hclValues = []
+
     for (let i = startIdx; i <= endIdx; i++) {
+      const tcs = typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+      const hcl = typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+
       comparisonData.push({
         date: pricesA[i].date,
-        TCS: pricesA[i].close,
-        HCL: pricesB[i].close,
+        TCS: tcs,
+        HCL: hcl,
       })
+      tcsValues.push(tcs)
+      hclValues.push(hcl)
     }
 
     console.log("Raw data for ChatGPT (copy this):")
@@ -240,26 +249,105 @@ export default function PairAnalyzer() {
       console.log(`${row.date},${row.TCS},${row.HCL}`)
     })
 
-    // Calculate our OLS result
-    const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, endIdx, windowSize)
+    // Calculate means
+    const meanTCS = tcsValues.reduce((sum, val) => sum + val, 0) / tcsValues.length
+    const meanHCL = hclValues.reduce((sum, val) => sum + val, 0) / hclValues.length
 
-    console.log("\nOur OLS Results:")
-    console.log(`Beta: ${beta}`)
-    console.log(`Alpha: ${alpha}`)
+    console.log(`\nOur calculated means:`)
+    console.log(`Mean TCS: ${meanTCS}`)
+    console.log(`Mean HCL: ${meanHCL}`)
+
+    // Method 1: Our current implementation (computational formula)
+    const { beta: beta1, alpha: alpha1 } = calculateHedgeRatio(pricesA, pricesB, endIdx, windowSize)
+
+    // Method 2: Covariance/Variance method (like ChatGPT)
+    let covariance = 0
+    let varianceHCL = 0
+
+    for (let i = 0; i < tcsValues.length; i++) {
+      const tcsDeviation = tcsValues[i] - meanTCS
+      const hclDeviation = hclValues[i] - meanHCL
+      covariance += tcsDeviation * hclDeviation
+      varianceHCL += hclDeviation * hclDeviation
+    }
+
+    covariance = covariance / (tcsValues.length - 1) // Sample covariance
+    varianceHCL = varianceHCL / (tcsValues.length - 1) // Sample variance
+
+    const beta2 = covariance / varianceHCL
+    const alpha2 = meanTCS - beta2 * meanHCL
+
+    console.log(`\nMethod 1 (Our computational formula):`)
+    console.log(`Beta: ${beta1}`)
+    console.log(`Alpha: ${alpha1}`)
+
+    console.log(`\nMethod 2 (Covariance/Variance like ChatGPT):`)
+    console.log(`Covariance: ${covariance}`)
+    console.log(`Variance HCL: ${varianceHCL}`)
+    console.log(`Beta: ${beta2}`)
+    console.log(`Alpha: ${alpha2}`)
+
+    // Method 3: Population covariance/variance (n instead of n-1)
+    const covariancePop = (covariance * (tcsValues.length - 1)) / tcsValues.length
+    const varianceHCLPop = (varianceHCL * (tcsValues.length - 1)) / tcsValues.length
+    const beta3 = covariancePop / varianceHCLPop
+    const alpha3 = meanTCS - beta3 * meanHCL
+
+    console.log(`\nMethod 3 (Population covariance/variance):`)
+    console.log(`Population Covariance: ${covariancePop}`)
+    console.log(`Population Variance HCL: ${varianceHCLPop}`)
+    console.log(`Beta: ${beta3}`)
+    console.log(`Alpha: ${alpha3}`)
+
+    // Verify our computational formula manually
+    let sumTCS = 0,
+      sumHCL = 0,
+      sumTCSHCL = 0,
+      sumHCL2 = 0
+    const n = tcsValues.length
+
+    for (let i = 0; i < n; i++) {
+      sumTCS += tcsValues[i]
+      sumHCL += hclValues[i]
+      sumTCSHCL += tcsValues[i] * hclValues[i]
+      sumHCL2 += hclValues[i] * hclValues[i]
+    }
+
+    const numerator = n * sumTCSHCL - sumTCS * sumHCL
+    const denominator = n * sumHCL2 - sumHCL * sumHCL
+    const beta4 = numerator / denominator
+    const alpha4 = sumTCS / n - beta4 * (sumHCL / n)
+
+    console.log(`\nMethod 4 (Manual verification of our formula):`)
+    console.log(`n: ${n}`)
+    console.log(`sumTCS: ${sumTCS}`)
+    console.log(`sumHCL: ${sumHCL}`)
+    console.log(`sumTCSHCL: ${sumTCSHCL}`)
+    console.log(`sumHCL2: ${sumHCL2}`)
+    console.log(`numerator: ${numerator}`)
+    console.log(`denominator: ${denominator}`)
+    console.log(`Beta: ${beta4}`)
+    console.log(`Alpha: ${alpha4}`)
 
     // Calculate expected vs actual for last day
-    const lastTCS = pricesA[endIdx].close
-    const lastHCL = pricesB[endIdx].close
-    const expectedTCS = alpha + beta * lastHCL
+    const lastTCS = tcsValues[tcsValues.length - 1]
+    const lastHCL = hclValues[hclValues.length - 1]
+    const expectedTCS = alpha1 + beta1 * lastHCL
     const spread = lastTCS - expectedTCS
 
     console.log(`\nLast day (${pricesA[endIdx].date}):`)
     console.log(`Actual TCS: ${lastTCS}`)
     console.log(`Expected TCS: ${expectedTCS}`)
     console.log(`Spread: ${spread}`)
+
+    console.log("\n=== COMPARISON SUMMARY ===")
+    console.log(`ChatGPT Beta: 4.25, Our Beta: ${beta1}`)
+    console.log(`ChatGPT Alpha: -3799.35, Our Alpha: ${alpha1}`)
+    console.log(`ChatGPT Mean TCS: 4200.35, Our Mean TCS: ${meanTCS}`)
+    console.log(`ChatGPT Mean HCL: 1879.93, Our Mean HCL: ${meanHCL}`)
     console.log("===============================")
 
-    return { beta, alpha, spread, data: comparisonData }
+    return { beta: beta1, alpha: alpha1, spread, data: comparisonData }
   }
 
   // Kalman filter implementation for hedge ratio estimation
