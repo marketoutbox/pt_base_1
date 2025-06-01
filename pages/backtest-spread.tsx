@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
-import calculateZScore from "../utils/calculations"
 
 export default function BacktestSpread() {
   const [stocks, setStocks] = useState([])
@@ -110,39 +109,86 @@ export default function BacktestSpread() {
       const store = tx.objectStore("stocks")
       const stockAData = await store.get(selectedPair.stockA)
       const stockBData = await store.get(selectedPair.stockB)
+
       if (!stockAData || !stockBData) {
         alert("Stock data not found.")
         setIsLoading(false)
         return
       }
 
-      const pricesA = filterByDate(stockAData.data)
-      const pricesB = filterByDate(stockBData.data)
-      const minLength = Math.min(pricesA.length, pricesB.length)
+      // Filter and sort data by date
+      const pricesA = filterByDate(stockAData.data).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      )
+      const pricesB = filterByDate(stockBData.data).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      )
+
+      // Ensure both arrays have the same dates
+      const commonDates = pricesA
+        .filter((a) => pricesB.some((b) => b.date === a.date))
+        .map((a) => a.date)
+        .sort()
+
+      const alignedPricesA = commonDates.map((date) => pricesA.find((p) => p.date === date)).filter(Boolean)
+      const alignedPricesB = commonDates.map((date) => pricesB.find((p) => p.date === date)).filter(Boolean)
+
+      const minLength = Math.min(alignedPricesA.length, alignedPricesB.length)
+
+      if (minLength < lookbackPeriod) {
+        alert(`Insufficient data. Need at least ${lookbackPeriod} days, but only have ${minLength} days.`)
+        setIsLoading(false)
+        return
+      }
 
       const spreads = []
       const hedgeRatios = []
 
       // Calculate rolling hedge ratios and spreads
       for (let i = 0; i < minLength; i++) {
-        // Use same lookback period for both hedge ratio and z-score for consistency
-        const currentHedgeRatio = calculateHedgeRatio(pricesA, pricesB, i, lookbackPeriod)
+        const currentHedgeRatio = calculateHedgeRatio(alignedPricesA, alignedPricesB, i, lookbackPeriod)
         hedgeRatios.push(currentHedgeRatio)
 
         spreads.push({
-          date: pricesA[i].date,
-          spread: pricesA[i].close - currentHedgeRatio * pricesB[i].close,
-          stockAClose: pricesA[i].close,
-          stockBClose: pricesB[i].close,
+          date: alignedPricesA[i].date,
+          spread: alignedPricesA[i].close - currentHedgeRatio * alignedPricesB[i].close,
+          stockAClose: alignedPricesA[i].close,
+          stockBClose: alignedPricesB[i].close,
           hedgeRatio: currentHedgeRatio,
+          index: i,
         })
       }
 
-      // Calculate z-scores for spreads
+      // Calculate z-scores using the corrected methodology
       const zScores = []
       for (let i = 0; i < spreads.length; i++) {
-        const windowData = spreads.slice(Math.max(0, i - lookbackPeriod + 1), i + 1).map((s) => s.spread)
-        zScores.push(calculateZScore(windowData).pop())
+        if (i < lookbackPeriod - 1) {
+          zScores.push(0) // Not enough data for z-score
+          continue
+        }
+
+        // Get the current regression parameters
+        const currentAlpha = spreads[i].stockAClose - spreads[i].hedgeRatio * spreads[i].stockBClose - spreads[i].spread
+        const currentBeta = spreads[i].hedgeRatio
+
+        // Calculate window spreads using current alpha/beta
+        const windowStart = Math.max(0, i - lookbackPeriod + 1)
+        const windowSpreads = []
+
+        for (let j = windowStart; j <= i; j++) {
+          const windowSpread = spreads[j].stockAClose - (currentAlpha + currentBeta * spreads[j].stockBClose)
+          windowSpreads.push(windowSpread)
+        }
+
+        // Calculate z-score using sample standard deviation
+        const mean = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
+        const variance =
+          windowSpreads.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowSpreads.length - 1)
+        const stdDev = Math.sqrt(variance)
+
+        const currentSpread = spreads[i].spread
+        const zScore = stdDev > 0 ? (currentSpread - mean) / stdDev : 0
+        zScores.push(zScore)
       }
 
       const tableData = spreads.map((item, index) => ({
@@ -152,64 +198,78 @@ export default function BacktestSpread() {
         spread: item.spread,
         zScore: zScores[index] || 0,
         hedgeRatio: item.hedgeRatio,
+        index: index,
       }))
+
       setBacktestData(tableData)
 
+      // Fixed trade logic
       const trades = []
       let openTrade = null
 
-      for (let i = 1; i < tableData.length; i++) {
-        const prevZ = tableData[i - 1].zScore
+      for (let i = lookbackPeriod; i < tableData.length; i++) {
+        const prevZ = i > 0 ? tableData[i - 1].zScore : 0
         const currZ = tableData[i].zScore
-        const { date, spread, hedgeRatio } = tableData[i]
+        const currentRow = tableData[i]
 
         if (!openTrade) {
+          // Entry conditions
           if (prevZ > -entryZ && currZ <= -entryZ) {
+            // Long entry (spread is oversold)
             openTrade = {
-              entryDate: date,
-              type: "LONG",
+              entryDate: currentRow.date,
               entryIndex: i,
-              entrySpread: spread,
-              entryHedgeRatio: hedgeRatio,
+              type: "LONG",
+              entrySpread: currentRow.spread,
+              entryHedgeRatio: currentRow.hedgeRatio,
+              entryZScore: currZ,
             }
           } else if (prevZ < entryZ && currZ >= entryZ) {
+            // Short entry (spread is overbought)
             openTrade = {
-              entryDate: date,
-              type: "SHORT",
+              entryDate: currentRow.date,
               entryIndex: i,
-              entrySpread: spread,
-              entryHedgeRatio: hedgeRatio,
+              type: "SHORT",
+              entrySpread: currentRow.spread,
+              entryHedgeRatio: currentRow.hedgeRatio,
+              entryZScore: currZ,
             }
           }
         } else {
-          const holdingPeriod = (new Date(date) - new Date(openTrade.entryDate)) / (1000 * 60 * 60 * 24)
-          const exitCondition =
+          // Exit conditions
+          const entryDate = new Date(openTrade.entryDate)
+          const currentDate = new Date(currentRow.date)
+          const holdingPeriod = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
+
+          const shouldExit =
             (openTrade.type === "LONG" && prevZ < -exitZ && currZ >= -exitZ) ||
             (openTrade.type === "SHORT" && prevZ > exitZ && currZ <= exitZ) ||
             holdingPeriod >= 15
 
-          if (exitCondition) {
-            const exitIndex = i
-            const exitSpread = spread
-            const currentHedgeRatio = hedgeRatio
+          if (shouldExit) {
+            const exitSpread = currentRow.spread
+            const currentHedgeRatio = currentRow.hedgeRatio
 
-            const tradeSlice = tableData.slice(openTrade.entryIndex, exitIndex + 1)
-            const spreadSeries = tradeSlice.map((s) => s.spread)
-            const drawdowns = spreadSeries.map((s) => {
-              if (openTrade.type === "LONG") return s - openTrade.entrySpread
-              else return openTrade.entrySpread - s
-            })
-            const maxDrawdown = Math.max(...drawdowns.map((d) => -d))
-
-            // Calculate profit using entry hedge ratio for consistency
+            // Calculate profit/loss
             const profit =
               openTrade.type === "LONG" ? exitSpread - openTrade.entrySpread : openTrade.entrySpread - exitSpread
 
+            // Calculate max drawdown during the trade
+            const tradeSlice = tableData.slice(openTrade.entryIndex, i + 1)
+            const drawdowns = tradeSlice.map((row) => {
+              if (openTrade.type === "LONG") {
+                return row.spread - openTrade.entrySpread
+              } else {
+                return openTrade.entrySpread - row.spread
+              }
+            })
+            const maxDrawdown = Math.max(...drawdowns.map((d) => -d), 0)
+
             trades.push({
               entryDate: openTrade.entryDate,
-              exitDate: date,
+              exitDate: currentRow.date,
               type: openTrade.type,
-              holdingPeriod: holdingPeriod.toFixed(0),
+              holdingPeriod: holdingPeriod.toString(),
               profit: profit.toFixed(2),
               maxDrawdown: maxDrawdown.toFixed(2),
               hedgeRatio: openTrade.entryHedgeRatio.toFixed(4),
@@ -218,6 +278,8 @@ export default function BacktestSpread() {
                 ((currentHedgeRatio - openTrade.entryHedgeRatio) / openTrade.entryHedgeRatio) *
                 100
               ).toFixed(2),
+              entryZScore: openTrade.entryZScore.toFixed(2),
+              exitZScore: currZ.toFixed(2),
             })
 
             openTrade = null
