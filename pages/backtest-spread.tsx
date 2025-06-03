@@ -15,6 +15,7 @@ export default function BacktestSpread() {
   const [lookbackPeriod, setLookbackPeriod] = useState(50)
   const [isLoading, setIsLoading] = useState(false)
   const [capitalPerTrade, setCapitalPerTrade] = useState(100000)
+  const [riskFreeRate, setRiskFreeRate] = useState(0.02) // 2% annual risk-free rate
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -94,6 +95,157 @@ export default function BacktestSpread() {
     if (count === 0 || count * sumB2 - sumB * sumB === 0) return 1
 
     return (count * sumAB - sumA * sumB) / (count * sumB2 - sumB * sumB)
+  }
+
+  const calculateAdvancedMetrics = (trades, method = "hedged") => {
+    if (trades.length === 0) return {}
+
+    const pnlKey = method === "hedged" ? "hedgedPnL" : "dollarNeutralPnL"
+    const roiKey = method === "hedged" ? "hedgedROI" : "dollarNeutralROI"
+
+    // Separate trades by direction
+    const longTrades = trades.filter((t) => t.type === "LONG")
+    const shortTrades = trades.filter((t) => t.type === "SHORT")
+
+    // Calculate directional metrics
+    const longWins = longTrades.filter((t) => Number.parseFloat(t[pnlKey]) > 0)
+    const longLosses = longTrades.filter((t) => Number.parseFloat(t[pnlKey]) <= 0)
+    const shortWins = shortTrades.filter((t) => Number.parseFloat(t[pnlKey]) > 0)
+    const shortLosses = shortTrades.filter((t) => Number.parseFloat(t[pnlKey]) <= 0)
+
+    const longWinRate = longTrades.length > 0 ? (longWins.length / longTrades.length) * 100 : 0
+    const longLossRate = longTrades.length > 0 ? (longLosses.length / longTrades.length) * 100 : 0
+    const shortWinRate = shortTrades.length > 0 ? (shortWins.length / shortTrades.length) * 100 : 0
+    const shortLossRate = shortTrades.length > 0 ? (shortLosses.length / shortTrades.length) * 100 : 0
+
+    // Calculate average wins/losses
+    const avgLongWin =
+      longWins.length > 0 ? longWins.reduce((sum, t) => sum + Number.parseFloat(t[pnlKey]), 0) / longWins.length : 0
+    const avgLongLoss =
+      longLosses.length > 0
+        ? longLosses.reduce((sum, t) => sum + Number.parseFloat(t[pnlKey]), 0) / longLosses.length
+        : 0
+    const avgShortWin =
+      shortWins.length > 0 ? shortWins.reduce((sum, t) => sum + Number.parseFloat(t[pnlKey]), 0) / shortWins.length : 0
+    const avgShortLoss =
+      shortLosses.length > 0
+        ? shortLosses.reduce((sum, t) => sum + Number.parseFloat(t[pnlKey]), 0) / shortLosses.length
+        : 0
+
+    // Overall metrics
+    const allWins = trades.filter((t) => Number.parseFloat(t[pnlKey]) > 0)
+    const allLosses = trades.filter((t) => Number.parseFloat(t[pnlKey]) <= 0)
+
+    const grossProfit = allWins.reduce((sum, t) => sum + Number.parseFloat(t[pnlKey]), 0)
+    const grossLoss = Math.abs(allLosses.reduce((sum, t) => sum + Number.parseFloat(t[pnlKey]), 0))
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Number.POSITIVE_INFINITY : 0
+
+    const avgWin = allWins.length > 0 ? grossProfit / allWins.length : 0
+    const avgLoss = allLosses.length > 0 ? grossLoss / allLosses.length : 0
+    const winLossRatio = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? Number.POSITIVE_INFINITY : 0
+
+    const winRate = trades.length > 0 ? (allWins.length / trades.length) * 100 : 0
+    const expectancy = (winRate / 100) * avgWin - ((100 - winRate) / 100) * avgLoss
+
+    // Calculate Sharpe Ratio
+    const returns = trades.map((t) => Number.parseFloat(t[roiKey]) / 100) // Convert percentage to decimal
+    const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length
+    const returnStdDev = Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length)
+    const annualizedReturn =
+      avgReturn * (252 / (trades.reduce((sum, t) => sum + Number.parseInt(t.holdingPeriod), 0) / trades.length)) // Assuming average holding period
+    const annualizedStdDev =
+      returnStdDev *
+      Math.sqrt(252 / (trades.reduce((sum, t) => sum + Number.parseInt(t.holdingPeriod), 0) / trades.length))
+    const sharpeRatio = annualizedStdDev > 0 ? (annualizedReturn - riskFreeRate) / annualizedStdDev : 0
+
+    // Calculate Maximum Drawdown
+    let runningPnL = 0
+    let peak = 0
+    let maxDrawdown = 0
+
+    trades.forEach((trade) => {
+      runningPnL += Number.parseFloat(trade[pnlKey])
+      if (runningPnL > peak) {
+        peak = runningPnL
+      }
+      const drawdown = peak - runningPnL
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown
+      }
+    })
+
+    // Best and worst trades
+    const bestTrade = trades.reduce(
+      (best, current) => (Number.parseFloat(current[pnlKey]) > Number.parseFloat(best[pnlKey]) ? current : best),
+      trades[0],
+    )
+    const worstTrade = trades.reduce(
+      (worst, current) => (Number.parseFloat(current[pnlKey]) < Number.parseFloat(worst[pnlKey]) ? current : worst),
+      trades[0],
+    )
+
+    // Consecutive wins/losses
+    let maxConsecutiveWins = 0
+    let maxConsecutiveLosses = 0
+    let currentWinStreak = 0
+    let currentLossStreak = 0
+
+    trades.forEach((trade) => {
+      if (Number.parseFloat(trade[pnlKey]) > 0) {
+        currentWinStreak++
+        currentLossStreak = 0
+        maxConsecutiveWins = Math.max(maxConsecutiveWins, currentWinStreak)
+      } else {
+        currentLossStreak++
+        currentWinStreak = 0
+        maxConsecutiveLosses = Math.max(maxConsecutiveLosses, currentLossStreak)
+      }
+    })
+
+    // Average holding periods
+    const avgHoldingPeriod = trades.reduce((sum, t) => sum + Number.parseInt(t.holdingPeriod), 0) / trades.length
+    const avgLongHoldingPeriod =
+      longTrades.length > 0
+        ? longTrades.reduce((sum, t) => sum + Number.parseInt(t.holdingPeriod), 0) / longTrades.length
+        : 0
+    const avgShortHoldingPeriod =
+      shortTrades.length > 0
+        ? shortTrades.reduce((sum, t) => sum + Number.parseInt(t.holdingPeriod), 0) / shortTrades.length
+        : 0
+
+    return {
+      // Directional Analysis
+      longTrades: longTrades.length,
+      shortTrades: shortTrades.length,
+      longWinRate,
+      longLossRate,
+      shortWinRate,
+      shortLossRate,
+      avgLongWin,
+      avgLongLoss,
+      avgShortWin,
+      avgShortLoss,
+
+      // Risk Metrics
+      sharpeRatio,
+      maxDrawdown,
+      profitFactor,
+      expectancy,
+      winLossRatio,
+
+      // Additional Metrics
+      bestTrade: Number.parseFloat(bestTrade[pnlKey]),
+      worstTrade: Number.parseFloat(worstTrade[pnlKey]),
+      maxConsecutiveWins,
+      maxConsecutiveLosses,
+      avgHoldingPeriod,
+      avgLongHoldingPeriod,
+      avgShortHoldingPeriod,
+      grossProfit,
+      grossLoss,
+      avgWin,
+      avgLoss,
+    }
   }
 
   const runBacktest = async () => {
@@ -376,6 +528,10 @@ export default function BacktestSpread() {
     }
   }
 
+  // Calculate comprehensive metrics for both methods
+  const hedgedMetrics = calculateAdvancedMetrics(tradeResults, "hedged")
+  const dollarNeutralMetrics = calculateAdvancedMetrics(tradeResults, "dollarNeutral")
+
   // Calculate summary statistics for both methods
   const profitableHedgedTrades = tradeResults.filter((t) => Number.parseFloat(t.hedgedPnL) > 0).length
   const profitableDollarNeutralTrades = tradeResults.filter((t) => Number.parseFloat(t.dollarNeutralPnL) > 0).length
@@ -451,7 +607,7 @@ export default function BacktestSpread() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
           <div>
             <label className="block text-base font-medium text-gray-300 mb-2">Lookback Period (days)</label>
             <input
@@ -497,6 +653,17 @@ export default function BacktestSpread() {
               className="input-field"
             />
             <p className="mt-1 text-sm text-gray-400">Amount for dollar-neutral calculation</p>
+          </div>
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Risk-Free Rate (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={riskFreeRate * 100}
+              onChange={(e) => setRiskFreeRate(Number.parseFloat(e.target.value) / 100)}
+              className="input-field"
+            />
+            <p className="mt-1 text-sm text-gray-400">Annual risk-free rate for Sharpe ratio</p>
           </div>
         </div>
 
@@ -589,132 +756,409 @@ export default function BacktestSpread() {
       )}
 
       {tradeResults.length > 0 && !isLoading && (
-        <div className="card">
-          <h2 className="text-2xl font-bold text-white mb-4">Trade Results</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-navy-700">
-              <thead className="bg-navy-800">
-                <tr>
-                  <th className="table-header">Entry Date</th>
-                  <th className="table-header">Exit Date</th>
-                  <th className="table-header">Type</th>
-                  <th className="table-header">Days</th>
-                  <th className="table-header">Hedged P&L ($)</th>
-                  <th className="table-header">Dollar Neutral P&L ($)</th>
-                  <th className="table-header">Hedged ROI (%)</th>
-                  <th className="table-header">Dollar Neutral ROI (%)</th>
-                  <th className="table-header">Entry β</th>
-                  <th className="table-header">Exit β</th>
-                  <th className="table-header">β Change (%)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-navy-800">
-                {tradeResults.map((trade, index) => (
-                  <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
-                    <td className="table-cell">{trade.entryDate}</td>
-                    <td className="table-cell">{trade.exitDate}</td>
-                    <td
-                      className={`table-cell font-medium ${trade.type === "LONG" ? "text-green-400" : "text-red-400"}`}
+        <>
+          <div className="card">
+            <h2 className="text-2xl font-bold text-white mb-4">Trade Results</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-navy-700">
+                <thead className="bg-navy-800">
+                  <tr>
+                    <th className="table-header">Entry Date</th>
+                    <th className="table-header">Exit Date</th>
+                    <th className="table-header">Type</th>
+                    <th className="table-header">Days</th>
+                    <th className="table-header">Hedged P&L ($)</th>
+                    <th className="table-header">Dollar Neutral P&L ($)</th>
+                    <th className="table-header">Hedged ROI (%)</th>
+                    <th className="table-header">Dollar Neutral ROI (%)</th>
+                    <th className="table-header">Entry β</th>
+                    <th className="table-header">Exit β</th>
+                    <th className="table-header">β Change (%)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-navy-800">
+                  {tradeResults.map((trade, index) => (
+                    <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
+                      <td className="table-cell">{trade.entryDate}</td>
+                      <td className="table-cell">{trade.exitDate}</td>
+                      <td
+                        className={`table-cell font-medium ${trade.type === "LONG" ? "text-green-400" : "text-red-400"}`}
+                      >
+                        {trade.type}
+                      </td>
+                      <td className="table-cell">{trade.holdingPeriod}</td>
+                      <td
+                        className={`table-cell font-medium ${
+                          Number.parseFloat(trade.hedgedPnL) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        ${trade.hedgedPnL}
+                      </td>
+                      <td
+                        className={`table-cell font-medium ${
+                          Number.parseFloat(trade.dollarNeutralPnL) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        ${trade.dollarNeutralPnL}
+                      </td>
+                      <td
+                        className={`table-cell ${
+                          Number.parseFloat(trade.hedgedROI) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {trade.hedgedROI}%
+                      </td>
+                      <td
+                        className={`table-cell ${
+                          Number.parseFloat(trade.dollarNeutralROI) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {trade.dollarNeutralROI}%
+                      </td>
+                      <td className="table-cell">{trade.hedgeRatio}</td>
+                      <td className="table-cell">{trade.exitHedgeRatio}</td>
+                      <td
+                        className={`table-cell ${
+                          Number.parseFloat(trade.hedgeRatioChange) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {trade.hedgeRatioChange}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Comprehensive Performance Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Hedged Position Metrics */}
+            <div className="card">
+              <h3 className="text-xl font-bold text-white mb-4">Hedged Position Performance</h3>
+
+              {/* Overall Performance */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Overall Performance</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Total Trades</p>
+                    <p className="text-xl font-bold text-gold-400">{tradeResults.length}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Win Rate</p>
+                    <p className="text-xl font-bold text-green-400">{winRateHedged.toFixed(1)}%</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Total P&L</p>
+                    <p className={`text-xl font-bold ${totalHedgedProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      ${totalHedgedProfit.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Avg P&L</p>
+                    <p className={`text-xl font-bold ${avgHedgedProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      ${avgHedgedProfit.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Directional Analysis */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Directional Analysis</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Long Spread Trades</p>
+                    <p className="text-xl font-bold text-blue-400">{hedgedMetrics.longTrades || 0}</p>
+                    <p className="text-sm text-gray-400">Win Rate: {(hedgedMetrics.longWinRate || 0).toFixed(1)}%</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Short Spread Trades</p>
+                    <p className="text-xl font-bold text-red-400">{hedgedMetrics.shortTrades || 0}</p>
+                    <p className="text-sm text-gray-400">Win Rate: {(hedgedMetrics.shortWinRate || 0).toFixed(1)}%</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Avg Long Win</p>
+                    <p className="text-xl font-bold text-green-400">${(hedgedMetrics.avgLongWin || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Avg Short Win</p>
+                    <p className="text-xl font-bold text-green-400">${(hedgedMetrics.avgShortWin || 0).toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Risk Metrics */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Risk Metrics</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Sharpe Ratio</p>
+                    <p className="text-xl font-bold text-purple-400">{(hedgedMetrics.sharpeRatio || 0).toFixed(3)}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Max Drawdown</p>
+                    <p className="text-xl font-bold text-red-400">${(hedgedMetrics.maxDrawdown || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Profit Factor</p>
+                    <p className="text-xl font-bold text-gold-400">{(hedgedMetrics.profitFactor || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Expectancy</p>
+                    <p
+                      className={`text-xl font-bold ${(hedgedMetrics.expectancy || 0) >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      {trade.type}
-                    </td>
-                    <td className="table-cell">{trade.holdingPeriod}</td>
-                    <td
-                      className={`table-cell font-medium ${
-                        Number.parseFloat(trade.hedgedPnL) >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
+                      ${(hedgedMetrics.expectancy || 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Metrics */}
+              <div>
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Additional Metrics</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Best Trade</p>
+                    <p className="text-xl font-bold text-green-400">${(hedgedMetrics.bestTrade || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Worst Trade</p>
+                    <p className="text-xl font-bold text-red-400">${(hedgedMetrics.worstTrade || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Max Consecutive Wins</p>
+                    <p className="text-xl font-bold text-green-400">{hedgedMetrics.maxConsecutiveWins || 0}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Max Consecutive Losses</p>
+                    <p className="text-xl font-bold text-red-400">{hedgedMetrics.maxConsecutiveLosses || 0}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dollar Neutral Metrics */}
+            <div className="card">
+              <h3 className="text-xl font-bold text-white mb-4">Dollar Neutral Performance</h3>
+
+              {/* Overall Performance */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Overall Performance</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Total Trades</p>
+                    <p className="text-xl font-bold text-gold-400">{tradeResults.length}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Win Rate</p>
+                    <p className="text-xl font-bold text-green-400">{winRateDollarNeutral.toFixed(1)}%</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Total P&L</p>
+                    <p
+                      className={`text-xl font-bold ${totalDollarNeutralProfit >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      ${trade.hedgedPnL}
-                    </td>
-                    <td
-                      className={`table-cell font-medium ${
-                        Number.parseFloat(trade.dollarNeutralPnL) >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
+                      ${totalDollarNeutralProfit.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Avg P&L</p>
+                    <p
+                      className={`text-xl font-bold ${avgDollarNeutralProfit >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      ${trade.dollarNeutralPnL}
-                    </td>
-                    <td
-                      className={`table-cell ${
-                        Number.parseFloat(trade.hedgedROI) >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
+                      ${avgDollarNeutralProfit.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Directional Analysis */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Directional Analysis</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Long Spread Trades</p>
+                    <p className="text-xl font-bold text-blue-400">{dollarNeutralMetrics.longTrades || 0}</p>
+                    <p className="text-sm text-gray-400">
+                      Win Rate: {(dollarNeutralMetrics.longWinRate || 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Short Spread Trades</p>
+                    <p className="text-xl font-bold text-red-400">{dollarNeutralMetrics.shortTrades || 0}</p>
+                    <p className="text-sm text-gray-400">
+                      Win Rate: {(dollarNeutralMetrics.shortWinRate || 0).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Avg Long Win</p>
+                    <p className="text-xl font-bold text-green-400">
+                      ${(dollarNeutralMetrics.avgLongWin || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Avg Short Win</p>
+                    <p className="text-xl font-bold text-green-400">
+                      ${(dollarNeutralMetrics.avgShortWin || 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Risk Metrics */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Risk Metrics</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Sharpe Ratio</p>
+                    <p className="text-xl font-bold text-purple-400">
+                      {(dollarNeutralMetrics.sharpeRatio || 0).toFixed(3)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Max Drawdown</p>
+                    <p className="text-xl font-bold text-red-400">
+                      ${(dollarNeutralMetrics.maxDrawdown || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Profit Factor</p>
+                    <p className="text-xl font-bold text-gold-400">
+                      {(dollarNeutralMetrics.profitFactor || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Expectancy</p>
+                    <p
+                      className={`text-xl font-bold ${(dollarNeutralMetrics.expectancy || 0) >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      {trade.hedgedROI}%
-                    </td>
+                      ${(dollarNeutralMetrics.expectancy || 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Metrics */}
+              <div>
+                <h4 className="text-lg font-semibold text-gold-400 mb-3">Additional Metrics</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Best Trade</p>
+                    <p className="text-xl font-bold text-green-400">
+                      ${(dollarNeutralMetrics.bestTrade || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Worst Trade</p>
+                    <p className="text-xl font-bold text-red-400">
+                      ${(dollarNeutralMetrics.worstTrade || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Max Consecutive Wins</p>
+                    <p className="text-xl font-bold text-green-400">{dollarNeutralMetrics.maxConsecutiveWins || 0}</p>
+                  </div>
+                  <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
+                    <p className="text-sm text-gray-300">Max Consecutive Losses</p>
+                    <p className="text-xl font-bold text-red-400">{dollarNeutralMetrics.maxConsecutiveLosses || 0}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Comparison Summary */}
+          <div className="card">
+            <h3 className="text-xl font-bold text-white mb-4">Method Comparison Summary</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-navy-700">
+                <thead className="bg-navy-800">
+                  <tr>
+                    <th className="table-header">Metric</th>
+                    <th className="table-header">Hedged Position</th>
+                    <th className="table-header">Dollar Neutral</th>
+                    <th className="table-header">Better Method</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-navy-800">
+                  <tr className="bg-navy-900/50">
+                    <td className="table-cell font-medium">Total P&L</td>
+                    <td className="table-cell">${totalHedgedProfit.toFixed(2)}</td>
+                    <td className="table-cell">${totalDollarNeutralProfit.toFixed(2)}</td>
                     <td
-                      className={`table-cell ${
-                        Number.parseFloat(trade.dollarNeutralROI) >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
+                      className={`table-cell font-medium ${totalHedgedProfit > totalDollarNeutralProfit ? "text-green-400" : "text-red-400"}`}
                     >
-                      {trade.dollarNeutralROI}%
-                    </td>
-                    <td className="table-cell">{trade.hedgeRatio}</td>
-                    <td className="table-cell">{trade.exitHedgeRatio}</td>
-                    <td
-                      className={`table-cell ${
-                        Number.parseFloat(trade.hedgeRatioChange) >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
-                      {trade.hedgeRatioChange}%
+                      {totalHedgedProfit > totalDollarNeutralProfit ? "Hedged" : "Dollar Neutral"}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                  <tr className="bg-navy-900/30">
+                    <td className="table-cell font-medium">Win Rate</td>
+                    <td className="table-cell">{winRateHedged.toFixed(1)}%</td>
+                    <td className="table-cell">{winRateDollarNeutral.toFixed(1)}%</td>
+                    <td
+                      className={`table-cell font-medium ${winRateHedged > winRateDollarNeutral ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {winRateHedged > winRateDollarNeutral ? "Hedged" : "Dollar Neutral"}
+                    </td>
+                  </tr>
+                  <tr className="bg-navy-900/50">
+                    <td className="table-cell font-medium">Sharpe Ratio</td>
+                    <td className="table-cell">{(hedgedMetrics.sharpeRatio || 0).toFixed(3)}</td>
+                    <td className="table-cell">{(dollarNeutralMetrics.sharpeRatio || 0).toFixed(3)}</td>
+                    <td
+                      className={`table-cell font-medium ${(hedgedMetrics.sharpeRatio || 0) > (dollarNeutralMetrics.sharpeRatio || 0) ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {(hedgedMetrics.sharpeRatio || 0) > (dollarNeutralMetrics.sharpeRatio || 0)
+                        ? "Hedged"
+                        : "Dollar Neutral"}
+                    </td>
+                  </tr>
+                  <tr className="bg-navy-900/30">
+                    <td className="table-cell font-medium">Max Drawdown</td>
+                    <td className="table-cell">${(hedgedMetrics.maxDrawdown || 0).toFixed(2)}</td>
+                    <td className="table-cell">${(dollarNeutralMetrics.maxDrawdown || 0).toFixed(2)}</td>
+                    <td
+                      className={`table-cell font-medium ${(hedgedMetrics.maxDrawdown || 0) < (dollarNeutralMetrics.maxDrawdown || 0) ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {(hedgedMetrics.maxDrawdown || 0) < (dollarNeutralMetrics.maxDrawdown || 0)
+                        ? "Hedged"
+                        : "Dollar Neutral"}
+                    </td>
+                  </tr>
+                  <tr className="bg-navy-900/50">
+                    <td className="table-cell font-medium">Profit Factor</td>
+                    <td className="table-cell">{(hedgedMetrics.profitFactor || 0).toFixed(2)}</td>
+                    <td className="table-cell">{(dollarNeutralMetrics.profitFactor || 0).toFixed(2)}</td>
+                    <td
+                      className={`table-cell font-medium ${(hedgedMetrics.profitFactor || 0) > (dollarNeutralMetrics.profitFactor || 0) ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {(hedgedMetrics.profitFactor || 0) > (dollarNeutralMetrics.profitFactor || 0)
+                        ? "Hedged"
+                        : "Dollar Neutral"}
+                    </td>
+                  </tr>
+                  <tr className="bg-navy-900/30">
+                    <td className="table-cell font-medium">Expectancy</td>
+                    <td className="table-cell">${(hedgedMetrics.expectancy || 0).toFixed(2)}</td>
+                    <td className="table-cell">${(dollarNeutralMetrics.expectancy || 0).toFixed(2)}</td>
+                    <td
+                      className={`table-cell font-medium ${(hedgedMetrics.expectancy || 0) > (dollarNeutralMetrics.expectancy || 0) ? "text-green-400" : "text-red-400"}`}
+                    >
+                      {(hedgedMetrics.expectancy || 0) > (dollarNeutralMetrics.expectancy || 0)
+                        ? "Hedged"
+                        : "Dollar Neutral"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-xl font-bold text-white mb-4">Hedged Position Results</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Total Trades</p>
-                  <p className="text-2xl font-bold text-gold-400">{tradeResults.length}</p>
-                </div>
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Profitable Trades</p>
-                  <p className="text-2xl font-bold text-green-400">{profitableHedgedTrades}</p>
-                </div>
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Win Rate</p>
-                  <p className="text-2xl font-bold text-gold-400">{winRateHedged.toFixed(1)}%</p>
-                </div>
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Avg. Profit per Trade</p>
-                  <p className={`text-2xl font-bold ${avgHedgedProfit >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    ${avgHedgedProfit.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold text-white mb-4">Dollar Neutral Results</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Total Trades</p>
-                  <p className="text-2xl font-bold text-gold-400">{tradeResults.length}</p>
-                </div>
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Profitable Trades</p>
-                  <p className="text-2xl font-bold text-green-400">{profitableDollarNeutralTrades}</p>
-                </div>
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Win Rate</p>
-                  <p className="text-2xl font-bold text-gold-400">{winRateDollarNeutral.toFixed(1)}%</p>
-                </div>
-                <div className="bg-navy-800/50 rounded-lg p-4 border border-navy-700">
-                  <p className="text-sm text-gray-300">Avg. Profit per Trade</p>
-                  <p
-                    className={`text-2xl font-bold ${avgDollarNeutralProfit >= 0 ? "text-green-400" : "text-red-400"}`}
-                  >
-                    ${avgDollarNeutralProfit.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 p-4 bg-navy-800/50 rounded-lg border border-navy-700">
+          {/* Position Sizing Methods Explanation */}
+          <div className="card">
             <h3 className="text-lg font-bold text-white mb-2">Position Sizing Methods</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -746,7 +1190,7 @@ export default function BacktestSpread() {
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
