@@ -11,11 +11,18 @@ export default function BacktestSpread() {
   const [entryZ, setEntryZ] = useState(2.0)
   const [exitZ, setExitZ] = useState(1.5)
   const [backtestData, setBacktestData] = useState([])
-  const [tradeResults, setTradeResults] = useState([])
+  const [hedgedTradeResults, setHedgedTradeResults] = useState([])
+  const [valueNeutralTradeResults, setValueNeutralTradeResults] = useState([])
   const [lookbackPeriod, setLookbackPeriod] = useState(50)
   const [isLoading, setIsLoading] = useState(false)
   const [capitalPerTrade, setCapitalPerTrade] = useState(100000)
   const [riskFreeRate, setRiskFreeRate] = useState(0.02) // 2% annual risk-free rate
+  const [activeTab, setActiveTab] = useState("hedged") // "hedged" or "valueNeutral"
+
+  // Stop Loss & Target Parameters
+  const [timeStopDays, setTimeStopDays] = useState(15)
+  const [lossStopPercent, setLossStopPercent] = useState(-10)
+  const [targetProfitPercent, setTargetProfitPercent] = useState(10)
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -97,11 +104,11 @@ export default function BacktestSpread() {
     return (count * sumAB - sumA * sumB) / (count * sumB2 - sumB * sumB)
   }
 
-  const calculateAdvancedMetrics = (trades, method = "hedgeFactor") => {
+  const calculateAdvancedMetrics = (trades, method = "hedged") => {
     if (trades.length === 0) return {}
 
-    const pnlKey = method === "hedgeFactor" ? "hedgedPnL" : "dollarNeutralPnL"
-    const roiKey = method === "hedgeFactor" ? "hedgedROI" : "dollarNeutralROI"
+    const pnlKey = "pnl"
+    const roiKey = "roi"
 
     // Separate trades by direction
     const longTrades = trades.filter((t) => t.type === "LONG")
@@ -248,6 +255,188 @@ export default function BacktestSpread() {
     }
   }
 
+  const runBacktestForMethod = (tableData, method) => {
+    const trades = []
+    let openTrade = null
+
+    for (let i = lookbackPeriod; i < tableData.length; i++) {
+      const prevZ = i > 0 ? tableData[i - 1].zScore : 0
+      const currZ = tableData[i].zScore
+      const currentRow = tableData[i]
+
+      if (!openTrade) {
+        // Entry conditions
+        if (prevZ > -entryZ && currZ <= -entryZ) {
+          // Long entry (spread is oversold)
+          openTrade = {
+            entryDate: currentRow.date,
+            entryIndex: i,
+            type: "LONG",
+            entrySpread: currentRow.spread,
+            entryHedgeRatio: currentRow.hedgeRatio,
+            entryZScore: currZ,
+            entryStockAPrice: currentRow.stockAClose,
+            entryStockBPrice: currentRow.stockBClose,
+          }
+        } else if (prevZ < entryZ && currZ >= entryZ) {
+          // Short entry (spread is overbought)
+          openTrade = {
+            entryDate: currentRow.date,
+            entryIndex: i,
+            type: "SHORT",
+            entrySpread: currentRow.spread,
+            entryHedgeRatio: currentRow.hedgeRatio,
+            entryZScore: currZ,
+            entryStockAPrice: currentRow.stockAClose,
+            entryStockBPrice: currentRow.stockBClose,
+          }
+        }
+      } else {
+        // Calculate current P&L and ROI for the specific method
+        const entryDate = new Date(openTrade.entryDate)
+        const currentDate = new Date(currentRow.date)
+        const holdingPeriod = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
+
+        let currentPnL,
+          currentROI,
+          exitReason = ""
+
+        if (method === "hedged") {
+          // Hedge Factor Adjusted calculation
+          const hedgeRatio = openTrade.entryHedgeRatio
+          if (openTrade.type === "LONG") {
+            currentPnL =
+              currentRow.stockAClose -
+              openTrade.entryStockAPrice -
+              hedgeRatio * (currentRow.stockBClose - openTrade.entryStockBPrice)
+          } else {
+            currentPnL =
+              openTrade.entryStockAPrice -
+              currentRow.stockAClose -
+              hedgeRatio * (openTrade.entryStockBPrice - currentRow.stockBClose)
+          }
+          const theoreticalCapital = openTrade.entryStockAPrice + hedgeRatio * openTrade.entryStockBPrice
+          currentROI = (currentPnL / theoreticalCapital) * 100
+        } else {
+          // Value Neutral calculation
+          const capitalPerLeg = capitalPerTrade / 2
+          const stockAShares = Math.floor(capitalPerLeg / openTrade.entryStockAPrice)
+          const stockBShares = Math.floor(capitalPerLeg / openTrade.entryStockBPrice)
+
+          let stockAPnL, stockBPnL
+          if (openTrade.type === "LONG") {
+            stockAPnL = stockAShares * (currentRow.stockAClose - openTrade.entryStockAPrice)
+            stockBPnL = stockBShares * (openTrade.entryStockBPrice - currentRow.stockBClose)
+          } else {
+            stockAPnL = stockAShares * (openTrade.entryStockAPrice - currentRow.stockAClose)
+            stockBPnL = stockBShares * (currentRow.stockBClose - openTrade.entryStockBPrice)
+          }
+          currentPnL = stockAPnL + stockBPnL
+          currentROI = (currentPnL / capitalPerTrade) * 100
+        }
+
+        // Check exit conditions in priority order
+        let shouldExit = false
+
+        // 1. Stop Loss Check
+        if (currentROI <= lossStopPercent) {
+          shouldExit = true
+          exitReason = "Stop Loss"
+        }
+        // 2. Target Profit Check
+        else if (currentROI >= targetProfitPercent) {
+          shouldExit = true
+          exitReason = "Target Hit"
+        }
+        // 3. Time Stop Check
+        else if (holdingPeriod >= timeStopDays) {
+          shouldExit = true
+          exitReason = "Time Stop"
+        }
+        // 4. Z-score Exit Check
+        else if (
+          (openTrade.type === "LONG" && prevZ < -exitZ && currZ >= -exitZ) ||
+          (openTrade.type === "SHORT" && prevZ > exitZ && currZ <= exitZ)
+        ) {
+          shouldExit = true
+          exitReason = "Z-Score Exit"
+        }
+
+        if (shouldExit) {
+          const currentHedgeRatio = currentRow.hedgeRatio
+
+          // Calculate final P&L and additional metrics for the trade
+          let finalPnL,
+            finalROI,
+            stockAShares = 0,
+            stockBShares = 0,
+            theoreticalCapital = 0
+
+          if (method === "hedged") {
+            const hedgeRatio = openTrade.entryHedgeRatio
+            if (openTrade.type === "LONG") {
+              finalPnL =
+                currentRow.stockAClose -
+                openTrade.entryStockAPrice -
+                hedgeRatio * (currentRow.stockBClose - openTrade.entryStockBPrice)
+            } else {
+              finalPnL =
+                openTrade.entryStockAPrice -
+                currentRow.stockAClose -
+                hedgeRatio * (openTrade.entryStockBPrice - currentRow.stockBClose)
+            }
+            theoreticalCapital = openTrade.entryStockAPrice + hedgeRatio * openTrade.entryStockBPrice
+            finalROI = (finalPnL / theoreticalCapital) * 100
+          } else {
+            const capitalPerLeg = capitalPerTrade / 2
+            stockAShares = Math.floor(capitalPerLeg / openTrade.entryStockAPrice)
+            stockBShares = Math.floor(capitalPerLeg / openTrade.entryStockBPrice)
+
+            let stockAPnL, stockBPnL
+            if (openTrade.type === "LONG") {
+              stockAPnL = stockAShares * (currentRow.stockAClose - openTrade.entryStockAPrice)
+              stockBPnL = stockBShares * (openTrade.entryStockBPrice - currentRow.stockBClose)
+            } else {
+              stockAPnL = stockAShares * (openTrade.entryStockAPrice - currentRow.stockAClose)
+              stockBPnL = stockBShares * (currentRow.stockBClose - openTrade.entryStockBPrice)
+            }
+            finalPnL = stockAPnL + stockBPnL
+            finalROI = (finalPnL / capitalPerTrade) * 100
+          }
+
+          trades.push({
+            entryDate: openTrade.entryDate,
+            exitDate: currentRow.date,
+            type: openTrade.type,
+            holdingPeriod: holdingPeriod.toString(),
+            pnl: finalPnL.toFixed(2),
+            roi: finalROI.toFixed(2),
+            exitReason: exitReason,
+            hedgeRatio: openTrade.entryHedgeRatio.toFixed(4),
+            exitHedgeRatio: currentHedgeRatio.toFixed(4),
+            hedgeRatioChange: (
+              ((currentHedgeRatio - openTrade.entryHedgeRatio) / openTrade.entryHedgeRatio) *
+              100
+            ).toFixed(2),
+            entryZScore: openTrade.entryZScore.toFixed(2),
+            exitZScore: currZ.toFixed(2),
+            stockAShares: stockAShares,
+            stockBShares: stockBShares,
+            entryStockAPrice: openTrade.entryStockAPrice.toFixed(2),
+            exitStockAPrice: currentRow.stockAClose.toFixed(2),
+            entryStockBPrice: openTrade.entryStockBPrice.toFixed(2),
+            exitStockBPrice: currentRow.stockBClose.toFixed(2),
+            theoreticalCapital: theoreticalCapital.toFixed(2),
+          })
+
+          openTrade = null
+        }
+      }
+    }
+
+    return trades
+  }
+
   const runBacktest = async () => {
     if (!selectedPair.stockA || !selectedPair.stockB) {
       alert("Please select two stocks.")
@@ -356,171 +545,12 @@ export default function BacktestSpread() {
 
       setBacktestData(tableData)
 
-      // Fixed trade logic
-      const trades = []
-      let openTrade = null
+      // Run backtest for both methods
+      const hedgedTrades = runBacktestForMethod(tableData, "hedged")
+      const valueNeutralTrades = runBacktestForMethod(tableData, "valueNeutral")
 
-      for (let i = lookbackPeriod; i < tableData.length; i++) {
-        const prevZ = i > 0 ? tableData[i - 1].zScore : 0
-        const currZ = tableData[i].zScore
-        const currentRow = tableData[i]
-
-        if (!openTrade) {
-          // Entry conditions
-          if (prevZ > -entryZ && currZ <= -entryZ) {
-            // Long entry (spread is oversold)
-            openTrade = {
-              entryDate: currentRow.date,
-              entryIndex: i,
-              type: "LONG",
-              entrySpread: currentRow.spread,
-              entryHedgeRatio: currentRow.hedgeRatio,
-              entryZScore: currZ,
-              entryStockAPrice: currentRow.stockAClose,
-              entryStockBPrice: currentRow.stockBClose,
-            }
-          } else if (prevZ < entryZ && currZ >= entryZ) {
-            // Short entry (spread is overbought)
-            openTrade = {
-              entryDate: currentRow.date,
-              entryIndex: i,
-              type: "SHORT",
-              entrySpread: currentRow.spread,
-              entryHedgeRatio: currentRow.hedgeRatio,
-              entryZScore: currZ,
-              entryStockAPrice: currentRow.stockAClose,
-              entryStockBPrice: currentRow.stockBClose,
-            }
-          }
-        } else {
-          // Exit conditions
-          const entryDate = new Date(openTrade.entryDate)
-          const currentDate = new Date(currentRow.date)
-          const holdingPeriod = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
-
-          const shouldExit =
-            (openTrade.type === "LONG" && prevZ < -exitZ && currZ >= -exitZ) ||
-            (openTrade.type === "SHORT" && prevZ > exitZ && currZ <= exitZ) ||
-            holdingPeriod >= 15
-
-          if (shouldExit) {
-            const exitSpread = currentRow.spread
-            const currentHedgeRatio = currentRow.hedgeRatio
-            const hedgeRatio = openTrade.entryHedgeRatio
-
-            // 1. Calculate P&L using Hedged Position approach (theoretical)
-            let hedgedPnL
-            if (openTrade.type === "LONG") {
-              // LONG spread: PnL = (TCS_exit - TCS_entry) - β × (HCL_exit - HCL_entry)
-              hedgedPnL =
-                currentRow.stockAClose -
-                openTrade.entryStockAPrice -
-                hedgeRatio * (currentRow.stockBClose - openTrade.entryStockBPrice)
-            } else {
-              // SHORT spread: PnL = (TCS_entry - TCS_exit) - β × (HCL_entry - HCL_exit)
-              hedgedPnL =
-                openTrade.entryStockAPrice -
-                currentRow.stockAClose -
-                hedgeRatio * (openTrade.entryStockBPrice - currentRow.stockBClose)
-            }
-
-            // 2. Calculate P&L using Dollar Neutral approach
-            // Allocate equal capital to both legs
-            const capitalPerLeg = capitalPerTrade / 2
-
-            // Calculate number of shares for each stock
-            const stockAShares = Math.floor(capitalPerLeg / openTrade.entryStockAPrice)
-            const stockBShares = Math.floor(capitalPerLeg / openTrade.entryStockBPrice)
-
-            // Calculate P&L for each leg
-            let stockAPnL, stockBPnL
-            if (openTrade.type === "LONG") {
-              // LONG spread: Long Stock A, Short Stock B
-              stockAPnL = stockAShares * (currentRow.stockAClose - openTrade.entryStockAPrice)
-              stockBPnL = stockBShares * (openTrade.entryStockBPrice - currentRow.stockBClose)
-            } else {
-              // SHORT spread: Short Stock A, Long Stock B
-              stockAPnL = stockAShares * (openTrade.entryStockAPrice - currentRow.stockAClose)
-              stockBPnL = stockBShares * (currentRow.stockBClose - openTrade.entryStockBPrice)
-            }
-
-            const dollarNeutralPnL = stockAPnL + stockBPnL
-
-            // Calculate ROI for both methods
-            const theoreticalCapital = openTrade.entryStockAPrice + hedgeRatio * openTrade.entryStockBPrice
-            const hedgedROI = (hedgedPnL / theoreticalCapital) * 100
-            const dollarNeutralROI = (dollarNeutralPnL / capitalPerTrade) * 100
-
-            // Calculate max drawdown during the trade for both methods
-            const tradeSlice = tableData.slice(openTrade.entryIndex, i + 1)
-            let maxHedgedDrawdown = 0
-            let maxDollarNeutralDrawdown = 0
-
-            for (const row of tradeSlice) {
-              // Hedged Position drawdown
-              let currentHedgedProfit
-              if (openTrade.type === "LONG") {
-                currentHedgedProfit =
-                  row.stockAClose -
-                  openTrade.entryStockAPrice -
-                  hedgeRatio * (row.stockBClose - openTrade.entryStockBPrice)
-              } else {
-                currentHedgedProfit =
-                  openTrade.entryStockAPrice -
-                  row.stockAClose -
-                  hedgeRatio * (openTrade.entryStockBPrice - row.stockBClose)
-              }
-              const hedgedDrawdown = Math.max(0, hedgedPnL - currentHedgedProfit)
-              maxHedgedDrawdown = Math.max(maxHedgedDrawdown, hedgedDrawdown)
-
-              // Dollar Neutral drawdown
-              let currentStockAPnL, currentStockBPnL
-              if (openTrade.type === "LONG") {
-                currentStockAPnL = stockAShares * (row.stockAClose - openTrade.entryStockAPrice)
-                currentStockBPnL = stockBShares * (openTrade.entryStockBPrice - row.stockBClose)
-              } else {
-                currentStockAPnL = stockAShares * (openTrade.entryStockAPrice - row.stockAClose)
-                currentStockBPnL = stockBShares * (row.stockBClose - openTrade.entryStockBPrice)
-              }
-              const currentDollarNeutralPnL = currentStockAPnL + currentStockBPnL
-              const dollarNeutralDrawdown = Math.max(0, dollarNeutralPnL - currentDollarNeutralPnL)
-              maxDollarNeutralDrawdown = Math.max(maxDollarNeutralDrawdown, dollarNeutralDrawdown)
-            }
-
-            trades.push({
-              entryDate: openTrade.entryDate,
-              exitDate: currentRow.date,
-              type: openTrade.type,
-              holdingPeriod: holdingPeriod.toString(),
-              hedgedPnL: hedgedPnL.toFixed(2),
-              dollarNeutralPnL: dollarNeutralPnL.toFixed(2),
-              hedgedROI: hedgedROI.toFixed(2),
-              dollarNeutralROI: dollarNeutralROI.toFixed(2),
-              hedgedDrawdown: maxHedgedDrawdown.toFixed(2),
-              dollarNeutralDrawdown: maxDollarNeutralDrawdown.toFixed(2),
-              hedgeRatio: openTrade.entryHedgeRatio.toFixed(4),
-              exitHedgeRatio: currentHedgeRatio.toFixed(4),
-              hedgeRatioChange: (
-                ((currentHedgeRatio - openTrade.entryHedgeRatio) / openTrade.entryHedgeRatio) *
-                100
-              ).toFixed(2),
-              entryZScore: openTrade.entryZScore.toFixed(2),
-              exitZScore: currZ.toFixed(2),
-              stockAShares: stockAShares,
-              stockBShares: stockBShares,
-              entryTCSPrice: openTrade.entryStockAPrice.toFixed(2),
-              exitTCSPrice: currentRow.stockAClose.toFixed(2),
-              entryHCLPrice: openTrade.entryStockBPrice.toFixed(2),
-              exitHCLPrice: currentRow.stockBClose.toFixed(2),
-              theoreticalCapital: theoreticalCapital.toFixed(2),
-            })
-
-            openTrade = null
-          }
-        }
-      }
-
-      setTradeResults(trades)
+      setHedgedTradeResults(hedgedTrades)
+      setValueNeutralTradeResults(valueNeutralTrades)
     } catch (error) {
       console.error("Error in backtest:", error)
     } finally {
@@ -529,24 +559,26 @@ export default function BacktestSpread() {
   }
 
   // Calculate comprehensive metrics for both methods
-  const hedgedMetrics = calculateAdvancedMetrics(tradeResults, "hedgeFactor")
-  const dollarNeutralMetrics = calculateAdvancedMetrics(tradeResults, "dollarNeutral")
+  const hedgedMetrics = calculateAdvancedMetrics(hedgedTradeResults, "hedged")
+  const valueNeutralMetrics = calculateAdvancedMetrics(valueNeutralTradeResults, "valueNeutral")
+
+  // Get current trade results based on active tab
+  const currentTradeResults = activeTab === "hedged" ? hedgedTradeResults : valueNeutralTradeResults
 
   // Calculate summary statistics for both methods
-  const profitableHedgedTrades = tradeResults.filter((t) => Number.parseFloat(t.hedgedPnL) > 0).length
-  const profitableDollarNeutralTrades = tradeResults.filter((t) => Number.parseFloat(t.dollarNeutralPnL) > 0).length
+  const profitableHedgedTrades = hedgedTradeResults.filter((t) => Number.parseFloat(t.pnl) > 0).length
+  const profitableValueNeutralTrades = valueNeutralTradeResults.filter((t) => Number.parseFloat(t.pnl) > 0).length
 
-  const winRateHedged = tradeResults.length > 0 ? (profitableHedgedTrades / tradeResults.length) * 100 : 0
-  const winRateDollarNeutral = tradeResults.length > 0 ? (profitableDollarNeutralTrades / tradeResults.length) * 100 : 0
+  const winRateHedged = hedgedTradeResults.length > 0 ? (profitableHedgedTrades / hedgedTradeResults.length) * 100 : 0
+  const winRateValueNeutral =
+    valueNeutralTradeResults.length > 0 ? (profitableValueNeutralTrades / valueNeutralTradeResults.length) * 100 : 0
 
-  const totalHedgedProfit = tradeResults.reduce((sum, trade) => sum + Number.parseFloat(trade.hedgedPnL), 0)
-  const totalDollarNeutralProfit = tradeResults.reduce(
-    (sum, trade) => sum + Number.parseFloat(trade.dollarNeutralPnL),
-    0,
-  )
+  const totalHedgedProfit = hedgedTradeResults.reduce((sum, trade) => sum + Number.parseFloat(trade.pnl), 0)
+  const totalValueNeutralProfit = valueNeutralTradeResults.reduce((sum, trade) => sum + Number.parseFloat(trade.pnl), 0)
 
-  const avgHedgedProfit = tradeResults.length > 0 ? totalHedgedProfit / tradeResults.length : 0
-  const avgDollarNeutralProfit = tradeResults.length > 0 ? totalDollarNeutralProfit / tradeResults.length : 0
+  const avgHedgedProfit = hedgedTradeResults.length > 0 ? totalHedgedProfit / hedgedTradeResults.length : 0
+  const avgValueNeutralProfit =
+    valueNeutralTradeResults.length > 0 ? totalValueNeutralProfit / valueNeutralTradeResults.length : 0
 
   return (
     <div className="space-y-8">
@@ -652,7 +684,7 @@ export default function BacktestSpread() {
               step="1000"
               className="input-field"
             />
-            <p className="mt-1 text-sm text-gray-400">Amount for dollar-neutral calculation</p>
+            <p className="mt-1 text-sm text-gray-400">Amount for value-neutral calculation</p>
           </div>
           <div>
             <label className="block text-base font-medium text-gray-300 mb-2">Risk-Free Rate (%)</label>
@@ -664,6 +696,49 @@ export default function BacktestSpread() {
               className="input-field"
             />
             <p className="mt-1 text-sm text-gray-400">Annual risk-free rate for Sharpe ratio</p>
+          </div>
+        </div>
+
+        {/* Stop Loss & Target Section */}
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-white mb-4">Stop Loss & Target</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Time-Wise Stop (days)</label>
+              <input
+                type="number"
+                value={timeStopDays}
+                onChange={(e) => setTimeStopDays(Number.parseInt(e.target.value))}
+                min="1"
+                max="100"
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Force exit after X days regardless of Z-score</p>
+            </div>
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Loss Stop (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={lossStopPercent}
+                onChange={(e) => setLossStopPercent(Number.parseFloat(e.target.value))}
+                max="0"
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Exit when ROI hits this loss percentage</p>
+            </div>
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Target Profit (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={targetProfitPercent}
+                onChange={(e) => setTargetProfitPercent(Number.parseFloat(e.target.value))}
+                min="0"
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Exit when ROI hits this profit percentage</p>
+            </div>
           </div>
         </div>
 
@@ -755,10 +830,35 @@ export default function BacktestSpread() {
         </div>
       )}
 
-      {tradeResults.length > 0 && !isLoading && (
+      {(hedgedTradeResults.length > 0 || valueNeutralTradeResults.length > 0) && !isLoading && (
         <>
           <div className="card">
-            <h2 className="text-2xl font-bold text-white mb-4">Trade Results</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-white">Trade Results</h2>
+
+              {/* Tab Buttons */}
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setActiveTab("hedged")}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activeTab === "hedged" ? "bg-gold-500 text-navy-900" : "bg-navy-700 text-gray-300 hover:bg-navy-600"
+                  }`}
+                >
+                  Hedge Factor Adj Position ({hedgedTradeResults.length} trades)
+                </button>
+                <button
+                  onClick={() => setActiveTab("valueNeutral")}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activeTab === "valueNeutral"
+                      ? "bg-gold-500 text-navy-900"
+                      : "bg-navy-700 text-gray-300 hover:bg-navy-600"
+                  }`}
+                >
+                  Value Neutral Position ({valueNeutralTradeResults.length} trades)
+                </button>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-navy-700">
                 <thead className="bg-navy-800">
@@ -767,17 +867,16 @@ export default function BacktestSpread() {
                     <th className="table-header">Exit Date</th>
                     <th className="table-header">Type</th>
                     <th className="table-header">Days</th>
-                    <th className="table-header">Hedge Factor Adj P&L ($)</th>
-                    <th className="table-header">Hedge Factor Adj ROI (%)</th>
-                    <th className="table-header">Value Neutral P&L ($)</th>
-                    <th className="table-header">Value Neutral ROI (%)</th>
+                    <th className="table-header">P&L ($)</th>
+                    <th className="table-header">ROI (%)</th>
+                    <th className="table-header">Exit Reason</th>
                     <th className="table-header">Entry β</th>
                     <th className="table-header">Exit β</th>
                     <th className="table-header">β Change (%)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-800">
-                  {tradeResults.map((trade, index) => (
+                  {currentTradeResults.map((trade, index) => (
                     <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
                       <td className="table-cell">{trade.entryDate}</td>
                       <td className="table-cell">{trade.exitDate}</td>
@@ -789,31 +888,30 @@ export default function BacktestSpread() {
                       <td className="table-cell">{trade.holdingPeriod}</td>
                       <td
                         className={`table-cell font-medium ${
-                          Number.parseFloat(trade.hedgedPnL) >= 0 ? "text-green-400" : "text-red-400"
+                          Number.parseFloat(trade.pnl) >= 0 ? "text-green-400" : "text-red-400"
                         }`}
                       >
-                        ${trade.hedgedPnL}
+                        ${trade.pnl}
                       </td>
                       <td
                         className={`table-cell ${
-                          Number.parseFloat(trade.hedgedROI) >= 0 ? "text-green-400" : "text-red-400"
+                          Number.parseFloat(trade.roi) >= 0 ? "text-green-400" : "text-red-400"
                         }`}
                       >
-                        {trade.hedgedROI}%
+                        {trade.roi}%
                       </td>
                       <td
                         className={`table-cell font-medium ${
-                          Number.parseFloat(trade.dollarNeutralPnL) >= 0 ? "text-green-400" : "text-red-400"
+                          trade.exitReason === "Stop Loss"
+                            ? "text-red-400"
+                            : trade.exitReason === "Target Hit"
+                              ? "text-green-400"
+                              : trade.exitReason === "Time Stop"
+                                ? "text-yellow-400"
+                                : "text-blue-400"
                         }`}
                       >
-                        ${trade.dollarNeutralPnL}
-                      </td>
-                      <td
-                        className={`table-cell ${
-                          Number.parseFloat(trade.dollarNeutralROI) >= 0 ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        {trade.dollarNeutralROI}%
+                        {trade.exitReason}
                       </td>
                       <td className="table-cell">{trade.hedgeRatio}</td>
                       <td className="table-cell">{trade.exitHedgeRatio}</td>
@@ -843,7 +941,7 @@ export default function BacktestSpread() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Total Trades</p>
-                    <p className="text-xl font-bold text-gold-400">{tradeResults.length}</p>
+                    <p className="text-xl font-bold text-gold-400">{hedgedTradeResults.length}</p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Win Rate</p>
@@ -940,7 +1038,7 @@ export default function BacktestSpread() {
               </div>
             </div>
 
-            {/* Dollar Neutral Metrics */}
+            {/* Value Neutral Metrics */}
             <div className="card">
               <h3 className="text-xl font-bold text-white mb-4">Value Neutral Position Performance</h3>
 
@@ -950,26 +1048,26 @@ export default function BacktestSpread() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Total Trades</p>
-                    <p className="text-xl font-bold text-gold-400">{tradeResults.length}</p>
+                    <p className="text-xl font-bold text-gold-400">{valueNeutralTradeResults.length}</p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Win Rate</p>
-                    <p className="text-xl font-bold text-green-400">{winRateDollarNeutral.toFixed(1)}%</p>
+                    <p className="text-xl font-bold text-green-400">{winRateValueNeutral.toFixed(1)}%</p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Total P&L</p>
                     <p
-                      className={`text-xl font-bold ${totalDollarNeutralProfit >= 0 ? "text-green-400" : "text-red-400"}`}
+                      className={`text-xl font-bold ${totalValueNeutralProfit >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      ${totalDollarNeutralProfit.toFixed(2)}
+                      ${totalValueNeutralProfit.toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Avg P&L</p>
                     <p
-                      className={`text-xl font-bold ${avgDollarNeutralProfit >= 0 ? "text-green-400" : "text-red-400"}`}
+                      className={`text-xl font-bold ${avgValueNeutralProfit >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      ${avgDollarNeutralProfit.toFixed(2)}
+                      ${avgValueNeutralProfit.toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -981,28 +1079,28 @@ export default function BacktestSpread() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Long Spread Trades</p>
-                    <p className="text-xl font-bold text-blue-400">{dollarNeutralMetrics.longTrades || 0}</p>
+                    <p className="text-xl font-bold text-blue-400">{valueNeutralMetrics.longTrades || 0}</p>
                     <p className="text-sm text-gray-400">
-                      Win Rate: {(dollarNeutralMetrics.longWinRate || 0).toFixed(1)}%
+                      Win Rate: {(valueNeutralMetrics.longWinRate || 0).toFixed(1)}%
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Short Spread Trades</p>
-                    <p className="text-xl font-bold text-red-400">{dollarNeutralMetrics.shortTrades || 0}</p>
+                    <p className="text-xl font-bold text-red-400">{valueNeutralMetrics.shortTrades || 0}</p>
                     <p className="text-sm text-gray-400">
-                      Win Rate: {(dollarNeutralMetrics.shortWinRate || 0).toFixed(1)}%
+                      Win Rate: {(valueNeutralMetrics.shortWinRate || 0).toFixed(1)}%
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Avg Long Win</p>
                     <p className="text-xl font-bold text-green-400">
-                      ${(dollarNeutralMetrics.avgLongWin || 0).toFixed(2)}
+                      ${(valueNeutralMetrics.avgLongWin || 0).toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Avg Short Win</p>
                     <p className="text-xl font-bold text-green-400">
-                      ${(dollarNeutralMetrics.avgShortWin || 0).toFixed(2)}
+                      ${(valueNeutralMetrics.avgShortWin || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -1015,27 +1113,27 @@ export default function BacktestSpread() {
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Sharpe Ratio</p>
                     <p className="text-xl font-bold text-purple-400">
-                      {(dollarNeutralMetrics.sharpeRatio || 0).toFixed(3)}
+                      {(valueNeutralMetrics.sharpeRatio || 0).toFixed(3)}
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Max Drawdown</p>
                     <p className="text-xl font-bold text-red-400">
-                      ${(dollarNeutralMetrics.maxDrawdown || 0).toFixed(2)}
+                      ${(valueNeutralMetrics.maxDrawdown || 0).toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Profit Factor</p>
                     <p className="text-xl font-bold text-gold-400">
-                      {(dollarNeutralMetrics.profitFactor || 0).toFixed(2)}
+                      {(valueNeutralMetrics.profitFactor || 0).toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Expectancy</p>
                     <p
-                      className={`text-xl font-bold ${(dollarNeutralMetrics.expectancy || 0) >= 0 ? "text-green-400" : "text-red-400"}`}
+                      className={`text-xl font-bold ${(valueNeutralMetrics.expectancy || 0) >= 0 ? "text-green-400" : "text-red-400"}`}
                     >
-                      ${(dollarNeutralMetrics.expectancy || 0).toFixed(2)}
+                      ${(valueNeutralMetrics.expectancy || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -1048,22 +1146,22 @@ export default function BacktestSpread() {
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Best Trade</p>
                     <p className="text-xl font-bold text-green-400">
-                      ${(dollarNeutralMetrics.bestTrade || 0).toFixed(2)}
+                      ${(valueNeutralMetrics.bestTrade || 0).toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Worst Trade</p>
                     <p className="text-xl font-bold text-red-400">
-                      ${(dollarNeutralMetrics.worstTrade || 0).toFixed(2)}
+                      ${(valueNeutralMetrics.worstTrade || 0).toFixed(2)}
                     </p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Max Consecutive Wins</p>
-                    <p className="text-xl font-bold text-green-400">{dollarNeutralMetrics.maxConsecutiveWins || 0}</p>
+                    <p className="text-xl font-bold text-green-400">{valueNeutralMetrics.maxConsecutiveWins || 0}</p>
                   </div>
                   <div className="bg-navy-800/50 rounded-lg p-3 border border-navy-700">
                     <p className="text-sm text-gray-300">Max Consecutive Losses</p>
-                    <p className="text-xl font-bold text-red-400">{dollarNeutralMetrics.maxConsecutiveLosses || 0}</p>
+                    <p className="text-xl font-bold text-red-400">{valueNeutralMetrics.maxConsecutiveLosses || 0}</p>
                   </div>
                 </div>
               </div>
@@ -1087,31 +1185,31 @@ export default function BacktestSpread() {
                   <tr className="bg-navy-900/50">
                     <td className="table-cell font-medium">Total P&L</td>
                     <td className="table-cell">${totalHedgedProfit.toFixed(2)}</td>
-                    <td className="table-cell">${totalDollarNeutralProfit.toFixed(2)}</td>
+                    <td className="table-cell">${totalValueNeutralProfit.toFixed(2)}</td>
                     <td
-                      className={`table-cell font-medium ${totalHedgedProfit > totalDollarNeutralProfit ? "text-green-400" : "text-red-400"}`}
+                      className={`table-cell font-medium ${totalHedgedProfit > totalValueNeutralProfit ? "text-green-400" : "text-red-400"}`}
                     >
-                      {totalHedgedProfit > totalDollarNeutralProfit ? "Hedge Factor Adj" : "Value Neutral"}
+                      {totalHedgedProfit > totalValueNeutralProfit ? "Hedge Factor Adj" : "Value Neutral"}
                     </td>
                   </tr>
                   <tr className="bg-navy-900/30">
                     <td className="table-cell font-medium">Win Rate</td>
                     <td className="table-cell">{winRateHedged.toFixed(1)}%</td>
-                    <td className="table-cell">{winRateDollarNeutral.toFixed(1)}%</td>
+                    <td className="table-cell">{winRateValueNeutral.toFixed(1)}%</td>
                     <td
-                      className={`table-cell font-medium ${winRateHedged > winRateDollarNeutral ? "text-green-400" : "text-red-400"}`}
+                      className={`table-cell font-medium ${winRateHedged > winRateValueNeutral ? "text-green-400" : "text-red-400"}`}
                     >
-                      {winRateHedged > winRateDollarNeutral ? "Hedge Factor Adj" : "Value Neutral"}
+                      {winRateHedged > winRateValueNeutral ? "Hedge Factor Adj" : "Value Neutral"}
                     </td>
                   </tr>
                   <tr className="bg-navy-900/50">
                     <td className="table-cell font-medium">Sharpe Ratio</td>
                     <td className="table-cell">{(hedgedMetrics.sharpeRatio || 0).toFixed(3)}</td>
-                    <td className="table-cell">{(dollarNeutralMetrics.sharpeRatio || 0).toFixed(3)}</td>
+                    <td className="table-cell">{(valueNeutralMetrics.sharpeRatio || 0).toFixed(3)}</td>
                     <td
-                      className={`table-cell font-medium ${(hedgedMetrics.sharpeRatio || 0) > (dollarNeutralMetrics.sharpeRatio || 0) ? "text-green-400" : "text-red-400"}`}
+                      className={`table-cell font-medium ${(hedgedMetrics.sharpeRatio || 0) > (valueNeutralMetrics.sharpeRatio || 0) ? "text-green-400" : "text-red-400"}`}
                     >
-                      {(hedgedMetrics.sharpeRatio || 0) > (dollarNeutralMetrics.sharpeRatio || 0)
+                      {(hedgedMetrics.sharpeRatio || 0) > (valueNeutralMetrics.sharpeRatio || 0)
                         ? "Hedge Factor Adj"
                         : "Value Neutral"}
                     </td>
@@ -1119,11 +1217,11 @@ export default function BacktestSpread() {
                   <tr className="bg-navy-900/30">
                     <td className="table-cell font-medium">Max Drawdown</td>
                     <td className="table-cell">${(hedgedMetrics.maxDrawdown || 0).toFixed(2)}</td>
-                    <td className="table-cell">${(dollarNeutralMetrics.maxDrawdown || 0).toFixed(2)}</td>
+                    <td className="table-cell">${(valueNeutralMetrics.maxDrawdown || 0).toFixed(2)}</td>
                     <td
-                      className={`table-cell font-medium ${(hedgedMetrics.maxDrawdown || 0) < (dollarNeutralMetrics.maxDrawdown || 0) ? "text-green-400" : "text-red-400"}`}
+                      className={`table-cell font-medium ${(hedgedMetrics.maxDrawdown || 0) < (valueNeutralMetrics.maxDrawdown || 0) ? "text-green-400" : "text-red-400"}`}
                     >
-                      {(hedgedMetrics.maxDrawdown || 0) < (dollarNeutralMetrics.maxDrawdown || 0)
+                      {(hedgedMetrics.maxDrawdown || 0) < (valueNeutralMetrics.maxDrawdown || 0)
                         ? "Hedge Factor Adj"
                         : "Value Neutral"}
                     </td>
@@ -1131,11 +1229,11 @@ export default function BacktestSpread() {
                   <tr className="bg-navy-900/50">
                     <td className="table-cell font-medium">Profit Factor</td>
                     <td className="table-cell">{(hedgedMetrics.profitFactor || 0).toFixed(2)}</td>
-                    <td className="table-cell">{(dollarNeutralMetrics.profitFactor || 0).toFixed(2)}</td>
+                    <td className="table-cell">{(valueNeutralMetrics.profitFactor || 0).toFixed(2)}</td>
                     <td
-                      className={`table-cell font-medium ${(hedgedMetrics.profitFactor || 0) > (dollarNeutralMetrics.profitFactor || 0) ? "text-green-400" : "text-red-400"}`}
+                      className={`table-cell font-medium ${(hedgedMetrics.profitFactor || 0) > (valueNeutralMetrics.profitFactor || 0) ? "text-green-400" : "text-red-400"}`}
                     >
-                      {(hedgedMetrics.profitFactor || 0) > (dollarNeutralMetrics.profitFactor || 0)
+                      {(hedgedMetrics.profitFactor || 0) > (valueNeutralMetrics.profitFactor || 0)
                         ? "Hedge Factor Adj"
                         : "Value Neutral"}
                     </td>
@@ -1143,11 +1241,11 @@ export default function BacktestSpread() {
                   <tr className="bg-navy-900/30">
                     <td className="table-cell font-medium">Expectancy</td>
                     <td className="table-cell">${(hedgedMetrics.expectancy || 0).toFixed(2)}</td>
-                    <td className="table-cell">${(dollarNeutralMetrics.expectancy || 0).toFixed(2)}</td>
+                    <td className="table-cell">${(valueNeutralMetrics.expectancy || 0).toFixed(2)}</td>
                     <td
-                      className={`table-cell font-medium ${(hedgedMetrics.expectancy || 0) > (dollarNeutralMetrics.expectancy || 0) ? "text-green-400" : "text-red-400"}`}
+                      className={`table-cell font-medium ${(hedgedMetrics.expectancy || 0) > (valueNeutralMetrics.expectancy || 0) ? "text-green-400" : "text-red-400"}`}
                     >
-                      {(hedgedMetrics.expectancy || 0) > (dollarNeutralMetrics.expectancy || 0)
+                      {(hedgedMetrics.expectancy || 0) > (valueNeutralMetrics.expectancy || 0)
                         ? "Hedge Factor Adj"
                         : "Value Neutral"}
                     </td>
