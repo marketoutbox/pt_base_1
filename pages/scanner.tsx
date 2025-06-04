@@ -1,19 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
 import { getAllWatchlists } from "../lib/indexedDB"
 import { getStockData } from "../lib/indexedDB"
-import Button from "../components/Button"
-import Input from "../components/Input"
-import Select from "../components/Select"
-import { Card } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { AlertCircle, ExternalLink, Info, Loader2 } from "lucide-react"
+import { AlertCircle, ExternalLink, Loader2 } from "lucide-react"
 
 export default function Scanner() {
   const router = useRouter()
@@ -220,10 +212,12 @@ export default function Scanner() {
 
     // Determine signal
     let signal = "None"
+    const stockASymbol = stockAData[0].symbol || stockAData[0].stockA
+    const stockBSymbol = stockBData[0].symbol || stockBData[0].stockB
     if (zScore > 0) {
-      signal = `Short ${stockAData[0].symbol} / Long ${stockBData[0].symbol}`
+      signal = `Short ${stockASymbol} / Long ${stockBSymbol}`
     } else if (zScore < 0) {
-      signal = `Long ${stockAData[0].symbol} / Short ${stockBData[0].symbol}`
+      signal = `Long ${stockASymbol} / Short ${stockBSymbol}`
     }
 
     return { zScore, correlation, halfLife, signal }
@@ -316,291 +310,277 @@ export default function Scanner() {
   // Get color for z-score
   const getZScoreColor = (zScore) => {
     const absZScore = Math.abs(zScore)
-    if (absZScore >= 3) return "text-red-500 font-bold"
-    if (absZScore >= 2) return "text-orange-500 font-semibold"
-    return "text-gray-200"
+    if (absZScore >= 3) return "text-red-400 font-bold"
+    if (absZScore >= 2) return "text-gold-400 font-semibold"
+    return "text-gray-300"
   }
 
   // Get color for correlation
   const getCorrelationColor = (correlation) => {
     const absCorr = Math.abs(correlation)
-    if (absCorr >= 0.8) return "text-green-500 font-semibold"
-    if (absCorr >= 0.5) return "text-yellow-500"
+    if (absCorr >= 0.8) return "text-green-400 font-semibold"
+    if (absCorr >= 0.5) return "text-gold-400"
     return "text-red-400"
   }
 
   // Get color for half-life
   const getHalfLifeColor = (halfLife) => {
     if (halfLife === null) return "text-red-400"
-    if (halfLife <= 30) return "text-green-500 font-semibold"
-    if (halfLife <= 60) return "text-yellow-500"
+    if (halfLife <= 30) return "text-green-400 font-semibold"
+    if (halfLife <= 60) return "text-gold-400"
     return "text-red-400"
   }
 
   return (
-    <div className="min-h-screen bg-navy-950 text-navy-100">
-      <Head>
-        <title>Pair Scanner | Statistical Equity Divergence</title>
-        <meta name="description" content="Scan for trading opportunities across watchlists" />
-      </Head>
+    <div className="space-y-8">
+      <div className="text-center space-y-2">
+        <h1 className="text-5xl font-bold text-white">Pair Scanner</h1>
+        <p className="text-xl text-gray-300">
+          Scan for trading opportunities across watchlists using statistical analysis
+        </p>
+      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8 text-gold-400">Pair Scanner</h1>
-
-        <Card className="p-6 mb-8 bg-navy-900 border-navy-700">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium mb-2">Watchlist</label>
-              <Select
-                value={selectedWatchlist}
-                onChange={(e) => setSelectedWatchlist(e.target.value)}
-                disabled={isScanning}
-              >
-                <option value="all">All Watchlists</option>
-                {watchlists.map((watchlist) => (
-                  <option key={watchlist.id} value={watchlist.id}>
-                    {watchlist.name} ({watchlist.pairs?.length || 0} pairs)
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Method</label>
-              <div className="flex space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="ratio"
-                    checked={method === "ratio"}
-                    onChange={() => setMethod("ratio")}
-                    disabled={isScanning}
-                    className="mr-2"
-                  />
-                  <span>Ratio</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="ols"
-                    checked={method === "ols"}
-                    onChange={() => setMethod("ols")}
-                    disabled={isScanning}
-                    className="mr-2"
-                  />
-                  <span>OLS</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="kalman"
-                    checked={method === "kalman"}
-                    onChange={() => setMethod("kalman")}
-                    disabled={isScanning}
-                    className="mr-2"
-                  />
-                  <span>Kalman</span>
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Lookback Period (days)</label>
-              <Input
-                type="number"
-                value={lookbackPeriod}
-                onChange={(e) => setLookbackPeriod(Number.parseInt(e.target.value))}
-                min={10}
-                max={252}
-                disabled={isScanning}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Z-Score Range (Min)</label>
-              <Input
-                type="number"
-                value={minZScore}
-                onChange={(e) => setMinZScore(Number.parseFloat(e.target.value))}
-                min={0}
-                max={10}
-                step={0.1}
-                disabled={isScanning}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Z-Score Range (Max)</label>
-              <Input
-                type="number"
-                value={maxZScore}
-                onChange={(e) => setMaxZScore(Number.parseFloat(e.target.value))}
-                min={0}
-                max={10}
-                step={0.1}
-                disabled={isScanning}
-              />
-            </div>
-
-            <div className="flex items-end">
-              <Button onClick={handleScan} disabled={isScanning || watchlists.length === 0} primary className="w-full">
-                {isScanning ? (
-                  <span className="flex items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Scanning...
-                  </span>
-                ) : (
-                  "Scan Pairs"
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {isScanning && (
-            <div className="mt-6">
-              <div className="flex justify-between text-sm mb-1">
-                <span>
-                  Processing: {processedPairs} of {totalPairs} pairs
-                </span>
-                <span>{progress}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-          )}
-        </Card>
+      <div className="card">
+        <h2 className="text-2xl font-bold text-white mb-6">Scanner Parameters</h2>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-700 text-red-200 px-4 py-3 rounded mb-6 flex items-center">
+          <div className="mb-6 p-4 bg-red-900/30 border border-red-800 rounded-md text-red-300 flex items-center">
             <AlertCircle className="h-5 w-5 mr-2" />
             {error}
           </div>
         )}
 
-        {scanResults.length > 0 && (
-          <Card className="bg-navy-900 border-navy-700">
-            <div className="p-4 border-b border-navy-700 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gold-400">
-                Scan Results <Badge variant="outline">{scanResults.length} pairs found</Badge>
-              </h2>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Watchlist Selection</label>
+            <select
+              value={selectedWatchlist}
+              onChange={(e) => setSelectedWatchlist(e.target.value)}
+              disabled={isScanning}
+              className="input-field"
+            >
+              <option value="all">All Watchlists</option>
+              {watchlists.map((watchlist) => (
+                <option key={watchlist.id} value={watchlist.id}>
+                  {watchlist.name} ({watchlist.pairs?.length || 0} pairs)
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-navy-800">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      Pair
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      Watchlist
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger className="flex items-center">
-                            Z-Score <Info className="h-3 w-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Current z-score of the spread</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      Signal
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger className="flex items-center">
-                            Corr <Info className="h-3 w-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Price correlation between the two stocks</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger className="flex items-center">
-                            Half-Life <Info className="h-3 w-3 ml-1" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Estimated days for mean reversion (lower is better)</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      Last Prices
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-navy-300 uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy-800">
-                  {scanResults.map((result, index) => (
-                    <tr
-                      key={`${result.stockA}-${result.stockB}-${index}`}
-                      className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}
-                    >
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="font-medium">
-                          {result.stockA} / {result.stockB}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <Badge variant="outline">{result.watchlistName}</Badge>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={getZScoreColor(result.zScore)}>{formatZScore(result.zScore)}</span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <Badge variant={result.zScore > 0 ? "destructive" : "success"} className="font-normal">
-                          {result.signal}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={getCorrelationColor(result.correlation)}>{result.correlation.toFixed(2)}</span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={getHalfLifeColor(result.halfLife)}>
-                          {result.halfLife !== null ? `${result.halfLife} days` : "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm">
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Analysis Method</label>
+            <div className="flex space-x-6">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="ratio"
+                  checked={method === "ratio"}
+                  onChange={() => setMethod("ratio")}
+                  disabled={isScanning}
+                  className="mr-2 text-gold-400 focus:ring-gold-400"
+                />
+                <span className="text-gray-300">Ratio</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="ols"
+                  checked={method === "ols"}
+                  onChange={() => setMethod("ols")}
+                  disabled={isScanning}
+                  className="mr-2 text-gold-400 focus:ring-gold-400"
+                />
+                <span className="text-gray-300">OLS</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="kalman"
+                  checked={method === "kalman"}
+                  onChange={() => setMethod("kalman")}
+                  disabled={isScanning}
+                  className="mr-2 text-gold-400 focus:ring-gold-400"
+                />
+                <span className="text-gray-300">Kalman</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Lookback Period (Days)</label>
+            <input
+              type="number"
+              value={lookbackPeriod}
+              onChange={(e) => setLookbackPeriod(Number.parseInt(e.target.value))}
+              min={10}
+              max={252}
+              disabled={isScanning}
+              className="input-field"
+            />
+            <p className="mt-1 text-sm text-gray-400">Number of days for statistical calculations</p>
+          </div>
+
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Z-Score Range (Min)</label>
+            <input
+              type="number"
+              value={minZScore}
+              onChange={(e) => setMinZScore(Number.parseFloat(e.target.value))}
+              min={0}
+              max={10}
+              step={0.1}
+              disabled={isScanning}
+              className="input-field"
+            />
+            <p className="mt-1 text-sm text-gray-400">Minimum absolute z-score threshold</p>
+          </div>
+
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Z-Score Range (Max)</label>
+            <input
+              type="number"
+              value={maxZScore}
+              onChange={(e) => setMaxZScore(Number.parseFloat(e.target.value))}
+              min={0}
+              max={10}
+              step={0.1}
+              disabled={isScanning}
+              className="input-field"
+            />
+            <p className="mt-1 text-sm text-gray-400">Maximum absolute z-score threshold</p>
+          </div>
+        </div>
+
+        {isScanning && (
+          <div className="mb-8">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-300">
+                Processing: {processedPairs} of {totalPairs} pairs
+              </span>
+              <span className="text-gold-400">{progress}%</span>
+            </div>
+            <div className="w-full bg-navy-800 rounded-full h-2">
+              <div
+                className="bg-gold-400 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-center">
+          <button onClick={handleScan} disabled={isScanning || watchlists.length === 0} className="btn-primary">
+            {isScanning ? (
+              <span className="flex items-center">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Scanning...
+              </span>
+            ) : (
+              "Scan Pairs"
+            )}
+          </button>
+        </div>
+      </div>
+
+      {scanResults.length > 0 && (
+        <div className="card">
+          <h2 className="text-2xl font-bold text-white mb-6">
+            Scan Results
+            <span className="ml-3 px-3 py-1 bg-gold-400/20 text-gold-400 rounded-full text-sm font-medium">
+              {scanResults.length} pairs found
+            </span>
+          </h2>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-navy-700">
+              <thead className="bg-navy-800">
+                <tr>
+                  <th className="table-header">Pair</th>
+                  <th className="table-header">Watchlist</th>
+                  <th className="table-header">Z-Score</th>
+                  <th className="table-header">Signal</th>
+                  <th className="table-header">Correlation</th>
+                  <th className="table-header">Half-Life</th>
+                  <th className="table-header">Last Prices</th>
+                  <th className="table-header">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-navy-800">
+                {scanResults.map((result, index) => (
+                  <tr
+                    key={`${result.stockA}-${result.stockB}-${index}`}
+                    className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}
+                  >
+                    <td className="table-cell">
+                      <div className="font-medium text-white">
+                        {result.stockA} / {result.stockB}
+                      </div>
+                    </td>
+                    <td className="table-cell">
+                      <span className="px-2 py-1 bg-navy-700 text-gray-300 rounded text-sm">
+                        {result.watchlistName}
+                      </span>
+                    </td>
+                    <td className="table-cell">
+                      <span className={getZScoreColor(result.zScore)}>{formatZScore(result.zScore)}</span>
+                    </td>
+                    <td className="table-cell">
+                      <span
+                        className={`px-2 py-1 rounded text-sm font-medium ${
+                          result.zScore > 0 ? "bg-red-900/30 text-red-300" : "bg-green-900/30 text-green-300"
+                        }`}
+                      >
+                        {result.signal}
+                      </span>
+                    </td>
+                    <td className="table-cell">
+                      <span className={getCorrelationColor(result.correlation)}>{result.correlation.toFixed(2)}</span>
+                    </td>
+                    <td className="table-cell">
+                      <span className={getHalfLifeColor(result.halfLife)}>
+                        {result.halfLife !== null ? `${result.halfLife} days` : "N/A"}
+                      </span>
+                    </td>
+                    <td className="table-cell">
+                      <div className="text-sm">
+                        <div>
                           {result.stockA}: ${result.lastPriceA.toFixed(2)}
                         </div>
-                        <div className="text-sm">
+                        <div>
                           {result.stockB}: ${result.lastPriceB.toFixed(2)}
                         </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <Link
-                          href={`/pair-analyzer?stockA=${result.stockA}&stockB=${result.stockB}&method=${result.method}`}
-                          className="text-gold-400 hover:text-gold-300 flex items-center"
-                        >
-                          Analyze <ExternalLink className="h-4 w-4 ml-1" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </td>
+                    <td className="table-cell">
+                      <Link
+                        href={`/pair-analyzer?stockA=${result.stockA}&stockB=${result.stockB}`}
+                        className="text-gold-400 hover:text-gold-300 flex items-center font-medium"
+                      >
+                        Analyze <ExternalLink className="h-4 w-4 ml-1" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-            {scanResults.length === 0 && (
-              <div className="p-8 text-center text-navy-400">
-                <p>No pairs found matching the criteria.</p>
-              </div>
-            )}
-          </Card>
-        )}
-      </div>
+      {!isScanning && scanResults.length === 0 && processedPairs > 0 && (
+        <div className="card">
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-lg mb-2">No pairs found</div>
+            <p className="text-gray-500">
+              No pairs matched the specified z-score range of {minZScore} to {maxZScore}. Try adjusting the parameters
+              and scanning again.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
