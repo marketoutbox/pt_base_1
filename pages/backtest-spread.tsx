@@ -768,8 +768,8 @@ export default function BacktestSpread() {
                     <th className="table-header">Type</th>
                     <th className="table-header">Days</th>
                     <th className="table-header">Hedge Factor Adj P&L ($)</th>
-                    <th className="table-header">Value Neutral P&L ($)</th>
                     <th className="table-header">Hedge Factor Adj ROI (%)</th>
+                    <th className="table-header">Value Neutral P&L ($)</th>
                     <th className="table-header">Value Neutral ROI (%)</th>
                     <th className="table-header">Entry β</th>
                     <th className="table-header">Exit β</th>
@@ -795,18 +795,18 @@ export default function BacktestSpread() {
                         ${trade.hedgedPnL}
                       </td>
                       <td
-                        className={`table-cell font-medium ${
-                          Number.parseFloat(trade.dollarNeutralPnL) >= 0 ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        ${trade.dollarNeutralPnL}
-                      </td>
-                      <td
                         className={`table-cell ${
                           Number.parseFloat(trade.hedgedROI) >= 0 ? "text-green-400" : "text-red-400"
                         }`}
                       >
                         {trade.hedgedROI}%
+                      </td>
+                      <td
+                        className={`table-cell font-medium ${
+                          Number.parseFloat(trade.dollarNeutralPnL) >= 0 ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        ${trade.dollarNeutralPnL}
                       </td>
                       <td
                         className={`table-cell ${
