@@ -2,7 +2,7 @@ import Link from "next/link"
 
 export default function Home() {
   return (
-    <div className="space-y-12 py-8">
+    <div className="space-y-12 py-8">s
       <div className="text-center space-y-4">
         <h1 className="text-5xl font-bold text-white">Pair Trading Platform</h1>
         <p className="text-xl text-gray-300 max-w-3xl mx-auto">
