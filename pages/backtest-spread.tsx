@@ -97,11 +97,11 @@ export default function BacktestSpread() {
     return (count * sumAB - sumA * sumB) / (count * sumB2 - sumB * sumB)
   }
 
-  const calculateAdvancedMetrics = (trades, method = "hedged") => {
+  const calculateAdvancedMetrics = (trades, method = "hedgeFactor") => {
     if (trades.length === 0) return {}
 
-    const pnlKey = method === "hedged" ? "hedgedPnL" : "dollarNeutralPnL"
-    const roiKey = method === "hedged" ? "hedgedROI" : "dollarNeutralROI"
+    const pnlKey = method === "hedgeFactor" ? "hedgedPnL" : "dollarNeutralPnL"
+    const roiKey = method === "hedgeFactor" ? "hedgedROI" : "dollarNeutralROI"
 
     // Separate trades by direction
     const longTrades = trades.filter((t) => t.type === "LONG")
@@ -529,7 +529,7 @@ export default function BacktestSpread() {
   }
 
   // Calculate comprehensive metrics for both methods
-  const hedgedMetrics = calculateAdvancedMetrics(tradeResults, "hedged")
+  const hedgedMetrics = calculateAdvancedMetrics(tradeResults, "hedgeFactor")
   const dollarNeutralMetrics = calculateAdvancedMetrics(tradeResults, "dollarNeutral")
 
   // Calculate summary statistics for both methods
@@ -767,10 +767,10 @@ export default function BacktestSpread() {
                     <th className="table-header">Exit Date</th>
                     <th className="table-header">Type</th>
                     <th className="table-header">Days</th>
-                    <th className="table-header">Hedged P&L ($)</th>
-                    <th className="table-header">Dollar Neutral P&L ($)</th>
-                    <th className="table-header">Hedged ROI (%)</th>
-                    <th className="table-header">Dollar Neutral ROI (%)</th>
+                    <th className="table-header">Hedge Factor Adj P&L ($)</th>
+                    <th className="table-header">Value Neutral P&L ($)</th>
+                    <th className="table-header">Hedge Factor Adj ROI (%)</th>
+                    <th className="table-header">Value Neutral ROI (%)</th>
                     <th className="table-header">Entry β</th>
                     <th className="table-header">Exit β</th>
                     <th className="table-header">β Change (%)</th>
@@ -835,7 +835,7 @@ export default function BacktestSpread() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Hedged Position Metrics */}
             <div className="card">
-              <h3 className="text-xl font-bold text-white mb-4">Hedged Position Performance</h3>
+              <h3 className="text-xl font-bold text-white mb-4">Hedge Factor Adj Position Performance</h3>
 
               {/* Overall Performance */}
               <div className="mb-6">
@@ -942,7 +942,7 @@ export default function BacktestSpread() {
 
             {/* Dollar Neutral Metrics */}
             <div className="card">
-              <h3 className="text-xl font-bold text-white mb-4">Dollar Neutral Performance</h3>
+              <h3 className="text-xl font-bold text-white mb-4">Value Neutral Position Performance</h3>
 
               {/* Overall Performance */}
               <div className="mb-6">
@@ -1078,8 +1078,8 @@ export default function BacktestSpread() {
                 <thead className="bg-navy-800">
                   <tr>
                     <th className="table-header">Metric</th>
-                    <th className="table-header">Hedged Position</th>
-                    <th className="table-header">Dollar Neutral</th>
+                    <th className="table-header">Hedge Factor Adj Position</th>
+                    <th className="table-header">Value Neutral</th>
                     <th className="table-header">Better Method</th>
                   </tr>
                 </thead>
@@ -1091,7 +1091,7 @@ export default function BacktestSpread() {
                     <td
                       className={`table-cell font-medium ${totalHedgedProfit > totalDollarNeutralProfit ? "text-green-400" : "text-red-400"}`}
                     >
-                      {totalHedgedProfit > totalDollarNeutralProfit ? "Hedged" : "Dollar Neutral"}
+                      {totalHedgedProfit > totalDollarNeutralProfit ? "Hedge Factor Adj" : "Value Neutral"}
                     </td>
                   </tr>
                   <tr className="bg-navy-900/30">
@@ -1101,7 +1101,7 @@ export default function BacktestSpread() {
                     <td
                       className={`table-cell font-medium ${winRateHedged > winRateDollarNeutral ? "text-green-400" : "text-red-400"}`}
                     >
-                      {winRateHedged > winRateDollarNeutral ? "Hedged" : "Dollar Neutral"}
+                      {winRateHedged > winRateDollarNeutral ? "Hedge Factor Adj" : "Value Neutral"}
                     </td>
                   </tr>
                   <tr className="bg-navy-900/50">
@@ -1112,8 +1112,8 @@ export default function BacktestSpread() {
                       className={`table-cell font-medium ${(hedgedMetrics.sharpeRatio || 0) > (dollarNeutralMetrics.sharpeRatio || 0) ? "text-green-400" : "text-red-400"}`}
                     >
                       {(hedgedMetrics.sharpeRatio || 0) > (dollarNeutralMetrics.sharpeRatio || 0)
-                        ? "Hedged"
-                        : "Dollar Neutral"}
+                        ? "Hedge Factor Adj"
+                        : "Value Neutral"}
                     </td>
                   </tr>
                   <tr className="bg-navy-900/30">
@@ -1124,8 +1124,8 @@ export default function BacktestSpread() {
                       className={`table-cell font-medium ${(hedgedMetrics.maxDrawdown || 0) < (dollarNeutralMetrics.maxDrawdown || 0) ? "text-green-400" : "text-red-400"}`}
                     >
                       {(hedgedMetrics.maxDrawdown || 0) < (dollarNeutralMetrics.maxDrawdown || 0)
-                        ? "Hedged"
-                        : "Dollar Neutral"}
+                        ? "Hedge Factor Adj"
+                        : "Value Neutral"}
                     </td>
                   </tr>
                   <tr className="bg-navy-900/50">
@@ -1136,8 +1136,8 @@ export default function BacktestSpread() {
                       className={`table-cell font-medium ${(hedgedMetrics.profitFactor || 0) > (dollarNeutralMetrics.profitFactor || 0) ? "text-green-400" : "text-red-400"}`}
                     >
                       {(hedgedMetrics.profitFactor || 0) > (dollarNeutralMetrics.profitFactor || 0)
-                        ? "Hedged"
-                        : "Dollar Neutral"}
+                        ? "Hedge Factor Adj"
+                        : "Value Neutral"}
                     </td>
                   </tr>
                   <tr className="bg-navy-900/30">
@@ -1148,8 +1148,8 @@ export default function BacktestSpread() {
                       className={`table-cell font-medium ${(hedgedMetrics.expectancy || 0) > (dollarNeutralMetrics.expectancy || 0) ? "text-green-400" : "text-red-400"}`}
                     >
                       {(hedgedMetrics.expectancy || 0) > (dollarNeutralMetrics.expectancy || 0)
-                        ? "Hedged"
-                        : "Dollar Neutral"}
+                        ? "Hedge Factor Adj"
+                        : "Value Neutral"}
                     </td>
                   </tr>
                 </tbody>
@@ -1162,7 +1162,7 @@ export default function BacktestSpread() {
             <h3 className="text-lg font-bold text-white mb-2">Position Sizing Methods</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="text-md font-semibold text-gold-400 mb-2">Hedged Position</h4>
+                <h4 className="text-md font-semibold text-gold-400 mb-2">Hedge Factor Adj Position</h4>
                 <p className="text-sm text-gray-300">
                   Theoretical approach using 1 unit of Stock A and β units of Stock B. This is the standard academic
                   pair trading approach that focuses on the spread behavior.
@@ -1176,7 +1176,7 @@ export default function BacktestSpread() {
                 </p>
               </div>
               <div>
-                <h4 className="text-md font-semibold text-gold-400 mb-2">Dollar Neutral</h4>
+                <h4 className="text-md font-semibold text-gold-400 mb-2">Value Neutral Position Size</h4>
                 <p className="text-sm text-gray-300">
                   Equal dollar amounts invested in both legs of the trade. This approach balances capital exposure
                   between the two stocks regardless of their price levels.
