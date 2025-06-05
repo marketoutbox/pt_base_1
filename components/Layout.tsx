@@ -62,9 +62,6 @@ export default function Layout({ children }) {
               <NavLink href="/pair-analyzer" current={router.pathname === "/pair-analyzer"}>
                 Pair Analyzer
               </NavLink>
-              <NavLink href="/scanner" current={router.pathname === "/scanner"}>
-                Scanner
-              </NavLink>
 
               {/* Dropdown for backtests */}
               <div
@@ -146,9 +143,6 @@ export default function Layout({ children }) {
               </MobileNavLink>
               <MobileNavLink href="/pair-analyzer" current={router.pathname === "/pair-analyzer"}>
                 Pair Analyzer
-              </MobileNavLink>
-              <MobileNavLink href="/scanner" current={router.pathname === "/scanner"}>
-                Scanner
               </MobileNavLink>
 
               {/* Mobile Backtests Dropdown */}
