@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
-import calculateZScore from "../utils/calculations"
 
 export default function Backtest() {
   const [stocks, setStocks] = useState([])
@@ -91,17 +90,32 @@ export default function Backtest() {
         return
       }
 
-      const pricesA = filterByDate(stockAData.data)
-      const pricesB = filterByDate(stockBData.data)
-      const minLength = Math.min(pricesA.length, pricesB.length)
+      // Sort data by date ascending for proper chronological order
+      const pricesA = filterByDate(stockAData.data).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      )
+      const pricesB = filterByDate(stockBData.data).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      )
+
+      // Ensure both arrays have the same dates
+      const commonDates = pricesA
+        .filter((a) => pricesB.some((b) => b.date === a.date))
+        .map((a) => a.date)
+        .sort()
+
+      const alignedPricesA = commonDates.map((date) => pricesA.find((p) => p.date === date)).filter(Boolean)
+      const alignedPricesB = commonDates.map((date) => pricesB.find((p) => p.date === date)).filter(Boolean)
+
+      const minLength = Math.min(alignedPricesA.length, alignedPricesB.length)
       const ratios = []
 
       for (let i = 0; i < minLength; i++) {
         ratios.push({
-          date: pricesA[i].date,
-          ratio: pricesA[i].close / pricesB[i].close,
-          stockAClose: pricesA[i].close,
-          stockBClose: pricesB[i].close,
+          date: alignedPricesA[i].date,
+          ratio: alignedPricesA[i].close / alignedPricesB[i].close,
+          stockAClose: alignedPricesA[i].close,
+          stockBClose: alignedPricesB[i].close,
         })
       }
 
@@ -109,7 +123,15 @@ export default function Backtest() {
       const zScores = []
       for (let i = 0; i < ratios.length; i++) {
         const windowData = ratios.slice(Math.max(0, i - rollingWindow + 1), i + 1).map((r) => r.ratio)
-        zScores.push(calculateZScore(windowData).pop())
+        if (windowData.length >= rollingWindow) {
+          const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
+          const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1)
+          const stdDev = Math.sqrt(variance)
+          const zScore = stdDev > 0 ? (ratios[i].ratio - mean) / stdDev : 0
+          zScores.push(zScore)
+        } else {
+          zScores.push(0)
+        }
       }
 
       const tableData = ratios.map((item, index) => ({
@@ -124,19 +146,22 @@ export default function Backtest() {
       const trades = []
       let openTrade = null
 
+      // Make sure we're iterating through data chronologically
       for (let i = 1; i < tableData.length; i++) {
         const prevZ = tableData[i - 1].zScore
         const currZ = tableData[i].zScore
-        const { date, ratio } = tableData[i]
+        const currentRow = tableData[i]
 
         if (!openTrade) {
           if (prevZ > -entryZ && currZ <= -entryZ) {
-            openTrade = { entryDate: date, type: "LONG", entryIndex: i }
+            openTrade = { entryDate: currentRow.date, type: "LONG", entryIndex: i }
           } else if (prevZ < entryZ && currZ >= entryZ) {
-            openTrade = { entryDate: date, type: "SHORT", entryIndex: i }
+            openTrade = { entryDate: currentRow.date, type: "SHORT", entryIndex: i }
           }
         } else {
-          const holdingPeriod = (new Date(date) - new Date(openTrade.entryDate)) / (1000 * 60 * 60 * 24)
+          const entryDate = new Date(openTrade.entryDate)
+          const currentDate = new Date(currentRow.date)
+          const holdingPeriod = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
           const exitCondition =
             (openTrade.type === "LONG" && prevZ < -exitZ && currZ >= -exitZ) ||
             (openTrade.type === "SHORT" && prevZ > exitZ && currZ <= exitZ) ||
@@ -145,7 +170,7 @@ export default function Backtest() {
           if (exitCondition) {
             const exitIndex = i
             const entryRatio = tableData[openTrade.entryIndex].ratio
-            const exitRatio = ratio
+            const exitRatio = currentRow.ratio
 
             const tradeSlice = tableData.slice(openTrade.entryIndex, exitIndex + 1)
             const ratioSeries = tradeSlice.map((r) => r.ratio)
@@ -162,7 +187,7 @@ export default function Backtest() {
 
             trades.push({
               entryDate: openTrade.entryDate,
-              exitDate: date,
+              exitDate: currentRow.date,
               type: openTrade.type,
               holdingPeriod: holdingPeriod.toFixed(0),
               profitPercent: profit.toFixed(2),
@@ -332,25 +357,28 @@ export default function Backtest() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-800">
-                  {backtestData.map((row, index) => (
-                    <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
-                      <td className="table-cell">{row.date}</td>
-                      <td className="table-cell">{row.stockAClose.toFixed(2)}</td>
-                      <td className="table-cell">{row.stockBClose.toFixed(2)}</td>
-                      <td className="table-cell">{row.ratio.toFixed(4)}</td>
-                      <td
-                        className={`table-cell font-medium ${
-                          row.zScore > entryZ || row.zScore < -entryZ
-                            ? "text-gold-400"
-                            : row.zScore > exitZ || row.zScore < -exitZ
-                              ? "text-gold-400/70"
-                              : "text-white"
-                        }`}
-                      >
-                        {row.zScore.toFixed(4)}
-                      </td>
-                    </tr>
-                  ))}
+                  {backtestData
+                    .slice()
+                    .reverse()
+                    .map((row, index) => (
+                      <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
+                        <td className="table-cell">{row.date}</td>
+                        <td className="table-cell">{row.stockAClose.toFixed(2)}</td>
+                        <td className="table-cell">{row.stockBClose.toFixed(2)}</td>
+                        <td className="table-cell">{row.ratio.toFixed(4)}</td>
+                        <td
+                          className={`table-cell font-medium ${
+                            row.zScore > entryZ || row.zScore < -entryZ
+                              ? "text-gold-400"
+                              : row.zScore > exitZ || row.zScore < -exitZ
+                                ? "text-gold-400/70"
+                                : "text-white"
+                          }`}
+                        >
+                          {row.zScore.toFixed(4)}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
