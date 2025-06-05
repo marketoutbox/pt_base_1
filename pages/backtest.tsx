@@ -8,6 +8,7 @@ export default function Backtest() {
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState("")
+  const [lookbackPeriod, setLookbackPeriod] = useState(60)
   const [entryZ, setEntryZ] = useState(2.0)
   const [exitZ, setExitZ] = useState(1.5)
   const [backtestData, setBacktestData] = useState([])
@@ -17,7 +18,6 @@ export default function Backtest() {
   useEffect(() => {
     const fetchStocks = async () => {
       try {
-        // Use the getDB function from indexedDB.js instead of directly opening the database
         const db = await openDB("StockDatabase", 2)
         const tx = db.transaction("stocks", "readonly")
         const store = tx.objectStore("stocks")
@@ -119,11 +119,11 @@ export default function Backtest() {
         })
       }
 
-      const rollingWindow = 50
+      // Calculate Z-scores using user-defined lookback period
       const zScores = []
       for (let i = 0; i < ratios.length; i++) {
-        const windowData = ratios.slice(Math.max(0, i - rollingWindow + 1), i + 1).map((r) => r.ratio)
-        if (windowData.length >= rollingWindow) {
+        const windowData = ratios.slice(Math.max(0, i - lookbackPeriod + 1), i + 1).map((r) => r.ratio)
+        if (windowData.length >= lookbackPeriod) {
           const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
           const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1)
           const stdDev = Math.sqrt(variance)
@@ -143,36 +143,51 @@ export default function Backtest() {
       }))
       setBacktestData(tableData)
 
+      // Trade logic - corrected
       const trades = []
       let openTrade = null
 
-      // Make sure we're iterating through data chronologically
       for (let i = 1; i < tableData.length; i++) {
         const prevZ = tableData[i - 1].zScore
         const currZ = tableData[i].zScore
         const currentRow = tableData[i]
 
         if (!openTrade) {
-          if (prevZ > -entryZ && currZ <= -entryZ) {
-            openTrade = { entryDate: currentRow.date, type: "LONG", entryIndex: i }
-          } else if (prevZ < entryZ && currZ >= entryZ) {
-            openTrade = { entryDate: currentRow.date, type: "SHORT", entryIndex: i }
+          // Entry conditions: Z-score crosses the entry threshold
+          if (Math.abs(prevZ) < entryZ && Math.abs(currZ) >= entryZ) {
+            const tradeType = currZ > 0 ? "SHORT" : "LONG"
+            openTrade = {
+              entryDate: currentRow.date,
+              type: tradeType,
+              entryIndex: i,
+              entryZScore: currZ,
+            }
           }
         } else {
           const entryDate = new Date(openTrade.entryDate)
           const currentDate = new Date(currentRow.date)
           const holdingPeriod = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
-          const exitCondition =
-            (openTrade.type === "LONG" && prevZ < -exitZ && currZ >= -exitZ) ||
-            (openTrade.type === "SHORT" && prevZ > exitZ && currZ <= exitZ) ||
-            holdingPeriod >= 15
 
-          if (exitCondition) {
-            const exitIndex = i
+          // Exit conditions: Z-score crosses back to exit threshold OR time limit
+          const zScoreExit = Math.abs(currZ) <= exitZ
+          const timeExit = holdingPeriod >= 15
+
+          if (zScoreExit || timeExit) {
             const entryRatio = tableData[openTrade.entryIndex].ratio
             const exitRatio = currentRow.ratio
 
-            const tradeSlice = tableData.slice(openTrade.entryIndex, exitIndex + 1)
+            // Calculate profit based on trade type
+            let profit = 0
+            if (openTrade.type === "LONG") {
+              // Long ratio: profit when ratio increases
+              profit = ((exitRatio - entryRatio) / entryRatio) * 100
+            } else {
+              // Short ratio: profit when ratio decreases
+              profit = ((entryRatio - exitRatio) / entryRatio) * 100
+            }
+
+            // Calculate max drawdown during the trade
+            const tradeSlice = tableData.slice(openTrade.entryIndex, i + 1)
             const ratioSeries = tradeSlice.map((r) => r.ratio)
             const drawdowns = ratioSeries.map((r) => {
               if (openTrade.type === "LONG") return (r - entryRatio) / entryRatio
@@ -180,18 +195,16 @@ export default function Backtest() {
             })
             const maxDrawdown = Math.max(...drawdowns.map((d) => -d)) * 100
 
-            const profit =
-              openTrade.type === "LONG"
-                ? ((exitRatio - entryRatio) / entryRatio) * 100
-                : ((entryRatio - exitRatio) / entryRatio) * 100
-
             trades.push({
               entryDate: openTrade.entryDate,
               exitDate: currentRow.date,
               type: openTrade.type,
-              holdingPeriod: holdingPeriod.toFixed(0),
+              entryZScore: openTrade.entryZScore.toFixed(2),
+              exitZScore: currZ.toFixed(2),
+              holdingPeriod: holdingPeriod.toString(),
               profitPercent: profit.toFixed(2),
               maxDrawdownPercent: maxDrawdown.toFixed(2),
+              exitReason: timeExit ? "Time Limit" : "Z-Score Exit",
             })
 
             openTrade = null
@@ -272,7 +285,19 @@ export default function Backtest() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Lookback Period</label>
+            <input
+              type="number"
+              min="10"
+              max="200"
+              value={lookbackPeriod}
+              onChange={(e) => setLookbackPeriod(Number.parseInt(e.target.value))}
+              className="input-field"
+            />
+            <p className="mt-1 text-sm text-gray-400">Days for rolling Z-score calculation</p>
+          </div>
           <div>
             <label className="block text-base font-medium text-gray-300 mb-2">Entry Z-score</label>
             <input
@@ -282,7 +307,7 @@ export default function Backtest() {
               onChange={(e) => setEntryZ(Number.parseFloat(e.target.value))}
               className="input-field"
             />
-            <p className="mt-1 text-sm text-gray-400">Z-score to enter into long/short trade</p>
+            <p className="mt-1 text-sm text-gray-400">Absolute Z-score to enter trade</p>
           </div>
           <div>
             <label className="block text-base font-medium text-gray-300 mb-2">Exit Z-score</label>
@@ -293,7 +318,7 @@ export default function Backtest() {
               onChange={(e) => setExitZ(Number.parseFloat(e.target.value))}
               className="input-field"
             />
-            <p className="mt-1 text-sm text-gray-400">Z-score to exit from a trade position</p>
+            <p className="mt-1 text-sm text-gray-400">Absolute Z-score to exit trade</p>
           </div>
         </div>
 
@@ -357,28 +382,25 @@ export default function Backtest() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-800">
-                  {backtestData
-                    .slice()
-                    .reverse()
-                    .map((row, index) => (
-                      <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
-                        <td className="table-cell">{row.date}</td>
-                        <td className="table-cell">{row.stockAClose.toFixed(2)}</td>
-                        <td className="table-cell">{row.stockBClose.toFixed(2)}</td>
-                        <td className="table-cell">{row.ratio.toFixed(4)}</td>
-                        <td
-                          className={`table-cell font-medium ${
-                            row.zScore > entryZ || row.zScore < -entryZ
-                              ? "text-gold-400"
-                              : row.zScore > exitZ || row.zScore < -exitZ
-                                ? "text-gold-400/70"
-                                : "text-white"
-                          }`}
-                        >
-                          {row.zScore.toFixed(4)}
-                        </td>
-                      </tr>
-                    ))}
+                  {[...backtestData].reverse().map((row, index) => (
+                    <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
+                      <td className="table-cell">{row.date}</td>
+                      <td className="table-cell">{row.stockAClose.toFixed(2)}</td>
+                      <td className="table-cell">{row.stockBClose.toFixed(2)}</td>
+                      <td className="table-cell">{row.ratio.toFixed(4)}</td>
+                      <td
+                        className={`table-cell font-medium ${
+                          Math.abs(row.zScore) >= entryZ
+                            ? "text-gold-400"
+                            : Math.abs(row.zScore) >= exitZ
+                              ? "text-gold-400/70"
+                              : "text-white"
+                        }`}
+                      >
+                        {row.zScore.toFixed(4)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -396,9 +418,12 @@ export default function Backtest() {
                   <th className="table-header">Entry Date</th>
                   <th className="table-header">Exit Date</th>
                   <th className="table-header">Type</th>
+                  <th className="table-header">Entry Z</th>
+                  <th className="table-header">Exit Z</th>
                   <th className="table-header">Days</th>
                   <th className="table-header">Profit %</th>
-                  <th className="table-header">Max Drawdown %</th>
+                  <th className="table-header">Max DD %</th>
+                  <th className="table-header">Exit Reason</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-800">
@@ -411,6 +436,8 @@ export default function Backtest() {
                     >
                       {trade.type}
                     </td>
+                    <td className="table-cell">{trade.entryZScore}</td>
+                    <td className="table-cell">{trade.exitZScore}</td>
                     <td className="table-cell">{trade.holdingPeriod}</td>
                     <td
                       className={`table-cell font-medium ${
@@ -420,6 +447,7 @@ export default function Backtest() {
                       {trade.profitPercent}%
                     </td>
                     <td className="table-cell text-red-400">{trade.maxDrawdownPercent}%</td>
+                    <td className="table-cell text-gray-300">{trade.exitReason}</td>
                   </tr>
                 ))}
               </tbody>
