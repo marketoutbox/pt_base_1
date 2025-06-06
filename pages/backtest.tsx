@@ -11,6 +11,9 @@ export default function Backtest() {
   const [lookbackPeriod, setLookbackPeriod] = useState(60)
   const [entryZ, setEntryZ] = useState(2.0)
   const [exitZ, setExitZ] = useState(1.5)
+  const [timeStop, setTimeStop] = useState(15)
+  const [lossStop, setLossStop] = useState(-10)
+  const [targetProfit, setTargetProfit] = useState(10)
   const [backtestData, setBacktestData] = useState([])
   const [tradeResults, setTradeResults] = useState([])
   const [isLoading, setIsLoading] = useState(false)
@@ -143,7 +146,7 @@ export default function Backtest() {
       }))
       setBacktestData(tableData)
 
-      // Trade logic - corrected
+      // Trade logic with stop loss and target
       const trades = []
       let openTrade = null
 
@@ -161,6 +164,7 @@ export default function Backtest() {
               type: tradeType,
               entryIndex: i,
               entryZScore: currZ,
+              entryRatio: currentRow.ratio,
             }
           }
         } else {
@@ -168,24 +172,35 @@ export default function Backtest() {
           const currentDate = new Date(currentRow.date)
           const holdingPeriod = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
 
-          // Exit conditions: Z-score crosses back to exit threshold OR time limit
-          const zScoreExit = Math.abs(currZ) <= exitZ
-          const timeExit = holdingPeriod >= 15
+          // Calculate current profit
+          const entryRatio = openTrade.entryRatio
+          const exitRatio = currentRow.ratio
+          let currentProfit = 0
+          if (openTrade.type === "LONG") {
+            currentProfit = ((exitRatio - entryRatio) / entryRatio) * 100
+          } else {
+            currentProfit = ((entryRatio - exitRatio) / entryRatio) * 100
+          }
 
-          if (zScoreExit || timeExit) {
-            const entryRatio = tableData[openTrade.entryIndex].ratio
-            const exitRatio = currentRow.ratio
+          // Exit conditions (priority order: Stop Loss > Target > Time > Z-Score)
+          let exitReason = ""
+          let shouldExit = false
 
-            // Calculate profit based on trade type
-            let profit = 0
-            if (openTrade.type === "LONG") {
-              // Long ratio: profit when ratio increases
-              profit = ((exitRatio - entryRatio) / entryRatio) * 100
-            } else {
-              // Short ratio: profit when ratio decreases
-              profit = ((entryRatio - exitRatio) / entryRatio) * 100
-            }
+          if (currentProfit <= lossStop) {
+            exitReason = "Stop Loss"
+            shouldExit = true
+          } else if (currentProfit >= targetProfit) {
+            exitReason = "Target Profit"
+            shouldExit = true
+          } else if (holdingPeriod >= timeStop) {
+            exitReason = "Time Stop"
+            shouldExit = true
+          } else if (Math.abs(currZ) <= exitZ) {
+            exitReason = "Z-Score Exit"
+            shouldExit = true
+          }
 
+          if (shouldExit) {
             // Calculate max drawdown during the trade
             const tradeSlice = tableData.slice(openTrade.entryIndex, i + 1)
             const ratioSeries = tradeSlice.map((r) => r.ratio)
@@ -202,9 +217,9 @@ export default function Backtest() {
               entryZScore: openTrade.entryZScore.toFixed(2),
               exitZScore: currZ.toFixed(2),
               holdingPeriod: holdingPeriod.toString(),
-              profitPercent: profit.toFixed(2),
+              profitPercent: currentProfit.toFixed(2),
               maxDrawdownPercent: maxDrawdown.toFixed(2),
-              exitReason: timeExit ? "Time Limit" : "Z-Score Exit",
+              exitReason: exitReason,
             })
 
             openTrade = null
@@ -319,6 +334,46 @@ export default function Backtest() {
               className="input-field"
             />
             <p className="mt-1 text-sm text-gray-400">Absolute Z-score to exit trade</p>
+          </div>
+        </div>
+
+        <div className="card bg-navy-800/30 border border-navy-600">
+          <h3 className="text-xl font-bold text-white mb-4">Stop Loss & Target</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Time-Wise Stop</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={timeStop}
+                onChange={(e) => setTimeStop(Number.parseInt(e.target.value))}
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Force exit after X days</p>
+            </div>
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Loss Stop (%)</label>
+              <input
+                type="number"
+                step="0.5"
+                value={lossStop}
+                onChange={(e) => setLossStop(Number.parseFloat(e.target.value))}
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Exit when loss hits this %</p>
+            </div>
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Target Profit (%)</label>
+              <input
+                type="number"
+                step="0.5"
+                value={targetProfit}
+                onChange={(e) => setTargetProfit(Number.parseFloat(e.target.value))}
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Exit when profit hits this %</p>
+            </div>
           </div>
         </div>
 
@@ -448,7 +503,19 @@ export default function Backtest() {
                       {trade.profitPercent}%
                     </td>
                     <td className="table-cell text-red-400">{trade.maxDrawdownPercent}%</td>
-                    <td className="table-cell text-gray-300">{trade.exitReason}</td>
+                    <td
+                      className={`table-cell font-medium ${
+                        trade.exitReason === "Stop Loss"
+                          ? "text-red-400"
+                          : trade.exitReason === "Target Profit"
+                            ? "text-green-400"
+                            : trade.exitReason === "Time Stop"
+                              ? "text-yellow-400"
+                              : "text-blue-400"
+                      }`}
+                    >
+                      {trade.exitReason}
+                    </td>
                   </tr>
                 ))}
               </tbody>
