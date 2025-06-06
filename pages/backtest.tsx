@@ -176,10 +176,18 @@ export default function Backtest() {
           const entryRatio = openTrade.entryRatio
           const exitRatio = currentRow.ratio
           let currentProfit = 0
+
+          // For ratio trading, we invest equal amounts in both stocks
+          // If ratio goes up: Long A profits, Short B loses (net effect is half the ratio change)
+          // If ratio goes down: Long A loses, Short B profits (net effect is half the ratio change)
+          const ratioChange = (exitRatio - entryRatio) / entryRatio
+
           if (openTrade.type === "LONG") {
-            currentProfit = ((exitRatio - entryRatio) / entryRatio) * 100
+            // Long the ratio: profit when ratio increases
+            currentProfit = (ratioChange * 100) / 2 // Divide by 2 because profit is split between two legs
           } else {
-            currentProfit = ((entryRatio - exitRatio) / entryRatio) * 100
+            // Short the ratio: profit when ratio decreases
+            currentProfit = (-ratioChange * 100) / 2 // Divide by 2 because profit is split between two legs
           }
 
           // Exit conditions (priority order: Stop Loss > Target > Time > Z-Score)
