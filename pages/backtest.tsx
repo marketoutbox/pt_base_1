@@ -382,7 +382,8 @@ export default function Backtest() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-800">
-                  {[...backtestData].reverse().map((row, index) => (
+                  {/* Display data from oldest to newest (chronological order) */}
+                  {backtestData.map((row, index) => (
                     <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
                       <td className="table-cell">{row.date}</td>
                       <td className="table-cell">{row.stockAClose.toFixed(2)}</td>
