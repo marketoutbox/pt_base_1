@@ -165,6 +165,8 @@ export default function Backtest() {
               entryIndex: i,
               entryZScore: currZ,
               entryRatio: currentRow.ratio,
+              entryStockAPrice: currentRow.stockAClose,
+              entryStockBPrice: currentRow.stockBClose,
             }
           }
         } else {
@@ -209,14 +211,34 @@ export default function Backtest() {
           }
 
           if (shouldExit) {
-            // Calculate max drawdown during the trade
+            // Calculate max drawdown during the trade using actual portfolio P&L
             const tradeSlice = tableData.slice(openTrade.entryIndex, i + 1)
-            const ratioSeries = tradeSlice.map((r) => r.ratio)
-            const drawdowns = ratioSeries.map((r) => {
-              if (openTrade.type === "LONG") return (r - entryRatio) / entryRatio
-              else return (entryRatio - r) / entryRatio
-            })
-            const maxDrawdown = Math.max(...drawdowns.map((d) => -d)) * 100
+            let maxDrawdown = 0
+            let peakProfit = 0
+
+            for (const dataPoint of tradeSlice) {
+              // Calculate profit at each point during the trade
+              const ratioAtPoint = dataPoint.ratio
+              const ratioChangeAtPoint = (ratioAtPoint - entryRatio) / entryRatio
+
+              let profitAtPoint = 0
+              if (openTrade.type === "LONG") {
+                profitAtPoint = (ratioChangeAtPoint * 100) / 2
+              } else {
+                profitAtPoint = (-ratioChangeAtPoint * 100) / 2
+              }
+
+              // Track peak profit
+              if (profitAtPoint > peakProfit) {
+                peakProfit = profitAtPoint
+              }
+
+              // Calculate drawdown from peak
+              const drawdownAtPoint = peakProfit - profitAtPoint
+              if (drawdownAtPoint > maxDrawdown) {
+                maxDrawdown = drawdownAtPoint
+              }
+            }
 
             trades.push({
               entryDate: openTrade.entryDate,
