@@ -337,42 +337,45 @@ export default function Backtest() {
           </div>
         </div>
 
-        <div className="card bg-navy-800/30 border border-navy-600">
-          <h3 className="text-xl font-bold text-white mb-4">Stop Loss & Target</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Stop Loss & Target Section */}
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-white mb-4">Stop Loss & Target</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <label className="block text-base font-medium text-gray-300 mb-2">Time-Wise Stop</label>
+              <label className="block text-base font-medium text-gray-300 mb-2">Time-Wise Stop (days)</label>
               <input
                 type="number"
-                min="1"
-                max="100"
                 value={timeStop}
                 onChange={(e) => setTimeStop(Number.parseInt(e.target.value))}
+                min="1"
+                max="100"
                 className="input-field"
               />
-              <p className="mt-1 text-sm text-gray-400">Force exit after X days</p>
+              <p className="mt-1 text-sm text-gray-400">Force exit after X days regardless of Z-score</p>
             </div>
             <div>
               <label className="block text-base font-medium text-gray-300 mb-2">Loss Stop (%)</label>
               <input
                 type="number"
-                step="0.5"
+                step="0.1"
                 value={lossStop}
                 onChange={(e) => setLossStop(Number.parseFloat(e.target.value))}
+                max="0"
                 className="input-field"
               />
-              <p className="mt-1 text-sm text-gray-400">Exit when loss hits this %</p>
+              <p className="mt-1 text-sm text-gray-400">Exit when ROI hits this loss percentage</p>
             </div>
             <div>
               <label className="block text-base font-medium text-gray-300 mb-2">Target Profit (%)</label>
               <input
                 type="number"
-                step="0.5"
+                step="0.1"
                 value={targetProfit}
                 onChange={(e) => setTargetProfit(Number.parseFloat(e.target.value))}
+                min="0"
                 className="input-field"
               />
-              <p className="mt-1 text-sm text-gray-400">Exit when profit hits this %</p>
+              <p className="mt-1 text-sm text-gray-400">Exit when ROI hits this profit percentage</p>
             </div>
           </div>
         </div>
