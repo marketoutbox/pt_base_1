@@ -70,7 +70,12 @@ export default function Layout({ children }) {
               <div
                 className="relative"
                 onMouseEnter={() => setDropdownOpen(true)}
-                onMouseLeave={() => setDropdownOpen(false)}
+                onMouseLeave={() => {
+                  // Add a small delay before closing to prevent accidental closing
+                  setTimeout(() => {
+                    setDropdownOpen(false)
+                  }, 300)
+                }}
               >
                 <button
                   className={`px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center border ${
@@ -83,7 +88,11 @@ export default function Layout({ children }) {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute left-0 mt-1 w-48 rounded-md shadow-lg bg-navy-800 ring-1 ring-black ring-opacity-5 z-10">
+                  <div
+                    className="absolute left-0 mt-0 w-48 rounded-md shadow-lg bg-navy-800 ring-1 ring-black ring-opacity-5 z-10"
+                    onMouseEnter={() => setDropdownOpen(true)}
+                    onMouseLeave={() => setDropdownOpen(false)}
+                  >
                     <div className="py-1" role="menu" aria-orientation="vertical">
                       <Link
                         href="/backtest"
