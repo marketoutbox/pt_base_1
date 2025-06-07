@@ -15,9 +15,6 @@ import {
   Scatter,
   ZAxis,
   ReferenceLine,
-  Legend,
-  BarChart,
-  Bar,
 } from "recharts"
 
 export default function PairAnalyzer() {
@@ -895,113 +892,6 @@ export default function PairAnalyzer() {
         rollingLowerBand2.push(mean - 2 * stdDev)
       }
 
-      // Prepare data for charts
-      const chartData = {
-        // Data for ratio/spread chart
-        ratioData: dates.map((date, i) => ({
-          date,
-          value: ratios[i],
-          mean: rollingMean[i],
-          upperBand1: rollingUpperBand1[i],
-          lowerBand1: rollingLowerBand1[i],
-          upperBand2: rollingUpperBand2[i],
-          lowerBand2: rollingLowerBand2[i],
-        })),
-
-        // Data for z-score chart
-        zScoreData: dates.map((date, i) => ({
-          date,
-          zScore: zScores[i],
-        })),
-
-        // Data for price chart
-        priceData: dates.map((date, i) => ({
-          date,
-          [selectedPair.stockA]: stockAPrices[i],
-          [selectedPair.stockB]: stockBPrices[i],
-        })),
-
-        // Histogram data for ratio
-        histogramRatioData: (() => {
-          const min = Math.min(...ratios)
-          const max = Math.max(...ratios)
-          const bins = 20
-          const binWidth = (max - min) / bins
-          const histogram = Array(bins).fill(0)
-
-          ratios.forEach((value) => {
-            const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-            histogram[binIndex]++
-          })
-
-          return histogram.map((count, i) => ({
-            bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-            count,
-            binLabel: `${(min + i * binWidth).toFixed(3)} - ${(min + (i + 1) * binWidth).toFixed(3)}`,
-          }))
-        })(),
-
-        // Histogram data for z-scores
-        histogramZScoreData: (() => {
-          const min = Math.min(...zScores)
-          const max = Math.max(...zScores)
-          const bins = 20
-          const binWidth = (max - min) / bins
-          const histogram = Array(bins).fill(0)
-
-          zScores.forEach((value) => {
-            const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-            histogram[binIndex]++
-          })
-
-          return histogram.map((count, i) => ({
-            bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-            count,
-            binLabel: `${(min + i * binWidth).toFixed(3)} - ${(min + (i + 1) * binWidth).toFixed(3)}`,
-          }))
-        })(),
-
-        // Histogram data for prices
-        histogramPriceData: {
-          [selectedPair.stockA]: (() => {
-            const min = Math.min(...stockAPrices)
-            const max = Math.max(...stockAPrices)
-            const bins = 20
-            const binWidth = (max - min) / bins
-            const histogram = Array(bins).fill(0)
-
-            stockAPrices.forEach((value) => {
-              const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-              histogram[binIndex]++
-            })
-
-            return histogram.map((count, i) => ({
-              bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-              count,
-              binLabel: `${(min + i * binWidth).toFixed(2)} - ${(min + (i + 1) * binWidth).toFixed(2)}`,
-            }))
-          })(),
-          [selectedPair.stockB]: (() => {
-            const min = Math.min(...stockBPrices)
-            const max = Math.max(...stockBPrices)
-            const bins = 20
-            const binWidth = (max - min) / bins
-            const histogram = Array(bins).fill(0)
-
-            stockBPrices.forEach((value) => {
-              const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-              histogram[binIndex]++
-            })
-
-            return histogram.map((count, i) => ({
-              bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-              count,
-              binLabel: `${(min + i * binWidth).toFixed(2)} - ${(min + (i + 1) * binWidth).toFixed(2)}`,
-            }))
-          })(),
-        },
-      }
-
       setAnalysisData({
         dates,
         ratios,
@@ -1028,7 +918,6 @@ export default function PairAnalyzer() {
           rollingLowerBand1,
           rollingUpperBand2,
           rollingLowerBand2,
-          ...chartData,
         },
       })
     } catch (error) {
@@ -1241,119 +1130,6 @@ export default function PairAnalyzer() {
         rollingLowerBand2.push(mean - 2 * stdDev)
       }
 
-      // Prepare data for charts
-      const chartData = {
-        // Data for ratio/spread chart
-        ratioData: dates.map((date, i) => ({
-          date,
-          value: spreads[i],
-          mean: rollingMean[i],
-          upperBand1: rollingUpperBand1[i],
-          lowerBand1: rollingLowerBand1[i],
-          upperBand2: rollingUpperBand2[i],
-          lowerBand2: rollingLowerBand2[i],
-        })),
-
-        // Data for z-score chart
-        zScoreData: dates.map((date, i) => ({
-          date,
-          zScore: zScores[i],
-        })),
-
-        // Data for price chart
-        priceData: dates.map((date, i) => ({
-          date,
-          [selectedPair.stockA]: stockAPrices[i],
-          [selectedPair.stockB]: stockBPrices[i],
-        })),
-
-        // Data for hedge ratio chart
-        hedgeRatioData: dates.map((date, i) => ({
-          date,
-          hedgeRatio: hedgeRatios[i],
-        })),
-
-        // Histogram data for spread
-        histogramRatioData: (() => {
-          const min = Math.min(...spreads)
-          const max = Math.max(...spreads)
-          const bins = 20
-          const binWidth = (max - min) / bins
-          const histogram = Array(bins).fill(0)
-
-          spreads.forEach((value) => {
-            const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-            histogram[binIndex]++
-          })
-
-          return histogram.map((count, i) => ({
-            bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-            count,
-            binLabel: `${(min + i * binWidth).toFixed(3)} - ${(min + (i + 1) * binWidth).toFixed(3)}`,
-          }))
-        })(),
-
-        // Histogram data for z-scores
-        histogramZScoreData: (() => {
-          const min = Math.min(...zScores)
-          const max = Math.max(...zScores)
-          const bins = 20
-          const binWidth = (max - min) / bins
-          const histogram = Array(bins).fill(0)
-
-          zScores.forEach((value) => {
-            const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-            histogram[binIndex]++
-          })
-
-          return histogram.map((count, i) => ({
-            bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-            count,
-            binLabel: `${(min + i * binWidth).toFixed(3)} - ${(min + (i + 1) * binWidth).toFixed(3)}`,
-          }))
-        })(),
-
-        // Histogram data for prices
-        histogramPriceData: {
-          [selectedPair.stockA]: (() => {
-            const min = Math.min(...stockAPrices)
-            const max = Math.max(...stockAPrices)
-            const bins = 20
-            const binWidth = (max - min) / bins
-            const histogram = Array(bins).fill(0)
-
-            stockAPrices.forEach((value) => {
-              const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-              histogram[binIndex]++
-            })
-
-            return histogram.map((count, i) => ({
-              bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-              count,
-              binLabel: `${(min + i * binWidth).toFixed(2)} - ${(min + (i + 1) * binWidth).toFixed(2)}`,
-            }))
-          })(),
-          [selectedPair.stockB]: (() => {
-            const min = Math.min(...stockBPrices)
-            const max = Math.max(...stockBPrices)
-            const bins = 20
-            const binWidth = (max - min) / bins
-            const histogram = Array(bins).fill(0)
-
-            stockBPrices.forEach((value) => {
-              const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-              histogram[binIndex]++
-            })
-
-            return histogram.map((count, i) => ({
-              bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-              count,
-              binLabel: `${(min + i * binWidth).toFixed(2)} - ${(min + (i + 1) * binWidth).toFixed(2)}`,
-            }))
-          })(),
-        },
-      }
-
       setAnalysisData({
         dates,
         hedgeRatios,
@@ -1382,7 +1158,6 @@ export default function PairAnalyzer() {
           rollingLowerBand1,
           rollingUpperBand2,
           rollingLowerBand2,
-          ...chartData,
         },
       })
     } catch (error) {
@@ -1441,7 +1216,7 @@ export default function PairAnalyzer() {
         stockBPrices.push(pricesB[i].close)
       }
 
-      // Run Kalman filter
+      // Apply Kalman filter to estimate hedge ratios
       const { hedgeRatios, alphas } = kalmanFilter(
         pricesA.slice(0, minLength),
         pricesB.slice(0, minLength),
@@ -1449,7 +1224,7 @@ export default function PairAnalyzer() {
         kalmanMeasurementNoise,
       )
 
-      // Calculate spreads
+      // Calculate spreads using Kalman filter hedge ratios
       const spreads = []
       for (let i = 0; i < minLength; i++) {
         const spread = stockAPrices[i] - (alphas[i] + hedgeRatios[i] * stockBPrices[i])
@@ -1458,24 +1233,9 @@ export default function PairAnalyzer() {
 
       // Calculate z-scores for spreads
       const zScores = []
-      for (let i = 0; i < minLength; i++) {
-        const windowStart = Math.max(0, i - kalmanLookbackWindow + 1)
-        const windowSpreads = spreads.slice(windowStart, i + 1)
-
-        if (windowSpreads.length > 1) {
-          const meanSpread = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
-          const stdDevSpread = Math.sqrt(
-            windowSpreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / windowSpreads.length,
-          )
-
-          if (stdDevSpread > 0) {
-            zScores.push((spreads[i] - meanSpread) / stdDevSpread)
-          } else {
-            zScores.push(0)
-          }
-        } else {
-          zScores.push(0)
-        }
+      for (let i = 0; i < spreads.length; i++) {
+        const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
+        zScores.push(calculateZScore(windowData).pop())
       }
 
       // Calculate spread statistics
@@ -1502,7 +1262,8 @@ export default function PairAnalyzer() {
       // Calculate practical trade half-life
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 
-      // Prepare table data
+      // Prepare table data (last 30 days or less)
+      // Prepare complete table data
       const tableData = []
       for (let i = 0; i < dates.length; i++) {
         tableData.push({
@@ -1536,119 +1297,6 @@ export default function PairAnalyzer() {
         rollingLowerBand2.push(mean - 2 * stdDev)
       }
 
-      // Prepare data for charts
-      const chartData = {
-        // Data for ratio/spread chart
-        ratioData: dates.map((date, i) => ({
-          date,
-          value: spreads[i],
-          mean: rollingMean[i],
-          upperBand1: rollingUpperBand1[i],
-          lowerBand1: rollingLowerBand1[i],
-          upperBand2: rollingUpperBand2[i],
-          lowerBand2: rollingLowerBand2[i],
-        })),
-
-        // Data for z-score chart
-        zScoreData: dates.map((date, i) => ({
-          date,
-          zScore: zScores[i],
-        })),
-
-        // Data for price chart
-        priceData: dates.map((date, i) => ({
-          date,
-          [selectedPair.stockA]: stockAPrices[i],
-          [selectedPair.stockB]: stockBPrices[i],
-        })),
-
-        // Data for hedge ratio chart
-        hedgeRatioData: dates.map((date, i) => ({
-          date,
-          hedgeRatio: hedgeRatios[i],
-        })),
-
-        // Histogram data for spread
-        histogramRatioData: (() => {
-          const min = Math.min(...spreads)
-          const max = Math.max(...spreads)
-          const bins = 20
-          const binWidth = (max - min) / bins
-          const histogram = Array(bins).fill(0)
-
-          spreads.forEach((value) => {
-            const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-            histogram[binIndex]++
-          })
-
-          return histogram.map((count, i) => ({
-            bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-            count,
-            binLabel: `${(min + i * binWidth).toFixed(3)} - ${(min + (i + 1) * binWidth).toFixed(3)}`,
-          }))
-        })(),
-
-        // Histogram data for z-scores
-        histogramZScoreData: (() => {
-          const min = Math.min(...zScores)
-          const max = Math.max(...zScores)
-          const bins = 20
-          const binWidth = (max - min) / bins
-          const histogram = Array(bins).fill(0)
-
-          zScores.forEach((value) => {
-            const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-            histogram[binIndex]++
-          })
-
-          return histogram.map((count, i) => ({
-            bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-            count,
-            binLabel: `${(min + i * binWidth).toFixed(3)} - ${(min + (i + 1) * binWidth).toFixed(3)}`,
-          }))
-        })(),
-
-        // Histogram data for prices
-        histogramPriceData: {
-          [selectedPair.stockA]: (() => {
-            const min = Math.min(...stockAPrices)
-            const max = Math.max(...stockAPrices)
-            const bins = 20
-            const binWidth = (max - min) / bins
-            const histogram = Array(bins).fill(0)
-
-            stockAPrices.forEach((value) => {
-              const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-              histogram[binIndex]++
-            })
-
-            return histogram.map((count, i) => ({
-              bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-              count,
-              binLabel: `${(min + i * binWidth).toFixed(2)} - ${(min + (i + 1) * binWidth).toFixed(2)}`,
-            }))
-          })(),
-          [selectedPair.stockB]: (() => {
-            const min = Math.min(...stockBPrices)
-            const max = Math.max(...stockBPrices)
-            const bins = 20
-            const binWidth = (max - min) / bins
-            const histogram = Array(bins).fill(0)
-
-            stockBPrices.forEach((value) => {
-              const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-              histogram[binIndex]++
-            })
-
-            return histogram.map((count, i) => ({
-              bin: (min + i * binWidth + min + (i + 1) * binWidth) / 2,
-              count,
-              binLabel: `${(min + i * binWidth).toFixed(2)} - ${(min + (i + 1) * binWidth).toFixed(2)}`,
-            }))
-          })(),
-        },
-      }
-
       setAnalysisData({
         dates,
         hedgeRatios,
@@ -1677,18 +1325,16 @@ export default function PairAnalyzer() {
           rollingLowerBand1,
           rollingUpperBand2,
           rollingLowerBand2,
-          ...chartData,
         },
       })
     } catch (error) {
       console.error("Error in analysis:", error)
-      setError("An error occurred during analysis. Please try again.")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleAnalyze = () => {
+  const runAnalysis = () => {
     if (activeTab === "ratio") {
       runRatioAnalysis()
     } else if (activeTab === "ols") {
@@ -1698,474 +1344,229 @@ export default function PairAnalyzer() {
     }
   }
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab)
-    setAnalysisData(null) // Clear previous analysis data
-  }
-
-  const handlePlotTypeChange = (type) => {
-    setPlotType(type)
-  }
-
-  const renderRatioChart = () => {
-    if (!analysisData) return null
-
-    const { chartData } = analysisData
-
-    if (plotType === "line") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData.ratioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#8884d8"
-                name={activeTab === "ratio" ? "Ratio" : "Spread"}
-                dot={false}
-              />
-              <Line type="monotone" dataKey="mean" stroke="#82ca9d" name="Mean" dot={false} strokeDasharray="5 5" />
-              <Line
-                type="monotone"
-                dataKey="upperBand1"
-                stroke="#ff7300"
-                name="+1 SD"
-                dot={false}
-                strokeDasharray="3 3"
-              />
-              <Line
-                type="monotone"
-                dataKey="lowerBand1"
-                stroke="#ff7300"
-                name="-1 SD"
-                dot={false}
-                strokeDasharray="3 3"
-              />
-              <Line
-                type="monotone"
-                dataKey="upperBand2"
-                stroke="#ff0000"
-                name="+2 SD"
-                dot={false}
-                strokeDasharray="3 3"
-              />
-              <Line
-                type="monotone"
-                dataKey="lowerBand2"
-                stroke="#ff0000"
-                name="-2 SD"
-                dot={false}
-                strokeDasharray="3 3"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    } else if (plotType === "scatter") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" name="Date" />
-              <YAxis dataKey="value" name={activeTab === "ratio" ? "Ratio" : "Spread"} />
-              <ZAxis range={[50, 50]} />
-              <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-              <Legend />
-              <Scatter name={activeTab === "ratio" ? "Ratio" : "Spread"} data={chartData.ratioData} fill="#8884d8" />
-              <ReferenceLine y={chartData.ratioData[0]?.mean} stroke="#82ca9d" strokeDasharray="3 3" />
-              <ReferenceLine y={chartData.ratioData[0]?.upperBand1} stroke="#ff7300" strokeDasharray="3 3" />
-              <ReferenceLine y={chartData.ratioData[0]?.lowerBand1} stroke="#ff7300" strokeDasharray="3 3" />
-              <ReferenceLine y={chartData.ratioData[0]?.upperBand2} stroke="#ff0000" strokeDasharray="3 3" />
-              <ReferenceLine y={chartData.ratioData[0]?.lowerBand2} stroke="#ff0000" strokeDasharray="3 3" />
-            </ScatterChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    } else if (plotType === "histogram") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData.histogramRatioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="bin" />
-              <YAxis />
-              <Tooltip formatter={(value, name, props) => [value, `Count (${props.payload.binLabel})`]} />
-              <Legend />
-              <Bar
-                dataKey="count"
-                fill="#8884d8"
-                name={activeTab === "ratio" ? "Ratio Distribution" : "Spread Distribution"}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    }
-  }
-
-  const renderZScoreChart = () => {
-    if (!analysisData) return null
-
-    const { chartData } = analysisData
-
-    if (plotType === "line") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData.zScoreData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="zScore" stroke="#8884d8" name="Z-Score" dot={false} />
-              <ReferenceLine y={0} stroke="#000000" />
-              <ReferenceLine y={1} stroke="#ff7300" strokeDasharray="3 3" />
-              <ReferenceLine y={-1} stroke="#ff7300" strokeDasharray="3 3" />
-              <ReferenceLine y={2} stroke="#ff0000" strokeDasharray="3 3" />
-              <ReferenceLine y={-2} stroke="#ff0000" strokeDasharray="3 3" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    } else if (plotType === "scatter") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" name="Date" />
-              <YAxis dataKey="zScore" name="Z-Score" />
-              <ZAxis range={[50, 50]} />
-              <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-              <Legend />
-              <Scatter name="Z-Score" data={chartData.zScoreData} fill="#8884d8" />
-              <ReferenceLine y={0} stroke="#000000" />
-              <ReferenceLine y={1} stroke="#ff7300" strokeDasharray="3 3" />
-              <ReferenceLine y={-1} stroke="#ff7300" strokeDasharray="3 3" />
-              <ReferenceLine y={2} stroke="#ff0000" strokeDasharray="3 3" />
-              <ReferenceLine y={-2} stroke="#ff0000" strokeDasharray="3 3" />
-            </ScatterChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    } else if (plotType === "histogram") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData.histogramZScoreData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="bin" />
-              <YAxis />
-              <Tooltip formatter={(value, name, props) => [value, `Count (${props.payload.binLabel})`]} />
-              <Legend />
-              <Bar dataKey="count" fill="#8884d8" name="Z-Score Distribution" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    }
-  }
-
-  const renderPriceChart = () => {
-    if (!analysisData) return null
-
-    const { chartData } = analysisData
-    const stockA = selectedPair.stockA
-    const stockB = selectedPair.stockB
-
-    if (plotType === "line") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData.priceData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-              <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-              <Tooltip />
-              <Legend />
-              <Line yAxisId="left" type="monotone" dataKey={stockA} stroke="#8884d8" name={stockA} dot={false} />
-              <Line yAxisId="right" type="monotone" dataKey={stockB} stroke="#82ca9d" name={stockB} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    } else if (plotType === "scatter") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" name="Date" />
-              <YAxis yAxisId="left" orientation="left" dataKey={stockA} name={stockA} stroke="#8884d8" />
-              <YAxis yAxisId="right" orientation="right" dataKey={stockB} name={stockB} stroke="#82ca9d" />
-              <ZAxis range={[50, 50]} />
-              <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-              <Legend />
-              <Scatter yAxisId="left" name={stockA} data={chartData.priceData} fill="#8884d8" />
-              <Scatter yAxisId="right" name={stockB} data={chartData.priceData} fill="#82ca9d" />
-            </ScatterChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    } else if (plotType === "histogram") {
-      return (
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData.histogramPriceData[stockA]} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="bin" />
-              <YAxis />
-              <Tooltip formatter={(value, name, props) => [value, `Count (${props.payload.binLabel})`]} />
-              <Legend />
-              <Bar dataKey="count" fill="#8884d8" name={`${stockA} Price Distribution`} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )
-    }
-  }
-
-  const renderHedgeRatioChart = () => {
-    if (!analysisData || activeTab === "ratio" || !analysisData.chartData.hedgeRatioData) return null
-
-    return (
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={analysisData.chartData.hedgeRatioData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="hedgeRatio"
-              stroke="#8884d8"
-              name={activeTab === "kalman" ? "Kalman Hedge Ratio" : "OLS Hedge Ratio"}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    )
-  }
-
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="mb-6 text-3xl font-bold">Pair Analyzer</h1>
-
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block font-bold">Stock A</label>
-          <select
-            name="stockA"
-            value={selectedPair.stockA}
-            onChange={handleSelection}
-            className="w-full rounded border p-2"
-          >
-            <option value="">Select Stock A</option>
-            {stocks.map((stock) => (
-              <option key={`A-${stock}`} value={stock}>
-                {stock}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-2 block font-bold">Stock B</label>
-          <select
-            name="stockB"
-            value={selectedPair.stockB}
-            onChange={handleSelection}
-            className="w-full rounded border p-2"
-          >
-            <option value="">Select Stock B</option>
-            {stocks.map((stock) => (
-              <option key={`B-${stock}`} value={stock}>
-                {stock}
-              </option>
-            ))}
-          </select>
-        </div>
+    <div className="space-y-8">
+      <div className="text-center space-y-2">
+        <h1 className="text-5xl font-bold text-white">Pair Analyzer</h1>
+        <p className="text-xl text-gray-300">
+          Analyze the statistical relationship between two stocks for pair trading
+        </p>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block font-bold">From Date</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="w-full rounded border p-2"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block font-bold">To Date</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="w-full rounded border p-2"
-          />
-        </div>
-      </div>
+      <div className="card">
+        <h2 className="text-2xl font-bold text-white mb-6">Analysis Parameters</h2>
 
-      <div className="mb-6">
-        <div className="mb-4 flex space-x-2">
-          <button
-            onClick={() => handleTabChange("ratio")}
-            className={`rounded px-4 py-2 ${
-              activeTab === "ratio" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
-            }`}
-          >
-            Ratio Model
-          </button>
-          <button
-            onClick={() => handleTabChange("ols")}
-            className={`rounded px-4 py-2 ${
-              activeTab === "ols" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
-            }`}
-          >
-            OLS Model
-          </button>
-          <button
-            onClick={() => handleTabChange("kalman")}
-            className={`rounded px-4 py-2 ${
-              activeTab === "kalman" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
-            }`}
-          >
-            Kalman Filter
-          </button>
-        </div>
+        {error && <div className="mb-6 p-4 bg-red-900/30 border border-red-800 rounded-md text-red-300">{error}</div>}
 
-        {activeTab === "ratio" && (
-          <div className="mb-4 rounded border p-4">
-            <h3 className="mb-2 text-xl font-bold">Ratio Model Parameters</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Stock Selection</label>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-2 block">Lookback Window (days)</label>
-                <input
-                  type="number"
-                  value={ratioLookbackWindow}
-                  onChange={(e) => setRatioLookbackWindow(Number.parseInt(e.target.value))}
-                  min="10"
-                  max="252"
-                  className="w-full rounded border p-2"
-                />
+                <label className="block text-sm text-gray-400 mb-1">Stock A</label>
+                <select name="stockA" value={selectedPair.stockA} onChange={handleSelection} className="input-field">
+                  <option value="">Select</option>
+                  {stocks.map((symbol) => (
+                    <option key={symbol} value={symbol}>
+                      {symbol}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="mb-2 block">Z-Score Lookback (days)</label>
-                <input
-                  type="number"
-                  value={zScoreLookback}
-                  onChange={(e) => setZScoreLookback(Number.parseInt(e.target.value))}
-                  min="5"
-                  max="100"
-                  className="w-full rounded border p-2"
-                />
+                <label className="block text-sm text-gray-400 mb-1">Stock B</label>
+                <select name="stockB" value={selectedPair.stockB} onChange={handleSelection} className="input-field">
+                  <option value="">Select</option>
+                  {stocks.map((symbol) => (
+                    <option key={symbol} value={symbol}>
+                      {symbol}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
-        )}
 
-        {activeTab === "ols" && (
-          <div className="mb-4 rounded border p-4">
-            <h3 className="mb-2 text-xl font-bold">OLS Model Parameters</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Date Range</label>
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-2 block">Lookback Window (days)</label>
+                <label className="block text-sm text-gray-400 mb-1">From Date</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">To Date</label>
+                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="input-field" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs for different models */}
+        <div className="mb-6">
+          <div className="flex border-b border-navy-700">
+            <button
+              onClick={() => setActiveTab("ratio")}
+              className={`px-4 py-2 font-medium ${
+                activeTab === "ratio" ? "text-gold-400 border-b-2 border-gold-400" : "text-gray-300 hover:text-white"
+              }`}
+            >
+              Ratio Model
+            </button>
+            <button
+              onClick={() => setActiveTab("ols")}
+              className={`px-4 py-2 font-medium ${
+                activeTab === "ols" ? "text-gold-400 border-b-2 border-gold-400" : "text-gray-300 hover:text-white"
+              }`}
+            >
+              OLS Spread Model
+            </button>
+            <button
+              onClick={() => setActiveTab("kalman")}
+              className={`px-4 py-2 font-medium ${
+                activeTab === "kalman" ? "text-gold-400 border-b-2 border-gold-400" : "text-gray-300 hover:text-white"
+              }`}
+            >
+              Kalman Spread Model
+            </button>
+          </div>
+        </div>
+
+        {/* Model-specific parameters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          {activeTab === "ratio" ? (
+            <div>
+              <label className="block text-base font-medium text-gray-300 mb-2">Ratio Lookback Window (Days)</label>
+              <input
+                type="number"
+                value={ratioLookbackWindow}
+                onChange={(e) => setRatioLookbackWindow(Number.parseInt(e.target.value))}
+                min="10"
+                max="252"
+                className="input-field"
+              />
+              <p className="mt-1 text-sm text-gray-400">Window size for calculating ratio statistics and z-score</p>
+            </div>
+          ) : activeTab === "ols" ? (
+            <>
+              <div>
+                <label className="block text-base font-medium text-gray-300 mb-2">OLS Lookback Window (Days)</label>
                 <input
                   type="number"
                   value={olsLookbackWindow}
                   onChange={(e) => setOlsLookbackWindow(Number.parseInt(e.target.value))}
                   min="10"
                   max="252"
-                  className="w-full rounded border p-2"
+                  className="input-field"
                 />
+                <p className="mt-1 text-sm text-gray-400">Window size for rolling OLS regression</p>
               </div>
               <div>
-                <label className="mb-2 block">Z-Score Lookback (days)</label>
+                <label className="block text-base font-medium text-gray-300 mb-2">Z-Score Lookback (Days)</label>
                 <input
                   type="number"
                   value={zScoreLookback}
                   onChange={(e) => setZScoreLookback(Number.parseInt(e.target.value))}
                   min="5"
                   max="100"
-                  className="w-full rounded border p-2"
+                  className="input-field"
                 />
+                <p className="mt-1 text-sm text-gray-400">Window size for z-score calculation</p>
               </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "kalman" && (
-          <div className="mb-4 rounded border p-4">
-            <h3 className="mb-2 text-xl font-bold">Kalman Filter Parameters</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            </>
+          ) : (
+            <>
               <div>
-                <label className="mb-2 block">Lookback Window (days)</label>
+                <label className="block text-base font-medium text-gray-300 mb-2">Kalman Lookback Window (Days)</label>
                 <input
                   type="number"
                   value={kalmanLookbackWindow}
                   onChange={(e) => setKalmanLookbackWindow(Number.parseInt(e.target.value))}
                   min="10"
                   max="252"
-                  className="w-full rounded border p-2"
+                  className="input-field"
                 />
+                <p className="mt-1 text-sm text-gray-400">Window size for rolling statistics</p>
               </div>
               <div>
-                <label className="mb-2 block">Process Noise</label>
+                <label className="block text-base font-medium text-gray-300 mb-2">Z-Score Lookback (Days)</label>
                 <input
                   type="number"
-                  value={kalmanProcessNoise}
-                  onChange={(e) => setKalmanProcessNoise(Number.parseFloat(e.target.value))}
-                  min="0.001"
-                  max="1"
-                  step="0.001"
-                  className="w-full rounded border p-2"
+                  value={zScoreLookback}
+                  onChange={(e) => setZScoreLookback(Number.parseInt(e.target.value))}
+                  min="5"
+                  max="100"
+                  className="input-field"
                 />
+                <p className="mt-1 text-sm text-gray-400">Window size for z-score calculation</p>
               </div>
               <div>
-                <label className="mb-2 block">Measurement Noise</label>
-                <input
-                  type="number"
-                  value={kalmanMeasurementNoise}
-                  onChange={(e) => setKalmanMeasurementNoise(Number.parseFloat(e.target.value))}
-                  min="0.001"
-                  max="1"
-                  step="0.001"
-                  className="w-full rounded border p-2"
-                />
+                <label className="block text-base font-medium text-gray-300 mb-2">Kalman Filter Parameters</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Process Noise</label>
+                    <input
+                      type="number"
+                      value={kalmanProcessNoise}
+                      onChange={(e) => setKalmanProcessNoise(Number.parseFloat(e.target.value))}
+                      min="0.001"
+                      max="1"
+                      step="0.001"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Measurement Noise</label>
+                    <input
+                      type="number"
+                      value={kalmanMeasurementNoise}
+                      onChange={(e) => setKalmanMeasurementNoise(Number.parseFloat(e.target.value))}
+                      min="0.001"
+                      max="1"
+                      step="0.001"
+                      className="input-field"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </>
+          )}
 
-        <div className="mb-4 rounded border p-4">
-          <h3 className="mb-2 text-xl font-bold">Trade Parameters</h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Plot Type</label>
+            <select value={plotType} onChange={(e) => setPlotType(e.target.value)} className="input-field">
+              <option value="line">Line Chart</option>
+              <option value="scatter">Scatter Plot</option>
+              <option value="histogram">Histogram</option>
+            </select>
+            <p className="mt-1 text-sm text-gray-400">Type of visualization</p>
+          </div>
+        </div>
+
+        {/* Trade parameters section */}
+        <div className="mb-8">
+          <h3 className="text-xl font-semibold text-white mb-4">Trade Parameters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <label className="mb-2 block">Entry Threshold (Z-Score)</label>
+              <label className="block text-base font-medium text-gray-300 mb-2">Entry Z-Score Threshold</label>
               <input
                 type="number"
                 value={entryThreshold}
                 onChange={(e) => setEntryThreshold(Number.parseFloat(e.target.value))}
-                min="0.5"
-                max="3"
+                min="1"
+                max="4"
                 step="0.1"
-                className="w-full rounded border p-2"
+                className="input-field"
               />
+              <p className="mt-1 text-sm text-gray-400">Z-score threshold for trade entry (absolute value)</p>
             </div>
             <div>
-              <label className="mb-2 block">Exit Threshold (Z-Score)</label>
+              <label className="block text-base font-medium text-gray-300 mb-2">Exit Z-Score Threshold</label>
               <input
                 type="number"
                 value={exitThreshold}
@@ -2173,195 +1574,869 @@ export default function PairAnalyzer() {
                 min="0"
                 max="2"
                 step="0.1"
-                className="w-full rounded border p-2"
+                className="input-field"
               />
+              <p className="mt-1 text-sm text-gray-400">Z-score threshold for trade exit (absolute value)</p>
             </div>
           </div>
         </div>
 
-        <button
-          onClick={handleAnalyze}
-          disabled={isLoading}
-          className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:bg-gray-400"
-        >
-          {isLoading ? "Analyzing..." : "Analyze Pair"}
-        </button>
+        <div className="flex justify-center mt-8">
+          <button onClick={runAnalysis} disabled={isLoading} className="btn-primary">
+            {isLoading ? (
+              <span className="flex items-center">
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Analyzing...
+              </span>
+            ) : (
+              "Run Analysis"
+            )}
+          </button>
+        </div>
       </div>
 
-      {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
+      {isLoading && (
+        <div className="flex justify-center my-12">
+          <svg
+            className="animate-spin h-12 w-12 text-gold-400"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        </div>
+      )}
 
-      {analysisData && (
-        <div className="mt-8">
-          <h2 className="mb-4 text-2xl font-bold">Analysis Results</h2>
+      {analysisData && !isLoading && (
+        <>
+          <div className="card">
+            <h2 className="text-2xl font-bold text-white mb-6">Analysis Results</h2>
 
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">Correlation</h3>
-              <p className="text-2xl">{analysisData.statistics.correlation.toFixed(4)}</p>
-            </div>
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">{activeTab === "ratio" ? "Mean Ratio" : "Mean Spread"}</h3>
-              <p className="text-2xl">
-                {activeTab === "ratio"
-                  ? analysisData.statistics.meanRatio.toFixed(4)
-                  : analysisData.statistics.meanSpread.toFixed(4)}
-              </p>
-            </div>
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">{activeTab === "ratio" ? "Std Dev Ratio" : "Std Dev Spread"}</h3>
-              <p className="text-2xl">
-                {activeTab === "ratio"
-                  ? analysisData.statistics.stdDevRatio.toFixed(4)
-                  : analysisData.statistics.stdDevSpread.toFixed(4)}
-              </p>
-            </div>
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">Z-Score Range</h3>
-              <p className="text-2xl">
-                {analysisData.statistics.minZScore.toFixed(2)} to {analysisData.statistics.maxZScore.toFixed(2)}
-              </p>
-            </div>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
+                <h3 className="text-xl font-semibold text-white mb-4">Descriptive Statistics</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Correlation:</span>
+                    <span className="text-gold-400 font-medium">{analysisData.statistics.correlation.toFixed(4)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">
+                      Mean {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"}:
+                    </span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.modelType === "ratio"
+                        ? analysisData.statistics.meanRatio.toFixed(4)
+                        : analysisData.statistics.meanSpread.toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">
+                      Std Dev {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"}:
+                    </span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.modelType === "ratio"
+                        ? analysisData.statistics.stdDevRatio.toFixed(4)
+                        : analysisData.statistics.stdDevSpread.toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Min Z-score:</span>
+                    <span className="text-gold-400 font-medium">{analysisData.statistics.minZScore.toFixed(4)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Max Z-score:</span>
+                    <span className="text-gold-400 font-medium">{analysisData.statistics.maxZScore.toFixed(4)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Statistical Half-Life (days):</span>
+                    <span
+                      className={`font-medium ${analysisData.statistics.halfLifeValid ? "text-gold-400" : "text-red-400"}`}
+                    >
+                      {analysisData.statistics.halfLife > 0
+                        ? `${analysisData.statistics.halfLife.toFixed(2)}${!analysisData.statistics.halfLifeValid ? " (Too slow)" : ""}`
+                        : "Invalid"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Practical Trade Cycle (days):</span>
+                    <span
+                      className={`font-medium ${
+                        analysisData.statistics.practicalTradeHalfLife.isValid ? "text-gold-400" : "text-red-400"
+                      }`}
+                    >
+                      {analysisData.statistics.practicalTradeHalfLife.isValid
+                        ? `${analysisData.statistics.practicalTradeHalfLife.tradeCycleLength.toFixed(1)} (${(
+                            analysisData.statistics.practicalTradeHalfLife.successRate * 100
+                          ).toFixed(0)}% success)`
+                        : "Insufficient data"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Hurst Exponent:</span>
+                    <span
+                      className={`font-medium ${
+                        analysisData.statistics.hurstExponent < 0.5
+                          ? "text-green-400"
+                          : analysisData.statistics.hurstExponent > 0.5
+                            ? "text-red-400"
+                            : "text-gold-400"
+                      }`}
+                    >
+                      {analysisData.statistics.hurstExponent.toFixed(4)}
+                      {analysisData.statistics.hurstExponent < 0.5
+                        ? " (Mean-reverting)"
+                        : analysisData.statistics.hurstExponent > 0.5
+                          ? " (Trending)"
+                          : " (Random)"}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">ADF Test</h3>
-              <p className="text-xl">
-                {analysisData.statistics.adfResults.isStationary ? "Stationary" : "Non-Stationary"}
-              </p>
-              <p className="text-sm">p-value: {analysisData.statistics.adfResults.pValue.toFixed(4)}</p>
+              <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
+                <h3 className="text-xl font-semibold text-white mb-4">ADF Test Results</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Test Statistic:</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.adfResults.statistic.toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">p-value:</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.adfResults.pValue.toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Critical Value (1%):</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.adfResults.criticalValues["1%"]}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Critical Value (5%):</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.adfResults.criticalValues["5%"]}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Stationarity:</span>
+                    <span
+                      className={`font-medium ${
+                        analysisData.statistics.adfResults.isStationary ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
+                      {analysisData.statistics.adfResults.isStationary ? "Yes ✅" : "No ❌"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">Half-Life</h3>
-              <p className="text-xl">
-                {analysisData.statistics.halfLifeValid
-                  ? `${analysisData.statistics.halfLife.toFixed(1)} days`
-                  : "Invalid"}
-              </p>
-            </div>
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">Hurst Exponent</h3>
-              <p className="text-xl">{analysisData.statistics.hurstExponent.toFixed(3)}</p>
-              <p className="text-sm">
-                {analysisData.statistics.hurstExponent < 0.5
-                  ? "Mean-reverting"
-                  : analysisData.statistics.hurstExponent > 0.5
-                    ? "Trending"
-                    : "Random Walk"}
-              </p>
-            </div>
-            <div className="rounded border p-4">
-              <h3 className="mb-2 text-lg font-bold">Trade Cycle</h3>
-              <p className="text-xl">
-                {analysisData.statistics.practicalTradeHalfLife.isValid
-                  ? `${analysisData.statistics.practicalTradeHalfLife.tradeCycleLength.toFixed(1)} days`
-                  : "Insufficient Data"}
-              </p>
-              <p className="text-sm">
-                {analysisData.statistics.practicalTradeHalfLife.sampleSize} trades,{" "}
-                {(analysisData.statistics.practicalTradeHalfLife.successRate * 100).toFixed(1)}% success
-              </p>
-            </div>
-          </div>
 
-          <div className="mb-6">
-            <h3 className="mb-2 text-xl font-bold">Plot Type</h3>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handlePlotTypeChange("line")}
-                className={`rounded px-4 py-2 ${
-                  plotType === "line" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
-                }`}
-              >
-                Line
-              </button>
-              <button
-                onClick={() => handlePlotTypeChange("scatter")}
-                className={`rounded px-4 py-2 ${
-                  plotType === "scatter" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
-                }`}
-              >
-                Scatter
-              </button>
-              <button
-                onClick={() => handlePlotTypeChange("histogram")}
-                className={`rounded px-4 py-2 ${
-                  plotType === "histogram" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-800"
-                }`}
-              >
-                Histogram
-              </button>
-            </div>
-          </div>
+            <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700 mb-8">
+              <h3 className="text-xl font-semibold text-white mb-4">Pair Trading Recommendations</h3>
 
-          <div className="mb-6">
-            <h3 className="mb-2 text-xl font-bold">{activeTab === "ratio" ? "Ratio Chart" : "Spread Chart"}</h3>
-            {renderRatioChart()}
-          </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-navy-900/50 p-4 rounded-md border border-navy-700">
+                    <h4 className="text-lg font-medium text-white mb-2">Pair Suitability</h4>
+                    <div className="flex items-center">
+                      <div
+                        className={`w-3 h-3 rounded-full mr-2 ${
+                          analysisData.statistics.correlation > 0.7 &&
+                          analysisData.statistics.adfResults.isStationary &&
+                          analysisData.statistics.halfLifeValid &&
+                          analysisData.statistics.halfLife > 5 &&
+                          analysisData.statistics.halfLife < 60 &&
+                          analysisData.statistics.hurstExponent < 0.5
+                            ? "bg-green-500"
+                            : analysisData.statistics.correlation > 0.5 &&
+                                analysisData.statistics.adfResults.isStationary
+                              ? "bg-yellow-500"
+                              : "bg-red-500"
+                        }`}
+                      ></div>
+                      <span className="text-gray-300">
+                        {analysisData.statistics.correlation > 0.7 &&
+                        analysisData.statistics.adfResults.isStationary &&
+                        analysisData.statistics.halfLifeValid &&
+                        analysisData.statistics.halfLife > 5 &&
+                        analysisData.statistics.halfLife < 60 &&
+                        analysisData.statistics.hurstExponent < 0.5
+                          ? "Excellent pair trading candidate"
+                          : analysisData.statistics.correlation > 0.5 && analysisData.statistics.adfResults.isStationary
+                            ? "Acceptable pair trading candidate"
+                            : "Poor pair trading candidate"}
+                      </span>
+                    </div>
+                  </div>
 
-          <div className="mb-6">
-            <h3 className="mb-2 text-xl font-bold">Z-Score Chart</h3>
-            {renderZScoreChart()}
-          </div>
-
-          <div className="mb-6">
-            <h3 className="mb-2 text-xl font-bold">Price Chart</h3>
-            {renderPriceChart()}
-          </div>
-
-          {activeTab !== "ratio" && (
-            <div className="mb-6">
-              <h3 className="mb-2 text-xl font-bold">Hedge Ratio Chart</h3>
-              {renderHedgeRatioChart()}
-            </div>
-          )}
-
-          <div className="mb-6">
-            <h3 className="mb-2 text-xl font-bold">Data Table</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border p-2">Date</th>
-                    <th className="border p-2">{selectedPair.stockA}</th>
-                    <th className="border p-2">{selectedPair.stockB}</th>
-                    {activeTab === "ratio" ? (
-                      <th className="border p-2">Ratio</th>
-                    ) : (
-                      <>
-                        <th className="border p-2">Alpha</th>
-                        <th className="border p-2">Hedge Ratio</th>
-                        <th className="border p-2">Spread</th>
-                      </>
-                    )}
-                    <th className="border p-2">Z-Score</th>
-                    {activeTab === "ratio" && <th className="border p-2">Half-Life</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {analysisData.tableData.slice(-30).map((row, index) => (
-                    <tr key={index} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className="border p-2">{row.date}</td>
-                      <td className="border p-2">{row.priceA.toFixed(2)}</td>
-                      <td className="border p-2">{row.priceB.toFixed(2)}</td>
-                      {activeTab === "ratio" ? (
-                        <td className="border p-2">{row.ratio.toFixed(4)}</td>
-                      ) : (
+                  <div className="bg-navy-900/50 p-4 rounded-md border border-navy-700">
+                    <h4 className="text-lg font-medium text-white mb-2">Current Signal</h4>
+                    <div className="flex items-center">
+                      {analysisData.zScores.length > 0 && (
                         <>
-                          <td className="border p-2">{row.alpha.toFixed(4)}</td>
-                          <td className="border p-2">{row.hedgeRatio.toFixed(4)}</td>
-                          <td className="border p-2">{row.spread.toFixed(4)}</td>
+                          <div
+                            className={`w-3 h-3 rounded-full mr-2 ${
+                              analysisData.zScores[analysisData.zScores.length - 1] > 2
+                                ? "bg-red-500"
+                                : analysisData.zScores[analysisData.zScores.length - 1] < -2
+                                  ? "bg-green-500"
+                                  : "bg-gray-500"
+                            }`}
+                          ></div>
+                          <span className="text-gray-300">
+                            {analysisData.zScores[analysisData.zScores.length - 1] > 2
+                              ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                              : analysisData.zScores[analysisData.zScores.length - 1] < -2
+                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                : "No trading signal (Z-score within normal range)"}
+                          </span>
                         </>
                       )}
-                      <td className="border p-2">{row.zScore.toFixed(4)}</td>
-                      {activeTab === "ratio" && <td className="border p-2">{row.halfLife}</td>}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-navy-900/50 p-4 rounded-md border border-navy-700">
+                  <h4 className="text-lg font-medium text-white mb-2">Suggested Parameters</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <span className="text-gray-400 text-sm">Entry Z-score:</span>
+                      <p className="text-white font-medium">
+                        ±
+                        {analysisData.statistics.modelType === "ratio"
+                          ? analysisData.statistics.stdDevRatio > 0
+                            ? "2.0"
+                            : "N/A"
+                          : analysisData.statistics.stdDevSpread > 0
+                            ? "2.0"
+                            : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-sm">Exit Z-score:</span>
+                      <p className="text-white font-medium">
+                        ±
+                        {analysisData.statistics.modelType === "ratio"
+                          ? analysisData.statistics.stdDevRatio > 0
+                            ? "0.5"
+                            : "N/A"
+                          : analysisData.statistics.stdDevSpread > 0
+                            ? "0.5"
+                            : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-sm">Stop Loss Z-score:</span>
+                      <p className="text-white font-medium">
+                        ±
+                        {analysisData.statistics.modelType === "ratio"
+                          ? analysisData.statistics.stdDevRatio > 0
+                            ? "3.0"
+                            : "N/A"
+                          : analysisData.statistics.stdDevSpread > 0
+                            ? "3.0"
+                            : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-navy-900/50 p-4 rounded-md border border-navy-700">
+                  <h4 className="text-lg font-medium text-white mb-2">Position Sizing</h4>
+                  <p className="text-gray-300 mb-2">For a market-neutral position with $10,000 total investment:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-gray-400 text-sm">{selectedPair.stockA} Position:</span>
+                      <p className="text-white font-medium">
+                        {analysisData.stockAPrices.length > 0
+                          ? `${(5000).toFixed(2)} (${(5000 / analysisData.stockAPrices[analysisData.stockAPrices.length - 1]).toFixed(0)} shares)`
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 text-sm">{selectedPair.stockB} Position:</span>
+                      <p className="text-white font-medium">
+                        {analysisData.stockBPrices.length > 0 &&
+                        (analysisData.hedgeRatios ? analysisData.hedgeRatios.length > 0 : analysisData.ratios)
+                          ? `${(5000).toFixed(2)} (${(
+                              (5000 / analysisData.stockBPrices[analysisData.stockBPrices.length - 1]) *
+                                (analysisData.hedgeRatios
+                                  ? analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
+                                  : analysisData.stockAPrices[analysisData.stockAPrices.length - 1] /
+                                    analysisData.stockBPrices[analysisData.stockBPrices.length - 1])
+                            ).toFixed(0)} shares)`
+                          : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-8">
+              {analysisData.statistics.modelType !== "ratio" && (
+                <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
+                  <h3 className="text-xl font-semibold text-white mb-4">Rolling Hedge Ratio Plot</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          hedgeRatio: analysisData.hedgeRatios[i],
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Hedge Ratio (β)"]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Line type="monotone" dataKey="hedgeRatio" stroke="#ffd700" dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="mt-4 text-sm text-gray-400">
+                    This chart shows how the hedge ratio (β) between {selectedPair.stockA} and {selectedPair.stockB}{" "}
+                    evolves over time. A stable hedge ratio indicates a consistent relationship between the stocks.
+                  </p>
+                </div>
+              )}
+
+              <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
+                <h3 className="text-xl font-semibold text-white mb-4">
+                  {analysisData.statistics.modelType === "ratio" ? "Ratio Chart" : "Spread Chart"}
+                </h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {plotType === "line" ? (
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          value:
+                            analysisData.statistics.modelType === "ratio"
+                              ? analysisData.ratios[i]
+                              : analysisData.spreads[i],
+                          mean: analysisData.chartData.rollingMean[i],
+                          upperBand1: analysisData.chartData.rollingUpperBand1[i],
+                          lowerBand1: analysisData.chartData.rollingLowerBand1[i],
+                          upperBand2: analysisData.chartData.rollingUpperBand2[i],
+                          lowerBand2: analysisData.chartData.rollingLowerBand2[i],
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Value"]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Line type="monotone" dataKey="value" stroke="#ffd700" dot={false} />
+                        <Line type="monotone" dataKey="mean" stroke="#ffffff" dot={false} strokeDasharray="5 5" />
+                        <Line type="monotone" dataKey="upperBand1" stroke="#3a4894" dot={false} strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="lowerBand1" stroke="#3a4894" dot={false} strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="upperBand2" stroke="#ff6b6b" dot={false} strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="lowerBand2" stroke="#ff6b6b" dot={false} strokeDasharray="3 3" />
+                      </LineChart>
+                    ) : plotType === "scatter" ? (
+                      <ScatterChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date: i, // Use index for x-axis
+                          value:
+                            analysisData.statistics.modelType === "ratio"
+                              ? analysisData.ratios[i]
+                              : analysisData.spreads[i],
+                        }))}
+                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          type="number"
+                          dataKey="date"
+                          name="Time"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="value"
+                          name="Value"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{
+                            value: analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread",
+                            angle: -90,
+                            position: "insideLeft",
+                            fill: "#dce5f3",
+                          }}
+                        />
+                        <ZAxis range={[15, 15]} />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [
+                            value.toFixed(4),
+                            analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread",
+                          ]}
+                        />
+                        <Scatter
+                          name={analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"}
+                          data={analysisData.dates.map((date, i) => ({
+                            date: i,
+                            value:
+                              analysisData.statistics.modelType === "ratio"
+                                ? analysisData.ratios[i]
+                                : analysisData.spreads[i],
+                          }))}
+                          fill="#ffd700"
+                        />
+                      </ScatterChart>
+                    ) : (
+                      // Histogram
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="text-white text-lg mb-4">
+                            {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"} Distribution
+                          </div>
+                          <div className="grid grid-cols-4 gap-2 text-sm">
+                            <div className="text-gray-400">Min:</div>
+                            <div className="text-white">
+                              {Math.min(
+                                ...(analysisData.statistics.modelType === "ratio"
+                                  ? analysisData.ratios
+                                  : analysisData.spreads),
+                              ).toFixed(4)}
+                            </div>
+                            <div className="text-gray-400">Max:</div>
+                            <div className="text-white">
+                              {Math.max(
+                                ...(analysisData.statistics.modelType === "ratio"
+                                  ? analysisData.ratios
+                                  : analysisData.spreads),
+                              ).toFixed(4)}
+                            </div>
+                            <div className="text-gray-400">Mean:</div>
+                            <div className="text-white">
+                              {(analysisData.statistics.modelType === "ratio"
+                                ? analysisData.statistics.meanRatio
+                                : analysisData.statistics.meanSpread
+                              ).toFixed(4)}
+                            </div>
+                            <div className="text-gray-400">Std Dev:</div>
+                            <div className="text-white">
+                              {(analysisData.statistics.modelType === "ratio"
+                                ? analysisData.statistics.stdDevRatio
+                                : analysisData.statistics.stdDevSpread
+                              ).toFixed(4)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+                <p className="mt-4 text-sm text-gray-400">
+                  This chart shows the {analysisData.statistics.modelType === "ratio" ? "ratio" : "spread"} between{" "}
+                  {selectedPair.stockA} and {selectedPair.stockB}
+                  {plotType === "line"
+                    ? " with rolling mean and standard deviation bands."
+                    : plotType === "scatter"
+                      ? " as a scatter plot over time."
+                      : " distribution statistics."}
+                  {plotType === "line" && " Mean-reverting behavior is ideal for pair trading."}
+                </p>
+              </div>
+
+              {/* Chart 2: Z-Score Chart */}
+              <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
+                <h3 className="text-xl font-semibold text-white mb-4">Z-Score Chart</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {plotType === "line" ? (
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          zScore: analysisData.zScores[i],
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Z-Score"]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <ReferenceLine y={0} stroke="#ffffff" />
+                        <ReferenceLine y={1} stroke="#3a4894" strokeDasharray="3 3" />
+                        <ReferenceLine y={-1} stroke="#3a4894" strokeDasharray="3 3" />
+                        <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="zScore" stroke="#ffd700" dot={false} strokeWidth={2} />
+                      </LineChart>
+                    ) : plotType === "scatter" ? (
+                      <ScatterChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date: i,
+                          zScore: analysisData.zScores[i],
+                        }))}
+                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          type="number"
+                          dataKey="date"
+                          name="Time"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="zScore"
+                          name="Z-Score"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: "Z-Score", angle: -90, position: "insideLeft", fill: "#dce5f3" }}
+                        />
+                        <ZAxis range={[15, 15]} />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Z-Score"]}
+                        />
+                        <ReferenceLine y={0} stroke="#ffffff" />
+                        <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <Scatter
+                          name="Z-Score"
+                          data={analysisData.dates.map((date, i) => ({
+                            date: i,
+                            zScore: analysisData.zScores[i],
+                          }))}
+                          fill="#ffd700"
+                        />
+                      </ScatterChart>
+                    ) : (
+                      // Histogram
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="text-white text-lg mb-4">Z-Score Distribution</div>
+                          <div className="grid grid-cols-4 gap-2 text-sm">
+                            <div className="text-gray-400">Min:</div>
+                            <div className="text-white">{analysisData.statistics.minZScore.toFixed(4)}</div>
+                            <div className="text-gray-400">Max:</div>
+                            <div className="text-white">{analysisData.statistics.maxZScore.toFixed(4)}</div>
+                            <div className="text-gray-400">Mean:</div>
+                            <div className="text-white">
+                              {(
+                                analysisData.zScores.reduce((sum, val) => sum + val, 0) / analysisData.zScores.length
+                              ).toFixed(4)}
+                            </div>
+                            <div className="text-gray-400">Std Dev:</div>
+                            <div className="text-white">
+                              {Math.sqrt(
+                                analysisData.zScores.reduce((sum, val) => sum + Math.pow(val, 2), 0) /
+                                  analysisData.zScores.length,
+                              ).toFixed(4)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+                <p className="mt-4 text-sm text-gray-400">
+                  This chart shows the z-score of the{" "}
+                  {analysisData.statistics.modelType === "ratio" ? "ratio" : "spread"}
+                  {plotType === "line"
+                    ? ", highlighting regions where z-score > 2 or < -2. These extreme values indicate potential trading opportunities."
+                    : plotType === "scatter"
+                      ? " as a scatter plot over time, showing the distribution of z-scores."
+                      : " distribution statistics, showing how often extreme values occur."}
+                </p>
+              </div>
+
+              {/* Chart 3: Price Chart */}
+              <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
+                <h3 className="text-xl font-semibold text-white mb-4">
+                  Price Chart: {selectedPair.stockA} vs {selectedPair.stockB}
+                </h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {plotType === "line" ? (
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          stockA: analysisData.stockAPrices[i],
+                          stockB: analysisData.stockBPrices[i],
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis yAxisId="left" tick={{ fill: "#dce5f3" }} />
+                        <YAxis yAxisId="right" orientation="right" tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value, name) => [value.toFixed(2), name]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Line
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="stockA"
+                          stroke="#ffd700"
+                          dot={false}
+                          name={selectedPair.stockA}
+                        />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="stockB"
+                          stroke="#ff6b6b"
+                          dot={false}
+                          name={selectedPair.stockB}
+                        />
+                      </LineChart>
+                    ) : plotType === "scatter" ? (
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          type="number"
+                          dataKey="stockB"
+                          name={selectedPair.stockB}
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: selectedPair.stockB, position: "insideBottomRight", fill: "#dce5f3" }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="stockA"
+                          name={selectedPair.stockA}
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: selectedPair.stockA, angle: -90, position: "insideLeft", fill: "#dce5f3" }}
+                        />
+                        <ZAxis range={[15, 15]} />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(2), ""]}
+                        />
+                        <Scatter
+                          name="Stock Prices"
+                          data={analysisData.stockAPrices.map((priceA, i) => ({
+                            stockA: priceA,
+                            stockB: analysisData.stockBPrices[i],
+                            date: analysisData.dates[i],
+                          }))}
+                          fill="#ffd700"
+                        />
+                        {/* Add regression line for OLS/Kalman models */}
+                        {(() => {
+                          if (analysisData.statistics.modelType !== "ratio" && analysisData.stockBPrices.length > 0) {
+                            const lastBeta = analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
+                            const lastAlpha = analysisData.alphas[analysisData.alphas.length - 1]
+                            const minB = Math.min(...analysisData.stockBPrices)
+                            const maxB = Math.max(...analysisData.stockBPrices)
+
+                            return (
+                              <Line
+                                type="linear"
+                                dataKey="stockA"
+                                data={[
+                                  { stockB: minB, stockA: lastAlpha + lastBeta * minB },
+                                  { stockB: maxB, stockA: lastAlpha + lastBeta * maxB },
+                                ]}
+                                stroke="#ff6b6b"
+                                strokeWidth={2}
+                                dot={false}
+                                activeDot={false}
+                                legendType="none"
+                              />
+                            )
+                          }
+                          return null
+                        })()}
+                      </ScatterChart>
+                    ) : (
+                      // Histogram
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="text-white text-lg mb-4">Price Distribution</div>
+                          <div className="grid grid-cols-2 gap-8">
+                            <div>
+                              <div className="text-gold-400 font-medium mb-2">{selectedPair.stockA}</div>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div className="text-gray-400">Min:</div>
+                                <div className="text-white">{Math.min(...analysisData.stockAPrices).toFixed(2)}</div>
+                                <div className="text-gray-400">Max:</div>
+                                <div className="text-white">{Math.max(...analysisData.stockAPrices).toFixed(2)}</div>
+                                <div className="text-gray-400">Mean:</div>
+                                <div className="text-white">
+                                  {(
+                                    analysisData.stockAPrices.reduce((sum, val) => sum + val, 0) /
+                                    analysisData.stockAPrices.length
+                                  ).toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-red-400 font-medium mb-2">{selectedPair.stockB}</div>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div className="text-gray-400">Min:</div>
+                                <div className="text-white">{Math.min(...analysisData.stockBPrices).toFixed(2)}</div>
+                                <div className="text-gray-400">Max:</div>
+                                <div className="text-white">{Math.max(...analysisData.stockBPrices).toFixed(2)}</div>
+                                <div className="text-gray-400">Mean:</div>
+                                <div className="text-white">
+                                  {(
+                                    analysisData.stockBPrices.reduce((sum, val) => sum + val, 0) /
+                                    analysisData.stockBPrices.length
+                                  ).toFixed(2)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+                <p className="mt-4 text-sm text-gray-400">
+                  This chart shows{" "}
+                  {plotType === "line"
+                    ? "both stock prices over time with dual Y-axes"
+                    : plotType === "scatter"
+                      ? "the relationship between the two stock prices"
+                      : "the price distribution statistics for both stocks"}
+                  {analysisData.statistics.modelType !== "ratio" && plotType === "scatter"
+                    ? " with a regression line based on the latest regression."
+                    : "."}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+
+          <div className="card">
+            <h2 className="text-2xl font-bold text-white mb-6">
+              Complete Data Table ({analysisData.tableData.length} Days)
+            </h2>
+            <div className="overflow-x-auto">
+              <div className="max-h-[500px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-navy-700">
+                  <thead className="bg-navy-800">
+                    <tr>
+                      <th className="table-header">Date</th>
+                      <th className="table-header">{selectedPair.stockA} Price</th>
+                      <th className="table-header">{selectedPair.stockB} Price</th>
+                      {analysisData.statistics.modelType !== "ratio" && (
+                        <>
+                          <th className="table-header">Alpha (α)</th>
+                          <th className="table-header">Hedge Ratio (β)</th>
+                        </>
+                      )}
+                      <th className="table-header">
+                        {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"}
+                      </th>
+                      <th className="table-header">Z-score</th>
+                      <th className="table-header">Half-Life</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-800">
+                    {analysisData.tableData.map((row, index) => (
+                      <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
+                        <td className="table-cell">{row.date}</td>
+                        <td className="table-cell">{row.priceA.toFixed(2)}</td>
+                        <td className="table-cell">{row.priceB.toFixed(2)}</td>
+                        {analysisData.statistics.modelType !== "ratio" && (
+                          <>
+                            <td className="table-cell">{row.alpha.toFixed(4)}</td>
+                            <td className="table-cell">{row.hedgeRatio.toFixed(4)}</td>
+                          </>
+                        )}
+                        <td className="table-cell">
+                          {analysisData.statistics.modelType === "ratio" ? row.ratio.toFixed(4) : row.spread.toFixed(4)}
+                        </td>
+                        <td
+                          className={`table-cell font-medium ${
+                            row.zScore > 2 || row.zScore < -2
+                              ? "text-gold-400"
+                              : row.zScore > 1 || row.zScore < -1
+                                ? "text-gold-400/70"
+                                : "text-white"
+                          }`}
+                        >
+                          {row.zScore.toFixed(4)}
+                        </td>
+                        <td className="table-cell">
+                          {row.halfLife !== "N/A" ? (
+                            <span
+                              className={`${
+                                Number.parseFloat(row.halfLife) < 20
+                                  ? "text-green-400"
+                                  : Number.parseFloat(row.halfLife) > 252
+                                    ? "text-red-400"
+                                    : "text-gold-400"
+                              }`}
+                            >
+                              {row.halfLife}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500">N/A</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
