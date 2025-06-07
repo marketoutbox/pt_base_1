@@ -15,6 +15,8 @@ import {
   Scatter,
   ZAxis,
   ReferenceLine,
+  BarChart,
+  Bar,
 } from "recharts"
 
 export default function PairAnalyzer() {
@@ -177,7 +179,7 @@ export default function PairAnalyzer() {
       console.log("")
       console.log("OLS calculation:")
       console.log(`  numerator: ${count} * ${sumAB} - ${sumA} * ${sumB} = ${numerator}`)
-      console.log(`  denominator: ${count} * ${sumB2} - ${sumB} * ${sumB} = ${denominator}`)
+      console.log(`  denominator: ${count} * ${sumB2} - ${sumB * sumB} = ${denominator}`)
       console.log(`  beta: ${numerator} / ${denominator} = ${beta}`)
       console.log(`  alpha: ${meanA} - ${beta} * ${meanB} = ${alpha}`)
       console.log("")
@@ -1294,7 +1296,7 @@ export default function PairAnalyzer() {
         rollingUpperBand1.push(mean + stdDev)
         rollingLowerBand1.push(mean - stdDev)
         rollingUpperBand2.push(mean + 2 * stdDev)
-        rollingLowerBand2.push(mean - 2 * stdDev)
+        rollingLowerBand2.push(mean - stdDev)
       }
 
       setAnalysisData({
@@ -2028,45 +2030,46 @@ export default function PairAnalyzer() {
                       </ScatterChart>
                     ) : (
                       // Histogram
-                      <div className="flex items-center justify-center h-full">
-                        <div className="text-center">
-                          <div className="text-white text-lg mb-4">
-                            {analysisData.statistics.modelType === "ratio" ? "Ratio" : "Spread"} Distribution
-                          </div>
-                          <div className="grid grid-cols-4 gap-2 text-sm">
-                            <div className="text-gray-400">Min:</div>
-                            <div className="text-white">
-                              {Math.min(
-                                ...(analysisData.statistics.modelType === "ratio"
-                                  ? analysisData.ratios
-                                  : analysisData.spreads),
-                              ).toFixed(4)}
-                            </div>
-                            <div className="text-gray-400">Max:</div>
-                            <div className="text-white">
-                              {Math.max(
-                                ...(analysisData.statistics.modelType === "ratio"
-                                  ? analysisData.ratios
-                                  : analysisData.spreads),
-                              ).toFixed(4)}
-                            </div>
-                            <div className="text-gray-400">Mean:</div>
-                            <div className="text-white">
-                              {(analysisData.statistics.modelType === "ratio"
-                                ? analysisData.statistics.meanRatio
-                                : analysisData.statistics.meanSpread
-                              ).toFixed(4)}
-                            </div>
-                            <div className="text-gray-400">Std Dev:</div>
-                            <div className="text-white">
-                              {(analysisData.statistics.modelType === "ratio"
-                                ? analysisData.statistics.stdDevRatio
-                                : analysisData.statistics.stdDevSpread
-                              ).toFixed(4)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      (() => {
+                        const data =
+                          analysisData.statistics.modelType === "ratio" ? analysisData.ratios : analysisData.spreads
+                        const min = Math.min(...data)
+                        const max = Math.max(...data)
+                        const binCount = 20
+                        const binSize = (max - min) / binCount
+
+                        const bins = Array(binCount)
+                          .fill(0)
+                          .map((_, i) => ({
+                            range: `${(min + i * binSize).toFixed(3)}-${(min + (i + 1) * binSize).toFixed(3)}`,
+                            count: 0,
+                            midpoint: min + (i + 0.5) * binSize,
+                          }))
+
+                        data.forEach((value) => {
+                          const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1)
+                          bins[binIndex].count++
+                        })
+
+                        return (
+                          <BarChart data={bins} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              dataKey="midpoint"
+                              tick={{ fill: "#dce5f3", fontSize: 10 }}
+                              tickFormatter={(value) => value.toFixed(2)}
+                              interval={Math.floor(binCount / 5)}
+                            />
+                            <YAxis tick={{ fill: "#dce5f3" }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value) => [value, "Frequency"]}
+                              labelFormatter={(label) => `Range: ${label.toFixed(3)}`}
+                            />
+                            <Bar dataKey="count" fill="#ffd700" />
+                          </BarChart>
+                        )
+                      })()
                     )}
                   </ResponsiveContainer>
                 </div>
@@ -2158,30 +2161,48 @@ export default function PairAnalyzer() {
                       </ScatterChart>
                     ) : (
                       // Histogram
-                      <div className="flex items-center justify-center h-full">
-                        <div className="text-center">
-                          <div className="text-white text-lg mb-4">Z-Score Distribution</div>
-                          <div className="grid grid-cols-4 gap-2 text-sm">
-                            <div className="text-gray-400">Min:</div>
-                            <div className="text-white">{analysisData.statistics.minZScore.toFixed(4)}</div>
-                            <div className="text-gray-400">Max:</div>
-                            <div className="text-white">{analysisData.statistics.maxZScore.toFixed(4)}</div>
-                            <div className="text-gray-400">Mean:</div>
-                            <div className="text-white">
-                              {(
-                                analysisData.zScores.reduce((sum, val) => sum + val, 0) / analysisData.zScores.length
-                              ).toFixed(4)}
-                            </div>
-                            <div className="text-gray-400">Std Dev:</div>
-                            <div className="text-white">
-                              {Math.sqrt(
-                                analysisData.zScores.reduce((sum, val) => sum + Math.pow(val, 2), 0) /
-                                  analysisData.zScores.length,
-                              ).toFixed(4)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      (() => {
+                        const data = analysisData.zScores.filter((z) => !isNaN(z))
+                        const min = Math.min(...data)
+                        const max = Math.max(...data)
+                        const binCount = 20
+                        const binSize = (max - min) / binCount
+
+                        const bins = Array(binCount)
+                          .fill(0)
+                          .map((_, i) => ({
+                            range: `${(min + i * binSize).toFixed(2)}-${(min + (i + 1) * binSize).toFixed(2)}`,
+                            count: 0,
+                            midpoint: min + (i + 0.5) * binSize,
+                          }))
+
+                        data.forEach((value) => {
+                          const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1)
+                          bins[binIndex].count++
+                        })
+
+                        return (
+                          <BarChart data={bins} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              dataKey="midpoint"
+                              tick={{ fill: "#dce5f3", fontSize: 10 }}
+                              tickFormatter={(value) => value.toFixed(1)}
+                              interval={Math.floor(binCount / 5)}
+                            />
+                            <YAxis tick={{ fill: "#dce5f3" }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value) => [value, "Frequency"]}
+                              labelFormatter={(label) => `Z-Score: ${label.toFixed(2)}`}
+                            />
+                            <ReferenceLine x={0} stroke="#ffffff" strokeDasharray="3 3" />
+                            <ReferenceLine x={2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                            <ReferenceLine x={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                            <Bar dataKey="count" fill="#ffd700" />
+                          </BarChart>
+                        )
+                      })()
                     )}
                   </ResponsiveContainer>
                 </div>
@@ -2304,45 +2325,63 @@ export default function PairAnalyzer() {
                       </ScatterChart>
                     ) : (
                       // Histogram
-                      <div className="flex items-center justify-center h-full">
-                        <div className="text-center">
-                          <div className="text-white text-lg mb-4">Price Distribution</div>
-                          <div className="grid grid-cols-2 gap-8">
-                            <div>
-                              <div className="text-gold-400 font-medium mb-2">{selectedPair.stockA}</div>
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div className="text-gray-400">Min:</div>
-                                <div className="text-white">{Math.min(...analysisData.stockAPrices).toFixed(2)}</div>
-                                <div className="text-gray-400">Max:</div>
-                                <div className="text-white">{Math.max(...analysisData.stockAPrices).toFixed(2)}</div>
-                                <div className="text-gray-400">Mean:</div>
-                                <div className="text-white">
-                                  {(
-                                    analysisData.stockAPrices.reduce((sum, val) => sum + val, 0) /
-                                    analysisData.stockAPrices.length
-                                  ).toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-red-400 font-medium mb-2">{selectedPair.stockB}</div>
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div className="text-gray-400">Min:</div>
-                                <div className="text-white">{Math.min(...analysisData.stockBPrices).toFixed(2)}</div>
-                                <div className="text-gray-400">Max:</div>
-                                <div className="text-white">{Math.max(...analysisData.stockBPrices).toFixed(2)}</div>
-                                <div className="text-gray-400">Mean:</div>
-                                <div className="text-white">
-                                  {(
-                                    analysisData.stockBPrices.reduce((sum, val) => sum + val, 0) /
-                                    analysisData.stockBPrices.length
-                                  ).toFixed(2)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      (() => {
+                        const createBins = (data, binCount = 15) => {
+                          const min = Math.min(...data)
+                          const max = Math.max(...data)
+                          const binSize = (max - min) / binCount
+
+                          const bins = Array(binCount)
+                            .fill(0)
+                            .map((_, i) => ({
+                              midpoint: min + (i + 0.5) * binSize,
+                              count: 0,
+                            }))
+
+                          data.forEach((value) => {
+                            const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1)
+                            bins[binIndex].count++
+                          })
+
+                          return bins
+                        }
+
+                        const binsA = createBins(analysisData.stockAPrices)
+                        const binsB = createBins(analysisData.stockBPrices)
+
+                        // Combine bins for side-by-side display
+                        const combinedData = []
+                        const maxLength = Math.max(binsA.length, binsB.length)
+
+                        for (let i = 0; i < maxLength; i++) {
+                          combinedData.push({
+                            index: i,
+                            [`${selectedPair.stockA}`]: binsA[i]?.count || 0,
+                            [`${selectedPair.stockB}`]: binsB[i]?.count || 0,
+                            priceA: binsA[i]?.midpoint || 0,
+                            priceB: binsB[i]?.midpoint || 0,
+                          })
+                        }
+
+                        return (
+                          <BarChart data={combinedData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              dataKey="index"
+                              tick={{ fill: "#dce5f3", fontSize: 10 }}
+                              label={{ value: "Price Bins", position: "insideBottomRight", fill: "#dce5f3" }}
+                            />
+                            <YAxis tick={{ fill: "#dce5f3" }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value, name) => [value, `${name} Frequency`]}
+                              labelFormatter={(label) => `Bin ${label}`}
+                            />
+                            <Bar dataKey={selectedPair.stockA} fill="#ffd700" />
+                            <Bar dataKey={selectedPair.stockB} fill="#ff6b6b" />
+                          </BarChart>
+                        )
+                      })()
                     )}
                   </ResponsiveContainer>
                 </div>
