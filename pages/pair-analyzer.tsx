@@ -40,7 +40,6 @@ export default function PairAnalyzer() {
   const [olsLookbackWindow, setOlsLookbackWindow] = useState(60)
 
   // Kalman filter parameters
-  const [kalmanLookbackWindow, setKalmanLookbackWindow] = useState(60)
   const [kalmanProcessNoise, setKalmanProcessNoise] = useState(0.01)
   const [kalmanMeasurementNoise, setKalmanMeasurementNoise] = useState(0.1)
 
@@ -356,19 +355,18 @@ export default function PairAnalyzer() {
   const kalmanFilter = (pricesA, pricesB, processNoise = 0.01, measurementNoise = 0.1) => {
     const n = pricesA.length
 
-    // Initialize state and covariance
+    // Initialize state and covariance with better initial estimates
     let x = 1.0 // Initial hedge ratio estimate
     let P = 1.0 // Initial error covariance
 
     const hedgeRatios = []
     const alphas = []
 
-    // Process each data point
+    // Process each data point sequentially (using ALL historical data)
     for (let i = 0; i < n; i++) {
       // Prediction step
-      // x = x (state doesn't change in prediction)
-      // P = P + Q (add process noise)
-      P = P + processNoise
+      // x = x (state doesn't change in prediction for this model)
+      P = P + processNoise // Add process noise
 
       // Measurement
       const z = pricesA[i].close // Measurement is stock A price
@@ -382,9 +380,10 @@ export default function PairAnalyzer() {
       x = x + K * y // Update state estimate
       P = (1 - K * H) * P // Update error covariance
 
-      // Calculate alpha (intercept) using current hedge ratio
-      // For simplicity, we'll use a rolling window to calculate alpha
-      const windowStart = Math.max(0, i - 20)
+      // Calculate alpha using a short rolling window for stability
+      // (This is separate from the Kalman filter itself)
+      const alphaWindowSize = Math.min(20, i + 1)
+      const windowStart = Math.max(0, i - alphaWindowSize + 1)
       let sumA = 0,
         sumB = 0,
         count = 0
@@ -1129,7 +1128,7 @@ export default function PairAnalyzer() {
         rollingUpperBand1.push(mean + stdDev)
         rollingLowerBand1.push(mean - stdDev)
         rollingUpperBand2.push(mean + 2 * stdDev)
-        rollingLowerBand2.push(mean - 2 * stdDev)
+        rollingLowerBand2.push(mean - stdDev)
       }
 
       setAnalysisData({
@@ -1200,8 +1199,8 @@ export default function PairAnalyzer() {
       const pricesA = filterByDate(stockAData.data)
       const pricesB = filterByDate(stockBData.data)
 
-      if (pricesA.length < kalmanLookbackWindow || pricesB.length < kalmanLookbackWindow) {
-        setError(`Not enough data points for the selected lookback window (${kalmanLookbackWindow} days).`)
+      if (pricesA.length < 10 || pricesB.length < 10) {
+        setError(`Not enough data points for analysis (minimum 10 days required).`)
         setIsLoading(false)
         return
       }
@@ -1286,8 +1285,9 @@ export default function PairAnalyzer() {
       const rollingUpperBand2 = []
       const rollingLowerBand2 = []
 
+      const rollingStatsWindow = 60 // Fixed window for rolling statistics display
       for (let i = 0; i < spreads.length; i++) {
-        const windowStart = Math.max(0, i - kalmanLookbackWindow + 1)
+        const windowStart = Math.max(0, i - rollingStatsWindow + 1)
         const window = spreads.slice(windowStart, i + 1)
         const mean = window.reduce((sum, val) => sum + val, 0) / window.length
         const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
@@ -1484,16 +1484,41 @@ export default function PairAnalyzer() {
           ) : (
             <>
               <div>
-                <label className="block text-base font-medium text-gray-300 mb-2">Kalman Lookback Window (Days)</label>
-                <input
-                  type="number"
-                  value={kalmanLookbackWindow}
-                  onChange={(e) => setKalmanLookbackWindow(Number.parseInt(e.target.value))}
-                  min="10"
-                  max="252"
-                  className="input-field"
-                />
-                <p className="mt-1 text-sm text-gray-400">Window size for rolling statistics</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <div>
+                    <label className="block text-base font-medium text-gray-300 mb-2">Kalman Filter Parameters</label>
+                    <p className="mt-1 text-sm text-gray-400">
+                      Kalman filter adapts continuously using all historical data. Process noise controls adaptation
+                      speed, measurement noise controls trust in new observations.
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Process Noise</label>
+                        <input
+                          type="number"
+                          value={kalmanProcessNoise}
+                          onChange={(e) => setKalmanProcessNoise(Number.parseFloat(e.target.value))}
+                          min="0.001"
+                          max="1"
+                          step="0.001"
+                          className="input-field"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Measurement Noise</label>
+                        <input
+                          type="number"
+                          value={kalmanMeasurementNoise}
+                          onChange={(e) => setKalmanMeasurementNoise(Number.parseFloat(e.target.value))}
+                          min="0.001"
+                          max="1"
+                          step="0.001"
+                          className="input-field"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-base font-medium text-gray-300 mb-2">Z-Score Lookback (Days)</label>
@@ -1506,35 +1531,6 @@ export default function PairAnalyzer() {
                   className="input-field"
                 />
                 <p className="mt-1 text-sm text-gray-400">Window size for z-score calculation</p>
-              </div>
-              <div>
-                <label className="block text-base font-medium text-gray-300 mb-2">Kalman Filter Parameters</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Process Noise</label>
-                    <input
-                      type="number"
-                      value={kalmanProcessNoise}
-                      onChange={(e) => setKalmanProcessNoise(Number.parseFloat(e.target.value))}
-                      min="0.001"
-                      max="1"
-                      step="0.001"
-                      className="input-field"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Measurement Noise</label>
-                    <input
-                      type="number"
-                      value={kalmanMeasurementNoise}
-                      onChange={(e) => setKalmanMeasurementNoise(Number.parseFloat(e.target.value))}
-                      min="0.001"
-                      max="1"
-                      step="0.001"
-                      className="input-field"
-                    />
-                  </div>
-                </div>
               </div>
             </>
           )}
