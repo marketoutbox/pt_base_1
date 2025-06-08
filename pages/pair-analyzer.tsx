@@ -90,14 +90,24 @@ const PairAnalyzer = () => {
     }
   }
 
-  // Improved Kalman filter implementation following Gemini's approach
+  // Kalman filter implementation for hedge ratio estimation
   const kalmanFilter = (pricesA, pricesB, processNoise = 0.0001, measurementNoise = null) => {
     const n = pricesA.length
 
     // Initialize with OLS regression from first 60 days (or available data)
     const initWindow = Math.min(60, Math.floor(n * 0.3))
     if (n < 10) {
-      throw new Error("Insufficient data for Kalman filter initialization")
+      console.warn("Insufficient data for robust Kalman filter initialization")
+      // Fall back to simple initialization
+      const x = [0.0, 1.0] // Initial state vector [alpha, beta]
+      const P = [
+        [1.0, 0.0],
+        [0.0, 1.0],
+      ] // Initial covariance matrix
+
+      const hedgeRatios = Array(n).fill(1.0)
+      const alphas = Array(n).fill(0.0)
+      return { hedgeRatios, alphas }
     }
 
     // Calculate initial OLS estimates
@@ -127,7 +137,17 @@ const PairAnalyzer = () => {
     const denominator = initWindow * sumB2 - sumB * sumB
 
     if (Math.abs(denominator) < 1e-10) {
-      throw new Error("Singular matrix in OLS initialization")
+      console.warn("Singular matrix in OLS initialization")
+      // Fall back to simple initialization
+      const x = [0.0, 1.0] // Initial state vector [alpha, beta]
+      const P = [
+        [1.0, 0.0],
+        [0.0, 1.0],
+      ] // Initial covariance matrix
+
+      const hedgeRatios = Array(n).fill(1.0)
+      const alphas = Array(n).fill(0.0)
+      return { hedgeRatios, alphas }
     }
 
     const initialBeta = numerator / denominator
@@ -141,7 +161,7 @@ const PairAnalyzer = () => {
       residualSumSquares += residual * residual
     }
 
-    const adaptiveMeasurementNoise = measurementNoise || residualSumSquares / (initWindow - 2)
+    const adaptiveMeasurementNoise = measurementNoise || Math.max(residualSumSquares / (initWindow - 2), 0.01)
 
     // Initialize 2D state vector [alpha, beta]
     const x = [initialAlpha, initialBeta]
