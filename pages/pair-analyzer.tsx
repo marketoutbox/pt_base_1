@@ -56,8 +56,8 @@ const scalarInverse = (x: number): number => {
 
 // Improved Kalman filter implementation with 2D state vector
 const kalmanFilter = (
-  pricesA: { close: number }[],
-  pricesB: { close: number }[],
+  pricesA: { close: number; date: string }[],
+  pricesB: { close: number; date: string }[],
   processNoise = 0.0001,
   measurementNoise = 1.0,
   initialLookback = 60,
@@ -162,7 +162,7 @@ const kalmanFilter = (
     const innovation = priceA - predicted_y
 
     // Innovation covariance: H @ P_pred @ H.T + R
-    const H_P_pred = matrixMultiply1x2(H_t, P_pred) // 1x2
+    const H_P_pred = [P_pred[0][0] * H_t[0] + P_pred[0][1] * H_t[1], P_pred[1][0] * H_t[0] + P_pred[1][1] * H_t[1]] // 2x1
     const innovation_covariance = H_P_pred[0] * H_t[0] + H_P_pred[1] * H_t[1] + adaptiveR // scalar
 
     // Kalman gain: P_pred @ H.T @ inv(innovation_covariance)
@@ -210,6 +210,32 @@ const kalmanFilter = (
   console.log(`Final Beta: ${hedgeRatios[hedgeRatios.length - 1].toFixed(4)}`)
   console.log(`Total iterations: ${n - initialLookback}`)
   console.log("=====================================")
+
+  return { hedgeRatios, alphas }
+}
+
+// Function to run Kalman analysis
+const runKalmanAnalysis = (
+  pricesA: { close: number; date: string }[],
+  pricesB: { close: number; date: string }[],
+  kalmanProcessNoise: number,
+  kalmanMeasurementNoise: number,
+  kalmanInitialLookback: number,
+) => {
+  const minLength = Math.min(pricesA.length, pricesB.length)
+
+  if (minLength < kalmanInitialLookback) {
+    console.warn(`Not enough data for Kalman filter initialization. Need ${kalmanInitialLookback}, got ${minLength}`)
+    return { hedgeRatios: Array(minLength).fill(1), alphas: Array(minLength).fill(0) }
+  }
+
+  const { hedgeRatios, alphas } = kalmanFilter(
+    pricesA.slice(0, minLength),
+    pricesB.slice(0, minLength),
+    kalmanProcessNoise,
+    kalmanMeasurementNoise,
+    kalmanInitialLookback,
+  )
 
   return { hedgeRatios, alphas }
 }
