@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
+import calculateZScore from "../utils/calculations"
 
 // Matrix operations for 2x2 matrices (copied from pair-analyzer.tsx)
 const matrixMultiply2x2 = (A: number[][], B: number[][]): number[][] => {
@@ -21,7 +22,7 @@ const matrixSubtract2x2 = (A: number[][], B: number[][]): number[][] => {
 const matrixAdd2x2 = (A: number[][], B: number[][]): number[][] => {
   return [
     [A[0][0] + B[0][0], A[0][1] + B[0][1]],
-    [A[1][0] + B[1][0], A[1][0] + B[1][1]], // Corrected: A[1][1] + B[1][1]
+    [A[1][0] + B[1][0], A[1][1] + B[1][1]],
   ]
 }
 
@@ -165,15 +166,15 @@ const kalmanFilter = (
 }
 
 // Function to calculate Z-score for a given window of data
-const calculateZScore = (data: number[], value: number) => {
-  if (data.length < 2) return 0 // Need at least 2 points for std dev
+// const calculateZScore = (data: number[], value: number) => {
+//   if (data.length < 2) return 0 // Need at least 2 points for std dev
 
-  const mean = data.reduce((sum, val) => sum + val, 0) / data.length
-  const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (data.length - 1)
-  const stdDev = Math.sqrt(variance)
+//   const mean = data.reduce((sum, val) => sum + val, 0) / data.length
+//   const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (data.length - 1)
+//   const stdDev = Math.sqrt(variance)
 
-  return stdDev > 0 ? (value - mean) / stdDev : 0
-}
+//   return stdDev > 0 ? (value - mean) / stdDev : 0
+// }
 
 export default function BacktestKalman() {
   const [stocks, setStocks] = useState([])
@@ -463,7 +464,7 @@ export default function BacktestKalman() {
       const zScores = []
       for (let i = 0; i < minLength; i++) {
         const windowData = kalmanSpreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-        zScores.push(calculateZScore(windowData, kalmanSpreads[i]))
+        zScores.push(calculateZScore(windowData).pop()) // Use the imported calculateZScore and get the last element
       }
 
       const tableData = kalmanSpreads.map((spread, index) => ({
