@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
 import calculateZScore from "../utils/calculations"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Line, LineChart, XAxis, YAxis, CartesianGrid } from "recharts"
 
 // Matrix operations for 2x2 matrices (copied from pair-analyzer.tsx)
 const matrixMultiply2x2 = (A: number[][], B: number[][]): number[][] => {
@@ -167,6 +165,17 @@ const kalmanFilter = (
   return { hedgeRatios, alphas, spreads }
 }
 
+// Function to calculate Z-score for a given window of data
+// const calculateZScore = (data: number[], value: number) => {
+//   if (data.length < 2) return 0 // Need at least 2 points for std dev
+
+//   const mean = data.reduce((sum, val) => sum + val, 0) / data.length
+//   const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (data.length - 1)
+//   const stdDev = Math.sqrt(variance)
+
+//   return stdDev > 0 ? (value - mean) / stdDev : 0
+// }
+
 export default function BacktestKalman() {
   const [stocks, setStocks] = useState([])
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
@@ -179,7 +188,6 @@ export default function BacktestKalman() {
   const [isLoading, setIsLoading] = useState(false)
   const [capitalPerTrade, setCapitalPerTrade] = useState(100000)
   const [riskFreeRate, setRiskFreeRate] = useState(0.02) // 2% annual risk-free rate
-  const [equityCurveData, setEquityCurveData] = useState([]) // New state for equity curve
 
   // Stop Loss & Target Parameters
   const [timeStopDays, setTimeStopDays] = useState(15)
@@ -605,24 +613,6 @@ export default function BacktestKalman() {
       }
 
       setTradeResults(trades)
-
-      // Calculate Equity Curve
-      const dailyPnlChanges = new Map<string, number>()
-      trades.forEach((trade) => {
-        const exitDate = trade.exitDate
-        const pnl = Number.parseFloat(trade.pnl)
-        dailyPnlChanges.set(exitDate, (dailyPnlChanges.get(exitDate) || 0) + pnl)
-      })
-
-      const allDatesInPeriod = tableData.map((d) => d.date).sort() // Use tableData for full date range
-      let currentEquity = 0
-      const newEquityCurveData = []
-
-      for (const date of allDatesInPeriod) {
-        currentEquity += dailyPnlChanges.get(date) || 0
-        newEquityCurveData.push({ date, equity: currentEquity })
-      }
-      setEquityCurveData(newEquityCurveData)
     } catch (error) {
       console.error("Error in backtest:", error)
     } finally {
@@ -638,13 +628,6 @@ export default function BacktestKalman() {
   const winRate = tradeResults.length > 0 ? (profitableTrades / tradeResults.length) * 100 : 0
   const totalProfit = tradeResults.reduce((sum, trade) => sum + Number.parseFloat(trade.pnl), 0)
   const avgProfit = tradeResults.length > 0 ? totalProfit / tradeResults.length : 0
-
-  const chartConfig = {
-    equity: {
-      label: "Equity",
-      color: "hsl(var(--chart-1))", // Using a chart color from shadcn/ui chart component
-    },
-  }
 
   return (
     <div className="space-y-8">
@@ -975,46 +958,6 @@ export default function BacktestKalman() {
                 </tbody>
               </table>
             </div>
-          </div>
-
-          {/* Equity Curve Chart */}
-          <div className="card">
-            <h2 className="text-2xl font-bold text-white mb-4">Equity Curve</h2>
-            <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-              <LineChart
-                accessibilityLayer
-                data={equityCurveData}
-                margin={{
-                  left: 12,
-                  right: 12,
-                }}
-              >
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  minTickGap={32}
-                  tickFormatter={(value) => {
-                    const date = new Date(value)
-                    return date.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }}
-                />
-                <YAxis
-                  domain={["auto", "auto"]} // Let Recharts determine domain
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => `$${value.toFixed(0)}`}
-                />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                <Line dataKey="equity" type="monotone" stroke="var(--color-equity)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ChartContainer>
           </div>
 
           {/* Comprehensive Performance Metrics */}
