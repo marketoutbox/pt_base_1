@@ -1,8 +1,13 @@
 "use client"
 
+import { CardDescription } from "@/components/ui/card"
+
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
 import calculateZScore from "../utils/calculations"
+import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 // Matrix operations for 2x2 matrices (copied from pair-analyzer.tsx)
 const matrixMultiply2x2 = (A: number[][], B: number[][]): number[][] => {
@@ -165,17 +170,6 @@ const kalmanFilter = (
   return { hedgeRatios, alphas, spreads }
 }
 
-// Function to calculate Z-score for a given window of data
-// const calculateZScore = (data: number[], value: number) => {
-//   if (data.length < 2) return 0 // Need at least 2 points for std dev
-
-//   const mean = data.reduce((sum, val) => sum + val, 0) / data.length
-//   const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (data.length - 1)
-//   const stdDev = Math.sqrt(variance)
-
-//   return stdDev > 0 ? (value - mean) / stdDev : 0
-// }
-
 export default function BacktestKalman() {
   const [stocks, setStocks] = useState([])
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
@@ -188,6 +182,7 @@ export default function BacktestKalman() {
   const [isLoading, setIsLoading] = useState(false)
   const [capitalPerTrade, setCapitalPerTrade] = useState(100000)
   const [riskFreeRate, setRiskFreeRate] = useState(0.02) // 2% annual risk-free rate
+  const [equityCurveData, setEquityCurveData] = useState([])
 
   // Stop Loss & Target Parameters
   const [timeStopDays, setTimeStopDays] = useState(15)
@@ -483,6 +478,8 @@ export default function BacktestKalman() {
       // Run backtest logic
       const trades = []
       let openTrade = null
+      let cumulativePnl = 0
+      const tempEquityCurveData = [{ date: fromDate, cumulativePnl: 0 }] // Initialize equity curve
 
       for (let i = kalmanInitialLookback; i < tableData.length; i++) {
         const prevZ = i > 0 ? tableData[i - 1].zScore : 0
@@ -581,6 +578,8 @@ export default function BacktestKalman() {
             }
             finalROI = (finalPnL / theoreticalCapital) * 100
 
+            cumulativePnl += finalPnL // Update cumulative P&L
+
             trades.push({
               entryDate: openTrade.entryDate,
               exitDate: currentRow.date,
@@ -610,9 +609,12 @@ export default function BacktestKalman() {
             openTrade = null
           }
         }
+        // Always add the current cumulative P&L to the equity curve data
+        tempEquityCurveData.push({ date: currentRow.date, cumulativePnl: cumulativePnl })
       }
 
       setTradeResults(trades)
+      setEquityCurveData(tempEquityCurveData)
     } catch (error) {
       console.error("Error in backtest:", error)
     } finally {
@@ -959,6 +961,68 @@ export default function BacktestKalman() {
               </table>
             </div>
           </div>
+
+          {/* Equity Curve Chart */}
+          {equityCurveData.length > 1 && (
+            <Card className="card">
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold text-white">Equity Curve</CardTitle>
+                <CardDescription className="text-gray-300">Cumulative P&L over time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    cumulativePnl: {
+                      label: "Cumulative P&L",
+                      color: "hsl(47.9 95.8% 53.1%)", // Gold/Yellow
+                    },
+                  }}
+                  className="h-[300px] w-full"
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={equityCurveData}
+                      margin={{
+                        left: 12,
+                        right: 12,
+                      }}
+                    >
+                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="date"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                        style={{ fill: "hsl(var(--foreground))" }} // White text
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => `$${value.toFixed(0)}`}
+                        style={{ fill: "hsl(var(--foreground))" }} // White text
+                      />
+                      <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                      <Area
+                        dataKey="cumulativePnl"
+                        type="monotone"
+                        fill="url(#fillCumulativePnl)"
+                        stroke="hsl(47.9 95.8% 53.1%)" // Gold/Yellow
+                        strokeWidth={2}
+                      />
+                      <defs>
+                        <linearGradient id="fillCumulativePnl" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(47.9 95.8% 53.1%)" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="hsl(47.9 95.8% 53.1%)" stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Comprehensive Performance Metrics */}
           <div className="card">
