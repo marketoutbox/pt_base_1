@@ -994,14 +994,14 @@ export default function BacktestKalman() {
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                        style={{ fill: "hsl(var(--foreground))" }} // White text
+                        style={{ fill: "white" }} // White text
                       />
                       <YAxis
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(value) => `$${value.toFixed(0)}`}
-                        style={{ fill: "hsl(var(--foreground))" }} // White text
+                        style={{ fill: "white" }} // White text
                       />
                       <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
                       <Area
