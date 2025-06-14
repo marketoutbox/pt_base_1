@@ -969,7 +969,9 @@ export default function BacktestKalman() {
                 <CardTitle className="text-2xl font-bold text-white">Equity Curve</CardTitle>
                 <CardDescription className="text-gray-300">Cumulative P&L over time</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
+                {" "}
+                {/* Adjusted padding to p-4 */}
                 <ChartContainer
                   config={{
                     cumulativePnl: {
@@ -994,14 +996,14 @@ export default function BacktestKalman() {
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                        style={{ fill: "white" }} // White text
+                        style={{ fill: "hsl(var(--foreground))" }} // White text
                       />
                       <YAxis
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(value) => `$${value.toFixed(0)}`}
-                        style={{ fill: "white" }} // White text
+                        style={{ fill: "hsl(var(--foreground))" }} // White text
                       />
                       <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
                       <Area
