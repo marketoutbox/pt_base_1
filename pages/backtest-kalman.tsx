@@ -1,13 +1,10 @@
 "use client"
 
-import { CardDescription } from "@/components/ui/card"
-
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
 import calculateZScore from "../utils/calculations"
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 // Matrix operations for 2x2 matrices (copied from pair-analyzer.tsx)
 const matrixMultiply2x2 = (A: number[][], B: number[][]): number[][] => {
@@ -964,14 +961,18 @@ export default function BacktestKalman() {
 
           {/* Equity Curve Chart */}
           {equityCurveData.length > 1 && (
-            <Card className="card">
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold text-white">Equity Curve</CardTitle>
-                <CardDescription className="text-gray-300">Cumulative P&L over time</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4">
+            <div className="card">
+              {" "}
+              {/* Changed from <Card> to <div> and applied "card" class */}
+              <div className="flex flex-col space-y-1.5 p-6">
                 {" "}
-                {/* Adjusted padding to p-4 */}
+                {/* Mimicking CardHeader structure */}
+                <h2 className="text-2xl font-bold text-white">Equity Curve</h2>
+                <p className="text-gray-300">Cumulative P&L over time</p>
+              </div>
+              <div className="p-4">
+                {" "}
+                {/* Mimicking CardContent structure with p-4 padding */}
                 <ChartContainer
                   config={{
                     cumulativePnl: {
@@ -1022,8 +1023,8 @@ export default function BacktestKalman() {
                     </AreaChart>
                   </ResponsiveContainer>
                 </ChartContainer>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {/* Comprehensive Performance Metrics */}
