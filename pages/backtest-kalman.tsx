@@ -962,17 +962,11 @@ export default function BacktestKalman() {
           {/* Equity Curve Chart */}
           {equityCurveData.length > 1 && (
             <div className="card">
-              {" "}
-              {/* Changed from <Card> to <div> and applied "card" class */}
               <div className="flex flex-col space-y-1.5 p-6">
-                {" "}
-                {/* Mimicking CardHeader structure */}
                 <h2 className="text-2xl font-bold text-white">Equity Curve</h2>
                 <p className="text-gray-300">Cumulative P&L over time</p>
               </div>
               <div className="p-4">
-                {" "}
-                {/* Mimicking CardContent structure with p-4 padding */}
                 <ChartContainer
                   config={{
                     cumulativePnl: {
@@ -980,7 +974,7 @@ export default function BacktestKalman() {
                       color: "hsl(47.9 95.8% 53.1%)", // Gold/Yellow
                     },
                   }}
-                  className="h-[300px] w-full"
+                  className="h-[300px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-white" // Added fill-white here
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
@@ -997,14 +991,14 @@ export default function BacktestKalman() {
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                        style={{ fill: "hsl(var(--foreground))" }} // White text
+                        // Removed inline style here as it's now handled by ChartContainer's className
                       />
                       <YAxis
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
                         tickFormatter={(value) => `$${value.toFixed(0)}`}
-                        style={{ fill: "hsl(var(--foreground))" }} // White text
+                        // Removed inline style here as it's now handled by ChartContainer's className
                       />
                       <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
                       <Area
