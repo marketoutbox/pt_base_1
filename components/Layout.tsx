@@ -79,7 +79,9 @@ export default function Layout({ children }) {
               >
                 <button
                   className={`px-4 py-2 rounded-md text-sm font-medium flex items-center justify-center border ${
-                    router.pathname === "/backtest" || router.pathname === "/backtest-spread"
+                    router.pathname === "/backtest" ||
+                    router.pathname === "/backtest-spread" ||
+                    router.pathname === "/backtest-kalman"
                       ? "bg-gold-400 hover:bg-gold-500 text-navy-950 border-transparent"
                       : "text-navy-100 border-transparent hover:border-gold-400"
                   }`}
@@ -117,6 +119,18 @@ export default function Layout({ children }) {
                         onClick={(e) => e.stopPropagation()}
                       >
                         Spread Backtest
+                      </Link>
+                      <Link
+                        href="/backtest-kalman"
+                        className={`block px-4 py-2 text-sm ${
+                          router.pathname === "/backtest-kalman"
+                            ? "bg-gold-400 text-navy-950"
+                            : "text-navy-100 hover:bg-navy-700"
+                        }`}
+                        role="menuitem"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Kalman Backtest
                       </Link>
                     </div>
                   </div>
@@ -165,7 +179,9 @@ export default function Layout({ children }) {
                 <button
                   onClick={() => setMobileBacktestsOpen(!mobileBacktestsOpen)}
                   className={`w-full text-left px-3 py-2 rounded-md text-base font-medium border ${
-                    router.pathname === "/backtest" || router.pathname === "/backtest-spread"
+                    router.pathname === "/backtest" ||
+                    router.pathname === "/backtest-spread" ||
+                    router.pathname === "/backtest-kalman"
                       ? "bg-gold-400 text-navy-950 border-transparent"
                       : "text-navy-100 border-transparent hover:border-gold-400"
                   }`}
@@ -179,6 +195,9 @@ export default function Layout({ children }) {
                     </MobileNavLink>
                     <MobileNavLink href="/backtest-spread" current={router.pathname === "/backtest-spread"} isSubmenu>
                       Spread Backtest
+                    </MobileNavLink>
+                    <MobileNavLink href="/backtest-kalman" current={router.pathname === "/backtest-kalman"} isSubmenu>
+                      Kalman Backtest
                     </MobileNavLink>
                   </div>
                 )}
