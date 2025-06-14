@@ -966,7 +966,7 @@ export default function BacktestKalman() {
           {equityCurveData.length > 1 && (
             <Card className="card">
               <CardHeader>
-                <CardTitle className="text-2xl font-bold text-white">Equity Curve</CardTitle>
+                <CardTitle className="text-2xl font-bold text-white">ESquity Curve</CardTitle>
                 <CardDescription className="text-gray-300">Cumulative P&L over time</CardDescription>
               </CardHeader>
               <CardContent className="p-4">
