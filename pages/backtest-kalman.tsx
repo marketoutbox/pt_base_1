@@ -962,62 +962,58 @@ export default function BacktestKalman() {
           {/* Equity Curve Chart */}
           {equityCurveData.length > 1 && (
             <div className="card">
-              <div className="flex flex-col space-y-1.5 p-6">
-                <h2 className="text-2xl font-bold text-white">Equity Curve</h2>
-                <p className="text-gray-300">Cumulative P&L over time</p>
-              </div>
-              <div className="p-4">
-                <ChartContainer
-                  config={{
-                    cumulativePnl: {
-                      label: "Cumulative P&L",
-                      color: "hsl(47.9 95.8% 53.1%)", // Gold/Yellow
-                    },
-                  }}
-                  className="h-[300px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-white" // Added fill-white here
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={equityCurveData}
-                      margin={{
-                        left: 12,
-                        right: 12,
-                      }}
-                    >
-                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                        // Removed inline style here as it's now handled by ChartContainer's className
-                      />
-                      <YAxis
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tickFormatter={(value) => `$${value.toFixed(0)}`}
-                        // Removed inline style here as it's now handled by ChartContainer's className
-                      />
-                      <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                      <Area
-                        dataKey="cumulativePnl"
-                        type="monotone"
-                        fill="url(#fillCumulativePnl)"
-                        stroke="hsl(47.9 95.8% 53.1%)" // Gold/Yellow
-                        strokeWidth={2}
-                      />
-                      <defs>
-                        <linearGradient id="fillCumulativePnl" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(47.9 95.8% 53.1%)" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="hsl(47.9 95.8% 53.1%)" stopOpacity={0.1} />
-                        </linearGradient>
-                      </defs>
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </div>
+              {/* Removed the inner p-6 div for header */}
+              <h2 className="text-2xl font-bold text-white mb-4">Equity Curve</h2>
+              <p className="text-gray-300 mb-6">Cumulative P&L over time</p>
+              {/* Removed the inner p-4 div for content */}
+              <ChartContainer
+                config={{
+                  cumulativePnl: {
+                    label: "Cumulative P&L",
+                    color: "hsl(47.9 95.8% 53.1%)", // Gold/Yellow
+                  },
+                }}
+                className="h-[300px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-white"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={equityCurveData}
+                    margin={{
+                      left: 12,
+                      right: 12,
+                    }}
+                  >
+                    <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="date"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      tickFormatter={(value) => `$${value.toFixed(0)}`}
+                    />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                    <Area
+                      dataKey="cumulativePnl"
+                      type="monotone"
+                      fill="url(#fillCumulativePnl)"
+                      stroke="hsl(47.9 95.8% 53.1%)" // Gold/Yellow
+                      strokeWidth={2}
+                    />
+                    <defs>
+                      <linearGradient id="fillCumulativePnl" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(47.9 95.8% 53.1%)" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="hsl(47.9 95.8% 53.1%)" stopOpacity={0.1} />
+                      </linearGradient>
+                    </defs>
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             </div>
           )}
 
