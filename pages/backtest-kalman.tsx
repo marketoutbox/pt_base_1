@@ -962,10 +962,8 @@ export default function BacktestKalman() {
           {/* Equity Curve Chart */}
           {equityCurveData.length > 1 && (
             <div className="card">
-              {/* Removed the inner p-6 div for header */}
               <h2 className="text-2xl font-bold text-white mb-4">Equity Curve</h2>
               <p className="text-gray-300 mb-6">Cumulative P&L over time</p>
-              {/* Removed the inner p-4 div for content */}
               <ChartContainer
                 config={{
                   cumulativePnl: {
@@ -973,7 +971,7 @@ export default function BacktestKalman() {
                     color: "hsl(47.9 95.8% 53.1%)", // Gold/Yellow
                   },
                 }}
-                className="h-[300px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-white"
+                className="h-[300px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-white bg-navy-800/50 rounded-lg p-3 border border-navy-700" // Added styling here
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
