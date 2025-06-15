@@ -981,7 +981,7 @@ export default function BacktestKalman() {
                       right: 12,
                     }}
                   >
-                    <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                    <CartesianGrid vertical={false} stroke="#4B5563" strokeDasharray="3 3" />
                     <XAxis
                       dataKey="date"
                       tickLine={false}
