@@ -353,7 +353,7 @@ Method 2 (Covariance/Variance like ChatGPT):`)
 
     // Method 3: Population covariance/variance (n instead of n-1)
     const covariancePop = (covariance * (tcsValues.length - 1)) / tcsValues.length
-    const varianceHCLPop = (varianceHCL * (hclValues.length - 1)) / hclValues.length
+    const varianceHCLPop = (varianceHCL * (tcsValues.length - 1)) / tcsValues.length
     const beta3 = covariancePop / varianceHCLPop
     const alpha3 = meanTCS - beta3 * meanHCL
 
@@ -1028,11 +1028,28 @@ Last day (${pricesA[endIdx].date}):`)
       const rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
 
       // Calculate z-scores for ratios
+      // OLD CODE:
+      // const zScores = []
+      // for (let i = 0; i < ratios.length; i++) {
+      //   // Use the same lookback window as for ratio statistics
+      //   const windowData = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
+      //   zScores.push(calculateZScore(windowData).pop())
+      // }
+
+      // NEW CODE:
       const zScores = []
       for (let i = 0; i < ratios.length; i++) {
-        // Use the same lookback window as for ratio statistics
         const windowData = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
-        zScores.push(calculateZScore(windowData).pop())
+        if (windowData.length >= ratioLookbackWindow) {
+          const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
+          // Use sample variance (n-1) for consistency with backtest page
+          const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1)
+          const stdDev = Math.sqrt(variance)
+          const zScore = stdDev > 0 ? (ratios[i] - mean) / stdDev : 0
+          zScores.push(zScore)
+        } else {
+          zScores.push(0) // Or handle as appropriate for initial insufficient data
+        }
       }
 
       // Calculate ratio statistics
@@ -2224,7 +2241,7 @@ Last day (${pricesA[endIdx].date}):`)
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
                               ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                ? `Long ${selectedPair.stockA}, Short                                ? \`Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
