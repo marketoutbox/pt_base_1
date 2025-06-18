@@ -913,17 +913,19 @@ Last day (${pricesA[endIdx].date}):`)
   // Add Hurst Exponent calculation to measure persistence vs mean-reversion
   const calculateHurstExponent = (data) => {
     const n = data.length
-    if (n < 100) return 0.5 // Default to random walk for small samples
+    if (n < 20) return 0.5 // Return 0.5 for very small samples, as R/S is unreliable
 
-    const maxLag = Math.min(100, Math.floor(n / 2))
+    const maxLag = Math.min(100, Math.floor(n / 2)) // Max lag up to 100 or half the data length
     const lags = []
     const rs = []
 
-    for (let lag = 10; lag <= maxLag; lag += 10) {
+    // Calculate R/S for every integer lag from 2 up to maxLag
+    for (let lag = 2; lag <= maxLag; lag++) {
       const rsValues = []
 
       // Calculate R/S for multiple windows
-      for (let i = 0; i < n - lag; i += lag) {
+      // Iterate through the series, creating sub-series of length 'lag'
+      for (let i = 0; i <= n - lag; i++) {
         const series = data.slice(i, i + lag)
         const mean = series.reduce((sum, val) => sum + val, 0) / lag
 
@@ -941,7 +943,8 @@ Last day (${pricesA[endIdx].date}):`)
         // Calculate standard deviation
         const stdDev = Math.sqrt(series.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / lag)
 
-        if (stdDev > 0) {
+        // Only add if stdDev is positive to avoid division by zero and log(0)
+        if (stdDev > 0 && range > 0) {
           rsValues.push(range / stdDev)
         }
       }
@@ -952,19 +955,41 @@ Last day (${pricesA[endIdx].date}):`)
       }
     }
 
-    // Linear regression to estimate Hurst exponent
+    // Filter out any non-finite values (NaN, Infinity) before regression
+    const validPoints = []
+    for (let i = 0; i < lags.length; i++) {
+      if (Number.isFinite(lags[i]) && Number.isFinite(rs[i])) {
+        validPoints.push({ x: lags[i], y: rs[i] })
+      }
+    }
+
+    if (validPoints.length < 2) {
+      return 0.5 // Not enough valid points for regression, return default
+    }
+
+    // Linear regression to estimate Hurst exponent (slope of log(R/S) vs log(lag))
     let sumX = 0,
       sumY = 0,
       sumXY = 0,
       sumX2 = 0
-    for (let i = 0; i < lags.length; i++) {
-      sumX += lags[i]
-      sumY += rs[i]
-      sumXY += lags[i] * rs[i]
-      sumX2 += lags[i] * lags[i]
+    const count = validPoints.length
+
+    for (let i = 0; i < count; i++) {
+      sumX += validPoints[i].x
+      sumY += validPoints[i].y
+      sumXY += validPoints[i].x * validPoints[i].y
+      sumX2 += validPoints[i].x * validPoints[i].x
     }
 
-    const hurstExponent = (lags.length * sumXY - sumX * sumY) / (lags.length * sumX2 - sumX * sumX)
+    const numerator = count * sumXY - sumX * sumY
+    const denominator = count * sumX2 - sumX * sumX
+
+    // Avoid division by zero
+    if (Math.abs(denominator) < 1e-10) {
+      return 0.5 // Return 0.5 if denominator is effectively zero
+    }
+
+    const hurstExponent = numerator / denominator
 
     return hurstExponent
   }
@@ -1461,7 +1486,7 @@ Last day (${pricesA[endIdx].date}):`)
       for (let i = 0; i < spreads.length; i++) {
         const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
         zScores.push(calculateZScore(windowData).pop())
-      }
+      
 
       // Calculate spread statistics
       const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
@@ -1551,186 +1576,184 @@ Last day (${pricesA[endIdx].date}):`)
           rollingUpperBand2,
           rollingLowerBand2,
         },
-      })
-    } catch (error) {
+      })\
+    } catch (error) 
       console.error("Error in analysis:", error)
-      setError("An error occurred during analysis. Please try again.")
-    } finally {
+      setError("An error occurred during analysis. Please try again.")\finally 
       setIsLoading(false)
-    }
   }
-
-  const runEuclideanAnalysis = async () => {
-    if (!selectedPair.stockA || !selectedPair.stockB) {
-      setError("Please select both stocks for analysis.")
-      return
-    }
-
-    if (!fromDate || !toDate) {
-      setError("Please select a date range for analysis.")
-      return
-    }
-
-    setIsLoading(true)
-    setError("")
-
-    try {
-      const db = await openDB("StockDatabase", 2)
-      const tx = db.transaction("stocks", "readonly")
-      const store = tx.objectStore("stocks")
-      const stockAData = await store.get(selectedPair.stockA)
-      const stockBData = await store.get(selectedPair.stockB)
-
-      if (!stockAData || !stockBData) {
-        setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
-        setIsLoading(false)
+    \
+    const runEuclideanAnalysis = async () => {
+      if (!selectedPair.stockA || !selectedPair.stockB) {
+        setError("Please select both stocks for analysis.")
         return
       }
 
-      const pricesA = filterByDate(stockAData.data)
-      const pricesB = filterByDate(stockBData.data)
-
-      if (pricesA.length < euclideanLookbackWindow || pricesB.length < euclideanLookbackWindow) {
-        setError(`Not enough data points for the selected lookback window (${euclideanLookbackWindow} days).`)
-        setIsLoading(false)
+      if (!fromDate || !toDate) {
+        setError("Please select a date range for analysis.")
         return
       }
 
-      const minLength = Math.min(pricesA.length, pricesB.length)
-      const dates = []
-      const stockAPrices = []
-      const stockBPrices = []
-      const normalizedPricesA = []
-      const normalizedPricesB = []
-      const distances = []
+      setIsLoading(true)
+      setError("")
 
-      // Get initial prices for normalization
-      const initialPriceA = pricesA[0].close
-      const initialPriceB = pricesB[0].close
+      try {
+        const db = await openDB("StockDatabase", 2)
+        const tx = db.transaction("stocks", "readonly")
+        const store = tx.objectStore("stocks")
+        const stockAData = await store.get(selectedPair.stockA)
+        const stockBData = await store.get(selectedPair.stockB)
 
-      // Calculate normalized prices and Euclidean distance
-      for (let i = 0; i < minLength; i++) {
-        dates.push(pricesA[i].date)
-        stockAPrices.push(pricesA[i].close)
-        stockBPrices.push(pricesB[i].close)
-
-        const normA = pricesA[i].close / initialPriceA
-        const normB = pricesB[i].close / initialPriceB
-        normalizedPricesA.push(normA)
-        normalizedPricesB.push(normB)
-
-        const distance = Math.abs(normA - normB) // Simplified Euclidean distance for 1D
-        distances.push(distance)
-      }
-
-      // Calculate rolling mean and standard deviation of the distance
-      const rollingMeanDistance = []
-      const rollingStdDistance = []
-      const zScores = []
-
-      for (let i = 0; i < distances.length; i++) {
-        const windowStart = Math.max(0, i - euclideanLookbackWindow + 1)
-        const window = distances.slice(windowStart, i + 1)
-        const mean = window.reduce((sum, val) => sum + val, 0) / window.length
-        const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
-
-        rollingMeanDistance.push(mean)
-        rollingStdDistance.push(stdDev)
-
-        // Calculate Z-score for the Distance
-        if (stdDev !== 0 && !isNaN(stdDev)) {
-          zScores.push((distances[i] - mean) / stdDev)
-        } else {
-          zScores.push(0) // Or NaN, depending on desired behavior for zero std dev
+        if (!stockAData || !stockBData) {
+          setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
+          setIsLoading(false)
+          return
         }
-      }
 
-      // Calculate statistics
-      const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
-      const meanDistance = distances.reduce((sum, val) => sum + val, 0) / distances.length
-      const stdDevDistance = Math.sqrt(
-        distances.reduce((sum, val) => sum + Math.pow(val - meanDistance, 2), 0) / distances.length,
-      )
+        const pricesA = filterByDate(stockAData.data)
+        const pricesB = filterByDate(stockBData.data)
 
-      const validZScores = zScores.filter((z) => !isNaN(z))
-      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
-      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
+        if (pricesA.length < euclideanLookbackWindow || pricesB.length < euclideanLookbackWindow) {
+          setError(`Not enough data points for the selected lookback window (${euclideanLookbackWindow} days).`)
+          setIsLoading(false)
+          return
+        }
 
-      const adfResults = adfTest(distances)
-      const halfLifeResult = calculateHalfLife(distances)
-      const hurstExponent = calculateHurstExponent(distances)
-      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+        const minLength = Math.min(pricesA.length, pricesB.length)
+        const dates = []
+        const stockAPrices = []
+        const stockBPrices = []
+        const normalizedPricesA = []
+        const normalizedPricesB = []
+        const distances = []
 
-      // Prepare table data
-      const tableData = []
-      const rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow) // Calculate rolling half-life for table
-      for (let i = 0; i < dates.length; i++) {
-        tableData.push({
-          date: dates[i],
-          priceA: stockAPrices[i],
-          priceB: stockBPrices[i],
-          normalizedA: normalizedPricesA[i],
-          normalizedB: normalizedPricesB[i],
-          distance: distances[i],
-          zScore: zScores[i],
-          halfLife: rollingHalfLifes[i] !== null ? rollingHalfLifes[i].toFixed(2) : "N/A",
+        // Get initial prices for normalization
+        const initialPriceA = pricesA[0].close
+        const initialPriceB = pricesB[0].close
+
+        // Calculate normalized prices and Euclidean distance
+        for (let i = 0; i < minLength; i++) {
+          dates.push(pricesA[i].date)
+          stockAPrices.push(pricesA[i].close)
+          stockBPrices.push(pricesB[i].close)
+
+          const normA = pricesA[i].close / initialPriceA
+          const normB = pricesB[i].close / initialPriceB
+          normalizedPricesA.push(normA)
+          normalizedPricesB.push(normB)
+
+          const distance = Math.abs(normA - normB) // Simplified Euclidean distance for 1D
+          distances.push(distance)
+        }
+
+        // Calculate rolling mean and standard deviation of the distance
+        const rollingMeanDistance = []
+        const rollingStdDistance = []
+        const zScores = []
+
+        for (let i = 0; i < distances.length; i++) {
+          const windowStart = Math.max(0, i - euclideanLookbackWindow + 1)
+          const window = distances.slice(windowStart, i + 1)
+          const mean = window.reduce((sum, val) => sum + val, 0) / window.length
+          const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
+
+          rollingMeanDistance.push(mean)
+          rollingStdDistance.push(stdDev)
+
+          // Calculate Z-score for the Distance
+          if (stdDev !== 0 && !isNaN(stdDev)) {
+            zScores.push((distances[i] - mean) / stdDev)
+          } else {
+            zScores.push(0) // Or NaN, depending on desired behavior for zero std dev
+          }
+        }
+
+        // Calculate statistics
+        const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
+        const meanDistance = distances.reduce((sum, val) => sum + val, 0) / distances.length
+        const stdDevDistance = Math.sqrt(
+          distances.reduce((sum, val) => sum + Math.pow(val - meanDistance, 2), 0) / distances.length,
+        )
+
+        const validZScores = zScores.filter((z) => !isNaN(z))
+        const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+        const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
+
+        const adfResults = adfTest(distances)
+        const halfLifeResult = calculateHalfLife(distances)
+        const hurstExponent = calculateHurstExponent(distances)
+        const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+
+        // Prepare table data
+        const tableData = []
+        const rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow) // Calculate rolling half-life for table
+        for (let i = 0; i < dates.length; i++) {
+          tableData.push({
+            date: dates[i],
+            priceA: stockAPrices[i],
+            priceB: stockBPrices[i],
+            normalizedA: normalizedPricesA[i],
+            normalizedB: normalizedPricesB[i],
+            distance: distances[i],
+            zScore: zScores[i],
+            halfLife: rollingHalfLifes[i] !== null ? rollingHalfLifes[i].toFixed(2) : "N/A",
+          })
+        }
+
+        // Prepare chart data (using rolling mean and std dev of distance)
+        const chartData = {
+          rollingMean: rollingMeanDistance,
+          rollingUpperBand1: rollingMeanDistance.map((m, i) => m + rollingStdDistance[i]),
+          rollingLowerBand1: rollingMeanDistance.map((m, i) => m - rollingStdDistance[i]),
+          rollingUpperBand2: rollingMeanDistance.map((m, i) => m + 2 * rollingStdDistance[i]),
+          rollingLowerBand2: rollingMeanDistance.map((m, i) => m - 2 * rollingStdDistance[i]),
+        }
+
+        setAnalysisData({
+          dates,
+          distances,
+          zScores,
+          stockAPrices,
+          stockBPrices,
+          normalizedPricesA,
+          normalizedPricesB,
+          statistics: {
+            correlation,
+            meanDistance,
+            stdDevDistance,
+            minZScore,
+            maxZScore,
+            adfResults,
+            halfLife: halfLifeResult.halfLife,
+            halfLifeValid: halfLifeResult.isValid,
+            hurstExponent,
+            practicalTradeHalfLife,
+            modelType: "euclidean",
+          },
+          tableData,
+          chartData,
         })
+      } catch (error) {
+        console.error("Error in analysis:", error)
+        setError("An error occurred during analysis. Please try again.")
+      } finally {
+        setIsLoading(false)
       }
+    }
 
-      // Prepare chart data (using rolling mean and std dev of distance)
-      const chartData = {
-        rollingMean: rollingMeanDistance,
-        rollingUpperBand1: rollingMeanDistance.map((m, i) => m + rollingStdDistance[i]),
-        rollingLowerBand1: rollingMeanDistance.map((m, i) => m - rollingStdDistance[i]),
-        rollingUpperBand2: rollingMeanDistance.map((m, i) => m + 2 * rollingStdDistance[i]),
-        rollingLowerBand2: rollingMeanDistance.map((m, i) => m - 2 * rollingStdDistance[i]),
+    const runAnalysis = () => {
+      if (activeTab === "ratio") {
+        runRatioAnalysis()
+      } else if (activeTab === "ols") {
+        runOLSAnalysis()
+      } else if (activeTab === "kalman") {
+        runKalmanAnalysis()
+      } else if (activeTab === "euclidean") {
+        runEuclideanAnalysis()
       }
-
-      setAnalysisData({
-        dates,
-        distances,
-        zScores,
-        stockAPrices,
-        stockBPrices,
-        normalizedPricesA,
-        normalizedPricesB,
-        statistics: {
-          correlation,
-          meanDistance,
-          stdDevDistance,
-          minZScore,
-          maxZScore,
-          adfResults,
-          halfLife: halfLifeResult.halfLife,
-          halfLifeValid: halfLifeResult.isValid,
-          hurstExponent,
-          practicalTradeHalfLife,
-          modelType: "euclidean",
-        },
-        tableData,
-        chartData,
-      })
-    } catch (error) {
-      console.error("Error in analysis:", error)
-      setError("An error occurred during analysis. Please try again.")
-    } finally {
-      setIsLoading(false)
     }
-  }
 
-  const runAnalysis = () => {
-    if (activeTab === "ratio") {
-      runRatioAnalysis()
-    } else if (activeTab === "ols") {
-      runOLSAnalysis()
-    } else if (activeTab === "kalman") {
-      runKalmanAnalysis()
-    } else if (activeTab === "euclidean") {
-      runEuclideanAnalysis()
-    }
-  }
-
-  return (
+    return (
     <div className="space-y-8">
       <div className="text-center space-y-2">
         <h1 className="text-5xl font-bold text-white">Pair Analyzer</h1>
@@ -2223,7 +2246,7 @@ Last day (${pricesA[endIdx].date}):`)
                     </div>
                   </div>
 
-                  <div className="bg-navy-900/50 p-4 rounded-md border border-navy-700">
+                  <div className="bg-navy-900/                  <div className=\"bg-navy-900/50 p-4 rounded-md border border-navy-700">
                     <h4 className="text-lg font-medium text-white mb-2">Current Signal</h4>
                     <div className="flex items-center">
                       {analysisData.zScores.length > 0 && (
@@ -2241,7 +2264,7 @@ Last day (${pricesA[endIdx].date}):`)
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
                               ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short                                ? \`Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
@@ -2914,7 +2937,7 @@ Last day (${pricesA[endIdx].date}):`)
               </div>
             </div>
           </div>
-
+\
           <div className="card">
             <h2 className="text-2xl font-bold text-white mb-6">
               Complete Data Table ({analysisData.tableData.length} Days)
@@ -2997,7 +3020,8 @@ Last day (${pricesA[endIdx].date}):`)
             </div>
           </div>
         </>
-      )}
-    </div>
+      )
+  }
+  </div>
   )
 }
