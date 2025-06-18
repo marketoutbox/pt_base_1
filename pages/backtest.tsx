@@ -98,7 +98,7 @@ export default function Backtest() {
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       )
       const pricesB = filterByDate(stockBData.data).sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(), // Sort descending for commonDates
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       )
 
       // Ensure both arrays have the same dates
@@ -156,12 +156,8 @@ export default function Backtest() {
         const currentRow = tableData[i]
 
         if (!openTrade) {
-          // Round Z-scores to a consistent precision for robust comparison
-          const roundedPrevZ = Number.parseFloat(prevZ.toFixed(6))
-          const roundedCurrZ = Number.parseFloat(currZ.toFixed(6))
-
           // Entry conditions: Z-score crosses the entry threshold
-          if (Math.abs(roundedPrevZ) < entryZ && Math.abs(roundedCurrZ) >= entryZ) {
+          if (Math.abs(prevZ) < entryZ && Math.abs(currZ) >= entryZ) {
             const tradeType = currZ > 0 ? "SHORT" : "LONG"
             openTrade = {
               entryDate: currentRow.date,
