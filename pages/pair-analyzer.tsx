@@ -857,10 +857,10 @@ Last day (${pricesA[endIdx].date}):`)
         }
 
         // Exit condition - max holding period reached (optional)
-        if (i - entryDay > 100) {
-          // Abandon analysis if trade takes too long
-          inTrade = false
-        }
+        // if (i - entryDay > 100) {
+        //   // Abandon analysis if trade takes too long
+        //   inTrade = false
+        // }
       }
     }
 
