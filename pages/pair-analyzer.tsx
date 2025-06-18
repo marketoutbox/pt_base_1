@@ -353,7 +353,7 @@ Method 2 (Covariance/Variance like ChatGPT):`)
 
     // Method 3: Population covariance/variance (n instead of n-1)
     const covariancePop = (covariance * (tcsValues.length - 1)) / tcsValues.length
-    const varianceHCLPop = (varianceHCL * (tcsValues.length - 1)) / tcsValues.length
+    const varianceHCLPop = (varianceHCL * (tcsValues.length - 1)) / hclValues.length
     const beta3 = covariancePop / varianceHCLPop
     const alpha3 = meanTCS - beta3 * meanHCL
 
@@ -1166,329 +1166,334 @@ Last day (${pricesA[endIdx].date}):`)
     } finally {
       setIsLoading(false)
     }
-  }
 
-  const runOLSAnalysis = async () => {
-    if (!selectedPair.stockA || !selectedPair.stockB) {
-      setError("Please select both stocks for analysis.")
-      return
-    }
-
-    if (!fromDate || !toDate) {
-      setError("Please select a date range for analysis.")
-      return
-    }
-
-    setIsLoading(true)
-    setError("")
-
-    try {
-      const db = await openDB("StockDatabase", 2)
-      const tx = db.transaction("stocks", "readonly")
-      const store = tx.objectStore("stocks")
-      const stockAData = await store.get(selectedPair.stockA)
-      const stockBData = await store.get(selectedPair.stockB)
-
-      if (!stockAData || !stockBData) {
-        setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
-        setIsLoading(false)
+    const runOLSAnalysis = async () => {
+      if (!selectedPair.stockA || !selectedPair.stockB) {
+        setError("Please select both stocks for analysis.")
         return
       }
 
-      const pricesA = filterByDate(stockAData.data)
-      const pricesB = filterByDate(stockBData.data)
+      if (!fromDate || !toDate) {
+        setError("Please select a date range for analysis.")
+        return
+      }
 
-      // Add this right after the filterByDate calls in runOLSAnalysis
-      console.log("=== DATA VALIDATION ===")
-      console.log(`
+      setIsLoading(true)
+      setError("")
+
+      try {
+        const db = await openDB("StockDatabase", 2)
+        const tx = db.transaction("stocks", "readonly")
+        const store = tx.objectStore("stocks")
+        const stockAData = await store.get(selectedPair.stockA)
+        const stockBData = await store.get(selectedPair.stockB)
+
+        if (!stockAData || !stockBData) {
+          setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
+          setIsLoading(false)
+          return
+        }
+
+        const pricesA = filterByDate(stockAData.data)
+        const pricesB = filterByDate(stockBData.data)
+
+        // Add this right after the filterByDate calls in runOLSAnalysis
+        console.log("=== DATA VALIDATION ===")
+        console.log(`
     Filtered
     data
     length: TCS = ${pricesA.length}, HCL=${pricesB.length}
     ;`)
-      console.log("Sample data types and values:")
-      for (let i = 0; i < Math.min(3, pricesA.length); i++) {
-        console.log(
-          `
+        console.log("Sample data types and values:")
+        for (let i = 0; i < Math.min(3, pricesA.length); i++) {
+          console.log(
+            `
     Day
     ${i}
     : TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
-        )
-      }
-      console.log("Last few data points:")
-      for (let i = Math.max(0, pricesA.length - 3); i < pricesA.length; i++) {
-        console.log(
-          `  Day ${i}: ${pricesA[i].date} - TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
-        )
-      }
-      console.log("=======================")
-
-      if (pricesA.length < olsLookbackWindow || pricesB.length < olsLookbackWindow) {
-        setError(`Not enough data points for the selected lookback window (${olsLookbackWindow} days).`)
-        setIsLoading(false)
-        return
-      }
-
-      const minLength = Math.min(pricesA.length, pricesB.length)
-      const hedgeRatios = []
-      const spreads = []
-      const dates = []
-      const stockAPrices = []
-      const stockBPrices = []
-      const alphas = []
-
-      // Add comparison data for ChatGPT
-      if (minLength > 60) {
-        compareWithChatGPT(pricesA, pricesB, 60)
-      }
-
-      // Replace the spread calculation loop in runOLSAnalysis with this enhanced version
-      for (let i = 0; i < minLength; i++) {
-        const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
-
-        // Ensure numeric values for spread calculation
-        const currentPriceA =
-          typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
-        const currentPriceB =
-          typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
-
-        const spread = currentPriceA - (alpha + beta * currentPriceB)
-
-        hedgeRatios.push(beta)
-        alphas.push(alpha)
-        spreads.push(spread)
-        dates.push(pricesA[i].date)
-        stockAPrices.push(currentPriceA)
-        stockBPrices.push(currentPriceB)
-
-        // Debug the last calculation
-        if (i === minLength - 1) {
-          console.log("=== FINAL SPREAD CALCULATION ===")
-          console.log(`Date: ${pricesA[i].date}`)
-          console.log(`TCS price: ${currentPriceA}`)
-          console.log(`HCL price: ${currentPriceB}`)
-          console.log(`Alpha: ${alpha}`)
-          console.log(`Beta: ${beta}`)
-          console.log(`Expected TCS: ${alpha + beta * currentPriceB}`)
-          console.log(`Actual TCS: ${currentPriceA}`)
-          console.log(`Spread: ${spread}`)
-          console.log("================================")
-        }
-      }
-
-      // Calculate z-scores for spreads using Gemini's methodology
-      const zScores = []
-      for (let i = 0; i < minLength; i++) {
-        const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
-
-        // Calculate current day's spread
-        const currentPriceA =
-          typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
-        const currentPriceB =
-          typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
-        const currentSpread = currentPriceA - (alpha + beta * currentPriceB)
-
-        // Calculate window spreads using current alpha/beta for the entire window
-        const windowStart = Math.max(0, i - olsLookbackWindow + 1)
-        const windowSpreads = []
-
-        for (let j = windowStart; j <= i; j++) {
-          const windowPriceA =
-            typeof pricesA[j].close === "string" ? Number.parseFloat(pricesA[j].close) : pricesA[j].close
-          const windowPriceB =
-            typeof pricesB[j].close === "string" ? Number.parseFloat(pricesB[j].close) : pricesB[j].close
-          const windowSpread = windowPriceA - (alpha + beta * windowPriceB)
-          windowSpreads.push(windowSpread)
-        }
-
-        // Calculate z-score using sample standard deviation
-        if (windowSpreads.length > 1) {
-          const meanSpread = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
-          const sampleStdDev = Math.sqrt(
-            windowSpreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / (windowSpreads.length - 1),
           )
+        }
+        console.log("Last few data points:")
+        for (let i = Math.max(0, pricesA.length - 3); i < pricesA.length; i++) {
+          console.log(
+            `  Day ${i}: ${pricesA[i].date} - TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
+          )
+        }
+        console.log("=======================")
 
-          if (sampleStdDev > 0) {
-            const zScore = (currentSpread - meanSpread) / sampleStdDev
-            zScores.push(zScore)
+        if (pricesA.length < olsLookbackWindow || pricesB.length < olsLookbackWindow) {
+          setError(`Not enough data points for the selected lookback window (${olsLookbackWindow} days).`)
+          setIsLoading(false)
+          return
+        }
+
+        const minLength = Math.min(pricesA.length, pricesB.length)
+        const hedgeRatios = []
+        const spreads = []
+        const dates = []
+        const stockAPrices = []
+        const stockBPrices = []
+        const alphas = []
+
+        // Add comparison data for ChatGPT
+        if (minLength > 60) {
+          compareWithChatGPT(pricesA, pricesB, 60)
+        }
+
+        // Replace the spread calculation loop in runOLSAnalysis with this enhanced version
+        for (let i = 0; i < minLength; i++) {
+          const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
+
+          // Ensure numeric values for spread calculation
+          const currentPriceA =
+            typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+          const currentPriceB =
+            typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+
+          const spread = currentPriceA - (alpha + beta * currentPriceB)
+
+          hedgeRatios.push(beta)
+          alphas.push(alpha)
+          spreads.push(spread)
+          dates.push(pricesA[i].date)
+          stockAPrices.push(currentPriceA)
+          stockBPrices.push(currentPriceB)
+
+          // Debug the last calculation
+          if (i === minLength - 1) {
+            console.log("=== FINAL SPREAD CALCULATION ===")
+            console.log(`Date: ${pricesA[i].date}`)
+            console.log(`TCS price: ${currentPriceA}`)
+            console.log(`HCL price: ${currentPriceB}`)
+            console.log(`Alpha: ${alpha}`)
+            console.log(`Beta: ${beta}`)
+            console.log(`Expected TCS: ${alpha + beta * currentPriceB}`)
+            console.log(`Actual TCS: ${currentPriceA}`)
+            console.log(`Spread: ${spread}`)
+            console.log("================================")
+          }
+        }
+
+        // Calculate z-scores for spreads using Gemini's methodology
+        const zScores = []
+        for (let i = 0; i < minLength; i++) {
+          const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
+
+          // Calculate current day's spread
+          const currentPriceA =
+            typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+          const currentPriceB =
+            typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+          const currentSpread = currentPriceA - (alpha + beta * currentPriceB)
+
+          // Calculate window spreads using current alpha/beta for the entire window
+          const windowStart = Math.max(0, i - olsLookbackWindow + 1)
+          const windowSpreads = []
+
+          for (let j = windowStart; j <= i; j++) {
+            const windowPriceA =
+              typeof pricesA[j].close === "string" ? Number.parseFloat(pricesA[j].close) : pricesA[j].close
+            const windowPriceB =
+              typeof pricesB[j].close === "string" ? Number.parseFloat(pricesB[j].close) : pricesB[j].close
+            const windowSpread = windowPriceA - (alpha + beta * windowPriceB)
+            windowSpreads.push(windowSpread)
+          }
+
+          // Calculate z-score using sample standard deviation
+          if (windowSpreads.length > 1) {
+            const meanSpread = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
+            const sampleStdDev = Math.sqrt(
+              windowSpreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / (windowSpreads.length - 1),
+            )
+
+            if (sampleStdDev > 0) {
+              const zScore = (currentSpread - meanSpread) / sampleStdDev
+              zScores.push(zScore)
+            } else {
+              zScores.push(0)
+            }
           } else {
             zScores.push(0)
           }
-        } else {
-          zScores.push(0)
         }
-      }
 
-      // Calculate spread statistics
-      const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
-      const stdDevSpread = Math.sqrt(
-        spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
-      )
-
-      // Calculate min/max z-score - Filter out NaN values before calculating min/max
-      const validZScores = zScores.filter((z) => !isNaN(z))
-      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
-      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
-
-      // Calculate correlation
-      const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
-
-      // Run ADF test on spreads
-      const adfResults = adfTest(spreads)
-
-      // Calculate half-life and Hurst exponent
-      const halfLifeResult = calculateHalfLife(spreads)
-      const hurstExponent = calculateHurstExponent(spreads)
-
-      // Calculate practical trade half-life
-      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
-
-      // Prepare table data (last 30 days or less)
-      // Prepare complete table data
-      const tableData = []
-      for (let i = 0; i < dates.length; i++) {
-        tableData.push({
-          date: dates[i],
-          priceA: stockAPrices[i],
-          priceB: stockBPrices[i],
-          alpha: alphas[i],
-          hedgeRatio: hedgeRatios[i],
-          spread: spreads[i],
-          zScore: zScores[i],
-        })
-      }
-
-      // Calculate rolling mean and standard deviation for spread chart
-      const rollingMean = []
-      const rollingUpperBand1 = []
-      const rollingLowerBand1 = []
-      const rollingUpperBand2 = []
-      const rollingLowerBand2 = []
-
-      for (let i = 0; i < spreads.length; i++) {
-        const windowStart = Math.max(0, i - olsLookbackWindow + 1)
-        const window = spreads.slice(windowStart, i + 1)
-        const mean = window.reduce((sum, val) => sum + val, 0) / window.length
-        const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
-
-        rollingMean.push(mean)
-        rollingUpperBand1.push(mean + stdDev)
-        rollingLowerBand1.push(mean - stdDev)
-        rollingUpperBand2.push(mean + 2 * stdDev)
-        rollingLowerBand2.push(mean - stdDev)
-      }
-
-      setAnalysisData({
-        dates,
-        hedgeRatios,
-        alphas,
-        spreads,
-        zScores,
-        stockAPrices,
-        stockBPrices,
-        statistics: {
-          correlation,
-          meanSpread,
-          stdDevSpread,
-          minZScore,
-          maxZScore,
-          adfResults,
-          halfLife: halfLifeResult.halfLife,
-          halfLifeValid: halfLifeResult.isValid,
-          hurstExponent,
-          practicalTradeHalfLife,
-          modelType: "ols",
-        },
-        tableData,
-        chartData: {
-          rollingMean,
-          rollingUpperBand1,
-          rollingLowerBand1,
-          rollingUpperBand2,
-          rollingLowerBand2,
-        },
-      })
-    } catch (error) {
-      console.error("Error in analysis:", error)
-      setError("An error occurred during analysis. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const runKalmanAnalysis = async () => {
-    if (!selectedPair.stockA || !selectedPair.stockB) {
-      setError("Please select both stocks for analysis.")
-      return
-    }
-
-    if (!fromDate || !toDate) {
-      setError("Please select a date range for analysis.")
-      return
-    }
-
-    setIsLoading(true)
-    setError("")
-
-    try {
-      const db = await openDB("StockDatabase", 2)
-      const tx = db.transaction("stocks", "readonly")
-      const store = tx.objectStore("stocks")
-      const stockAData = await store.get(selectedPair.stockA)
-      const stockBData = await store.get(selectedPair.stockB)
-
-      if (!stockAData || !stockBData) {
-        setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
-        setIsLoading(false)
-        return
-      }
-
-      const pricesA = filterByDate(stockAData.data)
-      const pricesB = filterByDate(stockBData.data)
-
-      if (pricesA.length < kalmanInitialLookback || pricesB.length < kalmanInitialLookback) {
-        setError(
-          `Not enough data points for Kalman filter initialization. Need ${kalmanInitialLookback}, got ${Math.min(pricesA.length, pricesB.length)}.`,
+        // Calculate spread statistics
+        const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
+        const stdDevSpread = Math.sqrt(
+          spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
         )
+
+        // Calculate min/max z-score - Filter out NaN values before calculating min/max
+        const validZScores = zScores.filter((z) => !isNaN(z))
+        const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+        const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
+
+        // Calculate correlation
+        const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
+
+        // Run ADF test on spreads
+        const adfResults = adfTest(spreads)
+
+        // Calculate half-life and Hurst exponent
+        const halfLifeResult = calculateHalfLife(spreads)
+        const hurstExponent = calculateHurstExponent(spreads)
+
+        // Calculate practical trade half-life
+        const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+
+        // Prepare table data (last 30 days or less)
+        // Prepare complete table data
+        const tableData = []
+        for (let i = 0; i < dates.length; i++) {
+          tableData.push({
+            date: dates[i],
+            priceA: stockAPrices[i],
+            priceB: stockBPrices[i],
+            alpha: alphas[i],
+            hedgeRatio: hedgeRatios[i],
+            spread: spreads[i],
+            zScore: zScores[i],
+          })
+        }
+
+        // Calculate rolling mean and standard deviation for spread chart
+        const rollingMean = []
+        const rollingUpperBand1 = []
+        const rollingLowerBand1 = []
+        const rollingUpperBand2 = []
+        const rollingLowerBand2 = []
+
+        for (let i = 0; i < spreads.length; i++) {
+          const windowStart = Math.max(0, i - olsLookbackWindow + 1)
+          const window = spreads.slice(windowStart, i + 1)
+          const mean = window.reduce((sum, val) => sum + val, 0) / window.length
+          const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
+
+          rollingMean.push(mean)
+          rollingUpperBand1.push(mean + stdDev)
+          rollingLowerBand1.push(mean - stdDev)
+          rollingUpperBand2.push(mean + 2 * stdDev)
+          rollingLowerBand2.push(mean - stdDev)
+        }
+
+        setAnalysisData({
+          dates,
+          hedgeRatios,
+          alphas,
+          spreads,
+          zScores,
+          stockAPrices,
+          stockBPrices,
+          statistics: {
+            correlation,
+            meanSpread,
+            stdDevSpread,
+            minZScore,
+            maxZScore,
+            adfResults,
+            halfLife: halfLifeResult.halfLife,
+            halfLifeValid: halfLifeResult.isValid,
+            hurstExponent,
+            practicalTradeHalfLife,
+            modelType: "ols",
+          },
+          tableData,
+          chartData: {
+            rollingMean,
+            rollingUpperBand1,
+            rollingLowerBand1,
+            rollingUpperBand2,
+            rollingLowerBand2,
+          },
+        })
+      } catch (error) {
+        console.error("Error in analysis:", error)
+        setError("An error occurred during analysis. Please try again.")
+      } finally {
         setIsLoading(false)
+      }
+    }
+
+    const runKalmanAnalysis = async () => {
+      if (!selectedPair.stockA || !selectedPair.stockB) {
+        setError("Please select both stocks for analysis.")
         return
       }
 
-      const minLength = Math.min(pricesA.length, pricesB.length)
-      const dates = []
-      const stockAPrices = []
-      const stockBPrices = []
-
-      // Prepare price data
-      for (let i = 0; i < minLength; i++) {
-        dates.push(pricesA[i].date)
-        stockAPrices.push(pricesA[i].close)
-        stockBPrices.push(pricesB[i].close)
+      if (!fromDate || !toDate) {
+        setError("Please select a date range for analysis.")
+        return
       }
 
-      // Apply improved Kalman filter to estimate hedge ratios
-      const { hedgeRatios, alphas } = kalmanFilter(
-        pricesA.slice(0, minLength),
-        pricesB.slice(0, minLength),
-        kalmanProcessNoise,
-        kalmanMeasurementNoise,
-        kalmanInitialLookback,
-      )
+      setIsLoading(true)
+      setError("")
 
-      // Calculate spreads using Kalman filter hedge ratios
-      const spreads = []
-      for (let i = 0; i < minLength; i++) {
-        const spread = stockAPrices[i] - (alphas[i] + hedgeRatios[i] * stockBPrices[i])
-        spreads.push(spread)
-      }
+      try {
+        const db = await openDB("StockDatabase", 2)
+        const tx = db.transaction("stocks", "readonly")
+        const store = tx.objectStore("stocks")
+        const stockAData = await store.get(selectedPair.stockA)
+        const stockBData = await store.get(selectedPair.stockB)
 
-      // Calculate z-scores for spreads
-      const zScores = []
-      for (let i = 0; i < spreads.length; i++) {
-        const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-        zScores.push(calculateZScore(windowData).pop())
+        if (!stockAData || !stockBData) {
+          setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
+          setIsLoading(false)
+          return
+        }
+
+        const pricesA = filterByDate(stockAData.data)
+        const pricesB = filterByDate(stockBData.data)
+
+        if (pricesA.length < kalmanInitialLookback || pricesB.length < kalmanInitialLookback) {
+          setError(
+            `Not enough data points for Kalman filter initialization. Need ${kalmanInitialLookback}, got ${Math.min(pricesA.length, pricesB.length)}.`,
+          )
+          setIsLoading(false)
+          return
+        }
+
+        const minLength = Math.min(pricesA.length, pricesB.length)
+        const dates = []
+        const stockAPrices = []
+        const stockBPrices = []
+
+        // Prepare price data
+        for (let i = 0; i < minLength; i++) {
+          dates.push(pricesA[i].date)
+          stockAPrices.push(pricesA[i].close)
+          stockBPrices.push(pricesB[i].close)
+        }
+
+        // Apply improved Kalman filter to estimate hedge ratios
+        const { hedgeRatios, alphas } = kalmanFilter(
+          pricesA.slice(0, minLength),
+          pricesB.slice(0, minLength),
+          kalmanProcessNoise,
+          kalmanMeasurementNoise,
+          kalmanInitialLookback,
+        )
+
+        // Calculate spreads using Kalman filter hedge ratios
+        const spreads = []
+        for (let i = 0; i < minLength; i++) {
+          const spread = stockAPrices[i] - (alphas[i] + hedgeRatios[i] * stockBPrices[i])
+          spreads.push(spread)
+        }
+
+        // Calculate z-scores for spreads
+        const zScores = []
+        for (let i = 0; i < spreads.length; i++) {
+          const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
+          zScores.push(calculateZScore(windowData).pop())
+        }
+\
+          + 1), i + 1)
+          zScores.push(calculateZScore(windowData).pop())
+        }
+
       
 
-      // Calculate spread statistics
+      // Calculate spread statistics\
       const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
       const stdDevSpread = Math.sqrt(
         spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
@@ -1581,8 +1586,7 @@ Last day (${pricesA[endIdx].date}):`)
       console.error("Error in analysis:", error)
       setError("An error occurred during analysis. Please try again.")\finally 
       setIsLoading(false)
-  }
-    \
+
     const runEuclideanAnalysis = async () => {
       if (!selectedPair.stockA || !selectedPair.stockB) {
         setError("Please select both stocks for analysis.")
@@ -2246,7 +2250,7 @@ Last day (${pricesA[endIdx].date}):`)
                     </div>
                   </div>
 
-                  <div className="bg-navy-900/                  <div className=\"bg-navy-900/50 p-4 rounded-md border border-navy-700">
+                  <div className="bg-navy-900/50 p-4 rounded-md border border-navy-700">
                     <h4 className="text-lg font-medium text-white mb-2">Current Signal</h4>
                     <div className="flex items-center">
                       {analysisData.zScores.length > 0 && (
@@ -2937,7 +2941,7 @@ Last day (${pricesA[endIdx].date}):`)
               </div>
             </div>
           </div>
-\
+
           <div className="card">
             <h2 className="text-2xl font-bold text-white mb-6">
               Complete Data Table ({analysisData.tableData.length} Days)
@@ -3020,8 +3024,28 @@ Last day (${pricesA[endIdx].date}):`)
             </div>
           </div>
         </>
-      )
+      )}
   }
-  </div>
-  )
+
+  return (
+    <div className="bg-navy-900 min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <style jsx global>{`
+        .table-header {
+          @apply px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider;
+        }
+        .table-cell {
+          @apply px-6 py-4 whitespace-nowrap text-sm text-gray-300;
+        }
+        .input-field {
+          @apply appearance-none block w-full bg-navy-800 text-gray-300 border border-navy-700 rounded-md py-2 px-3 leading-tight focus:outline-none focus:shadow-outline;
+        }
+        .card {
+          @apply bg-navy-800/50 rounded-lg shadow-md p-8 border border-navy-700;
+        }
+        .btn-primary {
+          @apply bg-gold-500 hover:bg-gold-700 text-navy-900 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed;
+        }
+      `}</style>
+    </div>
+  )\
 }
