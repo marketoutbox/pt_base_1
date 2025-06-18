@@ -259,7 +259,7 @@ export default function PairAnalyzer() {
         const manualSumB2 = last3B.reduce((sum, val) => sum + val * val, 0)
 
         const manualNumerator = n * manualSumAB - manualSumA * manualSumB
-        const manualDenominator = n * manualSumB2 - manualSumB * manualSumB
+        const manualDenominator = n * manualSumB2 - manualSumB * sumB
         const manualBeta = manualNumerator / manualDenominator
         const manualAlpha = manualSumA / n - manualBeta * (manualSumB / n)
 
@@ -881,6 +881,10 @@ Last day (${pricesA[endIdx].date}):`)
     const sortedCycles = [...tradeCycles].sort((a, b) => a - b)
     const medianCycleLength = sortedCycles[Math.floor(sortedCycles.length / 2)]
 
+    // --- ADD THIS CONSOLE LOG ---
+    console.log("Detected Trade Cycles (days):", tradeCycles)
+    // --- END CONSOLE LOG ---
+
     return {
       tradeCycleLength: avgCycleLength,
       medianCycleLength,
@@ -981,11 +985,11 @@ Last day (${pricesA[endIdx].date}):`)
 
       if (pricesA.length < ratioLookbackWindow || pricesB.length < ratioLookbackWindow) {
         setError(`
-    Not
-    enough
-    data
-    points
-    for the selected lookback window (${ratioLookbackWindow} days).`)
+  Not
+  enough
+  data
+  points
+  for the selected lookback window (${ratioLookbackWindow} days).`)
         setIsLoading(false)
         return
       }
@@ -1014,6 +1018,18 @@ Last day (${pricesA[endIdx].date}):`)
         const windowData = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
         zScores.push(calculateZScore(windowData).pop())
       }
+
+      // --- ADD THESE CONSOLE LOGS ---
+      console.log("--- Ratio Model Debug ---")
+      console.log(
+        "Ratios array:",
+        ratios.map((r) => r.toFixed(4)),
+      )
+      console.log(
+        "Z-Scores array (Ratio Model):",
+        zScores.map((z) => (z !== null ? z.toFixed(4) : "null")),
+      )
+      // --- END CONSOLE LOGS ---
 
       // Calculate ratio statistics
       const meanRatio = ratios.reduce((sum, val) => sum + val, 0) / ratios.length
@@ -1139,17 +1155,17 @@ Last day (${pricesA[endIdx].date}):`)
       // Add this right after the filterByDate calls in runOLSAnalysis
       console.log("=== DATA VALIDATION ===")
       console.log(`
-    Filtered
-    data
-    length: TCS = ${pricesA.length}, HCL=${pricesB.length}
-    ;`)
+  Filtered
+  data
+  length: TCS = ${pricesA.length}, HCL=${pricesB.length}
+  ;`)
       console.log("Sample data types and values:")
       for (let i = 0; i < Math.min(3, pricesA.length); i++) {
         console.log(
           `
-    Day
-    ${i}
-    : TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
+  Day
+  ${i}
+  : TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
         )
       }
       console.log("Last few data points:")
