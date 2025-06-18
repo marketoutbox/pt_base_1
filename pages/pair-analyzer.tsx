@@ -353,7 +353,7 @@ Method 2 (Covariance/Variance like ChatGPT):`)
 
     // Method 3: Population covariance/variance (n instead of n-1)
     const covariancePop = (covariance * (tcsValues.length - 1)) / tcsValues.length
-    const varianceHCLPop = (varianceHCL * (tcsValues.length - 1)) / tcsValues.length
+    const varianceHCLPop = (varianceHCL * (hclValues.length - 1)) / hclValues.length
     const beta3 = covariancePop / varianceHCLPop
     const alpha3 = meanTCS - beta3 * meanHCL
 
@@ -832,6 +832,10 @@ Last day (${pricesA[endIdx].date}):`)
 
   // New function to calculate practical trade half-life
   const calculatePracticalTradeHalfLife = (zScores, entryThreshold = 2.0, exitThreshold = 0.5) => {
+    console.log("\n=== Practical Trade Cycle Calculation Debug ===")
+    console.log(`Entry Threshold: ${entryThreshold}, Exit Threshold: ${exitThreshold}`)
+    console.log(`Total Z-scores to process: ${zScores.length}`)
+
     const tradeCycles = []
     let inTrade = false
     let entryDay = 0
@@ -839,20 +843,27 @@ Last day (${pricesA[endIdx].date}):`)
 
     // Find all historical trade cycles
     for (let i = 0; i < zScores.length; i++) {
+      const currentZScore = zScores[i]
+      console.log(`Day ${i}: Z-score = ${currentZScore.toFixed(4)}`)
+
       // Entry condition
-      if (!inTrade && Math.abs(zScores[i]) >= entryThreshold) {
+      if (!inTrade && Math.abs(currentZScore) >= entryThreshold) {
         inTrade = true
         entryDay = i
-        entryDirection = zScores[i] > 0 ? "positive" : "negative"
+        entryDirection = currentZScore > 0 ? "positive" : "negative"
+        console.log(`  TRADE ENTRY: Day ${i}, Z-score ${currentZScore.toFixed(4)}, Direction: ${entryDirection}`)
       }
 
       // Exit condition - reached target
       if (inTrade) {
         if (
-          (entryDirection === "positive" && zScores[i] <= exitThreshold) ||
-          (entryDirection === "negative" && zScores[i] >= -exitThreshold)
+          (entryDirection === "positive" && currentZScore <= exitThreshold) ||
+          (entryDirection === "negative" && currentZScore >= -exitThreshold)
         ) {
-          tradeCycles.push(i - entryDay + 1) // Days to complete the trade
+          const cycleLength = i - entryDay + 1
+          tradeCycles.push(cycleLength)
+          console.log(`  TRADE EXIT: Day ${i}, Z-score ${currentZScore.toFixed(4)}, Cycle Length: ${cycleLength} days`)
+          console.log(`  Current Trade Cycles: [${tradeCycles.join(", ")}]`)
           inTrade = false
         }
 
@@ -861,7 +872,9 @@ Last day (${pricesA[endIdx].date}):`)
     }
 
     // Calculate statistics on trade cycles
-    if (tradeCycles.length === 0)
+    if (tradeCycles.length === 0) {
+      console.log("No completed trade cycles found.")
+      console.log("===========================================\n")
       return {
         tradeCycleLength: 0,
         isValid: false,
@@ -869,20 +882,31 @@ Last day (${pricesA[endIdx].date}):`)
         successRate: 0,
         medianCycleLength: 0,
       }
+    }
 
     const avgCycleLength = tradeCycles.reduce((sum, val) => sum + val, 0) / tradeCycles.length
-    const successRate = tradeCycles.length / (tradeCycles.length + (inTrade ? 1 : 0)) // Account for incomplete trades
+    // Account for incomplete trades in success rate
+    const totalPotentialTrades = tradeCycles.length + (inTrade ? 1 : 0)
+    const successRate = totalPotentialTrades > 0 ? tradeCycles.length / totalPotentialTrades : 0
 
     // Sort for median calculation
     const sortedCycles = [...tradeCycles].sort((a, b) => a - b)
     const medianCycleLength = sortedCycles[Math.floor(sortedCycles.length / 2)]
+
+    console.log("\n--- Practical Trade Cycle Summary ---")
+    console.log(`Total Completed Trade Cycles: ${tradeCycles.length}`)
+    console.log(`Average Cycle Length: ${avgCycleLength.toFixed(2)} days`)
+    console.log(`Median Cycle Length: ${medianCycleLength} days`)
+    console.log(`Success Rate (completed/total potential): ${(successRate * 100).toFixed(2)}%`)
+    console.log(`Is Valid (min 5 cycles & >70% success): ${tradeCycles.length >= 5 && successRate > 0.7}`)
+    console.log("===========================================\n")
 
     return {
       tradeCycleLength: avgCycleLength,
       medianCycleLength,
       successRate,
       sampleSize: tradeCycles.length,
-      isValid: tradeCycles.length >= 5 && successRate > 0.7, // Minimum sample size and success rate
+      isValid: tradeCycles.length >= 5 && successRate > 0.7,
     }
   }
 
