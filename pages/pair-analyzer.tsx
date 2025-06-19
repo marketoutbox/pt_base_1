@@ -937,20 +937,12 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on ratios
-      // const adfResults = adfTest(ratios)
-      // Call the Next.js API route for accurate ADF test
-      const adfResponse = await fetch("/api/adf-proxy", {
+      const adfResponse = await fetch("/api/adf-test", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ timeSeries: ratios }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ series: ratios }),
       })
-
-      if (!adfResponse.ok) {
-        const errorData = await adfResponse.json()
-        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
-      }
+      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
       const adfResults = await adfResponse.json()
 
       // Calculate half-life and Hurst exponent
@@ -1005,12 +997,7 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevRatio,
           minZScore,
           maxZScore,
-          adfResults: {
-            statistic: adfResults.statistic,
-            pValue: adfResults.p_value,
-            criticalValues: adfResults.critical_values,
-            isStationary: adfResults.is_stationary,
-          },
+          adfResults,
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1199,20 +1186,12 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      // const adfResults = adfTest(spreads)
-      // Call the Next.js API route for accurate ADF test
-      const adfResponse = await fetch("/api/adf-proxy", {
+      const adfResponse = await fetch("/api/adf-test", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ timeSeries: spreads }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ series: spreads }),
       })
-
-      if (!adfResponse.ok) {
-        const errorData = await adfResponse.json()
-        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
-      }
+      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
       const adfResults = await adfResponse.json()
 
       // Calculate half-life and Hurst exponent
@@ -1271,12 +1250,7 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevSpread,
           minZScore,
           maxZScore,
-          adfResults: {
-            statistic: adfResults.statistic,
-            pValue: adfResults.p_value,
-            criticalValues: adfResults.critical_values,
-            isStationary: adfResults.is_stationary,
-          },
+          adfResults,
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1388,20 +1362,12 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      // const adfResults = adfTest(spreads)
-      // Call the Next.js API route for accurate ADF test
-      const adfResponse = await fetch("/api/adf-proxy", {
+      const adfResponse = await fetch("/api/adf-test", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ timeSeries: spreads }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ series: spreads }),
       })
-
-      if (!adfResponse.ok) {
-        const errorData = await adfResponse.json()
-        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
-      }
+      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
       const adfResults = await adfResponse.json()
 
       // Calculate half-life and Hurst exponent
@@ -1460,12 +1426,7 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevSpread,
           minZScore,
           maxZScore,
-          adfResults: {
-            statistic: adfResults.statistic,
-            pValue: adfResults.p_value,
-            criticalValues: adfResults.critical_values,
-            isStationary: adfResults.is_stationary,
-          },
+          adfResults,
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1585,22 +1546,13 @@ Last day (${pricesA[endIdx].date}):`)
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
-      // const adfResults = adfTest(distances)
-      // Call the Next.js API route for accurate ADF test
-      const adfResponse = await fetch("/api/adf-proxy", {
+      const adfResponse = await fetch("/api/adf-test", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ timeSeries: distances }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ series: distances }),
       })
-
-      if (!adfResponse.ok) {
-        const errorData = await adfResponse.json()
-        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
-      }
+      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
       const adfResults = await adfResponse.json()
-
       const halfLifeResult = calculateHalfLife(distances)
       const hurstExponent = calculateHurstExponent(distances)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
@@ -1644,12 +1596,7 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevDistance,
           minZScore,
           maxZScore,
-          adfResults: {
-            statistic: adfResults.statistic,
-            pValue: adfResults.p_value,
-            criticalValues: adfResults.critical_values,
-            isStationary: adfResults.is_stationary,
-          },
+          adfResults,
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
