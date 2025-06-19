@@ -1,5 +1,0 @@
-Flask==2.3.2 # Or the latest stable version you are using
-pandas==2.0.3 # Or the latest stable version
-numpy==1.24.3 # Or the latest stable version
-statsmodels==0.14.0 # Or the latest stable version
-flask_cors==4.0.0 # Or the latest stable version
