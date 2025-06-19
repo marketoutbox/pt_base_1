@@ -577,134 +577,6 @@ Last day (${pricesA[endIdx].date}):`)
     return { hedgeRatios, alphas }
   }
 
-  // Replace the simplified ADF test with a more robust implementation
-  const adfTest = (data) => {
-    const n = data.length
-    if (n < 20) return { statistic: 0, pValue: 1, isStationary: false }
-
-    // Calculate differences
-    const diff = []
-    for (let i = 1; i < n; i++) {
-      diff.push(data[i] - data[i - 1])
-    }
-
-    // Calculate lag
-    const lag = []
-    for (let i = 0; i < n - 1; i++) {
-      lag.push(data[i])
-    }
-
-    // Add lagged differences for augmentation (p=1)
-    const laggedDiff = []
-    for (let i = 1; i < n - 1; i++) {
-      laggedDiff.push(diff[i - 1])
-    }
-
-    // Prepare data for regression
-    const y = diff.slice(1) // Remove first element to align with laggedDiff
-    const X = [] // Design matrix
-
-    for (let i = 0; i < y.length; i++) {
-      X.push([1, lag[i + 1], laggedDiff[i]]) // Intercept, lag, lagged diff
-    }
-
-    // Perform OLS regression
-    // X'X
-    const XtX = [
-      [0, 0, 0],
-      [0, 0, 0],
-      [0, 0, 0],
-    ]
-
-    for (let i = 0; i < X.length; i++) {
-      for (let j = 0; j < 3; j++) {
-        for (let k = 0; k < 3; k++) {
-          XtX[j][k] += X[i][j] * X[i][k]
-        }
-      }
-    }
-
-    // X'y
-    const Xty = [0, 0, 0]
-    for (let i = 0; i < X.length; i++) {
-      for (let j = 0; j < 3; j++) {
-        Xty[j] += X[i][j] * y[i]
-      }
-    }
-
-    // Invert X'X (simplified for 3x3)
-    const det =
-      XtX[0][0] * (XtX[1][1] * XtX[2][2] - XtX[1][2] * XtX[2][1]) -
-      XtX[0][1] * (XtX[1][0] * XtX[2][2] - XtX[1][2] * XtX[2][0]) +
-      XtX[0][2] * (XtX[1][0] * XtX[2][1] - XtX[1][1] * XtX[2][0])
-
-    if (Math.abs(det) < 1e-10) {
-      return { statistic: 0, pValue: 1, isStationary: false }
-    }
-
-    const invXtX = [
-      [0, 0, 0],
-      [0, 0, 0],
-      [0, 0, 0],
-    ]
-
-    invXtX[0][0] = (XtX[1][1] * XtX[2][2] - XtX[1][2] * XtX[2][1]) / det
-    invXtX[0][1] = (XtX[0][2] * XtX[2][1] - XtX[0][1] * XtX[2][2]) / det
-    invXtX[0][2] = (XtX[0][1] * XtX[1][2] - XtX[0][2] * XtX[1][1]) / det
-    invXtX[1][0] = (XtX[1][2] * XtX[2][0] - XtX[1][0] * XtX[2][2]) / det
-    invXtX[1][1] = (XtX[0][0] * XtX[2][2] - XtX[0][2] * XtX[2][0]) / det
-    invXtX[1][2] = (XtX[0][2] * XtX[1][0] - XtX[0][0] * XtX[1][2]) / det
-    invXtX[2][0] = (XtX[1][0] * XtX[2][1] - XtX[1][1] * XtX[2][0]) / det
-    invXtX[2][1] = (XtX[0][1] * XtX[2][0] - XtX[0][0] * XtX[2][1]) / det
-    invXtX[2][2] = (XtX[0][0] * XtX[1][1] - XtX[0][1] * XtX[1][0]) / det
-
-    // Calculate coefficients
-    const beta = [0, 0, 0]
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 3; j++) {
-        beta[i] += invXtX[i][j] * Xty[j]
-      }
-    }
-
-    // Calculate residuals and residual sum of squares
-    let rss = 0
-    for (let i = 0; i < y.length; i++) {
-      let yHat = 0
-      for (let j = 0; j < 3; j++) {
-        yHat += X[i][j] * beta[j]
-      }
-      rss += Math.pow(y[i] - yHat, 2)
-    }
-
-    // Calculate standard error of coefficient
-    const sigma2 = rss / (y.length - 3)
-    const se = [0, 0, 0]
-    for (let i = 0; i < 3; i++) {
-      se[i] = Math.sqrt(sigma2 * invXtX[i][i])
-    }
-
-    // Calculate t-statistic for the lagged level
-    const tStatistic = beta[1] / se[1]
-
-    // Critical values from MacKinnon (1991)
-    const criticalValues = {
-      "1%": -3.43,
-      "5%": -2.86,
-      "10%": -2.57,
-    }
-
-    // Approximate p-value using t-distribution
-    // This is a simplification - in practice, use proper statistical tables
-    const pValue = 2 * (1 - Math.abs(tStatistic) / Math.sqrt(y.length))
-
-    return {
-      statistic: tStatistic,
-      pValue: pValue,
-      criticalValues,
-      isStationary: pValue < 0.05,
-    }
-  }
-
   const calculateCorrelation = (pricesA, pricesB) => {
     const n = pricesA.length
     let sumA = 0,
@@ -1065,7 +937,21 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on ratios
-      const adfResults = adfTest(ratios)
+      // const adfResults = adfTest(ratios)
+      // Call the Next.js API route for accurate ADF test
+      const adfResponse = await fetch("/api/adf-proxy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ timeSeries: ratios }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+      })
+
+      if (!adfResponse.ok) {
+        const errorData = await adfResponse.json()
+        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
+      }
+      const adfResults = await adfResponse.json()
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(ratios)
@@ -1119,7 +1005,12 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevRatio,
           minZScore,
           maxZScore,
-          adfResults,
+          adfResults: {
+            statistic: adfResults.statistic,
+            pValue: adfResults.p_value,
+            criticalValues: adfResults.critical_values,
+            isStationary: adfResults.is_stationary,
+          },
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1308,7 +1199,21 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      const adfResults = adfTest(spreads)
+      // const adfResults = adfTest(spreads)
+      // Call the Next.js API route for accurate ADF test
+      const adfResponse = await fetch("/api/adf-proxy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ timeSeries: spreads }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+      })
+
+      if (!adfResponse.ok) {
+        const errorData = await adfResponse.json()
+        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
+      }
+      const adfResults = await adfResponse.json()
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1366,7 +1271,12 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevSpread,
           minZScore,
           maxZScore,
-          adfResults,
+          adfResults: {
+            statistic: adfResults.statistic,
+            pValue: adfResults.p_value,
+            criticalValues: adfResults.critical_values,
+            isStationary: adfResults.is_stationary,
+          },
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1478,7 +1388,21 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      const adfResults = adfTest(spreads)
+      // const adfResults = adfTest(spreads)
+      // Call the Next.js API route for accurate ADF test
+      const adfResponse = await fetch("/api/adf-proxy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ timeSeries: spreads }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+      })
+
+      if (!adfResponse.ok) {
+        const errorData = await adfResponse.json()
+        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
+      }
+      const adfResults = await adfResponse.json()
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1536,7 +1460,12 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevSpread,
           minZScore,
           maxZScore,
-          adfResults,
+          adfResults: {
+            statistic: adfResults.statistic,
+            pValue: adfResults.p_value,
+            criticalValues: adfResults.critical_values,
+            isStationary: adfResults.is_stationary,
+          },
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1656,7 +1585,22 @@ Last day (${pricesA[endIdx].date}):`)
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
-      const adfResults = adfTest(distances)
+      // const adfResults = adfTest(distances)
+      // Call the Next.js API route for accurate ADF test
+      const adfResponse = await fetch("/api/adf-proxy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ timeSeries: distances }), // Use 'ratios', 'spreads', or 'distances' as appropriate
+      })
+
+      if (!adfResponse.ok) {
+        const errorData = await adfResponse.json()
+        throw new Error(errorData.error || "Failed to fetch ADF results from proxy.")
+      }
+      const adfResults = await adfResponse.json()
+
       const halfLifeResult = calculateHalfLife(distances)
       const hurstExponent = calculateHurstExponent(distances)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
@@ -1700,7 +1644,12 @@ Last day (${pricesA[endIdx].date}):`)
           stdDevDistance,
           minZScore,
           maxZScore,
-          adfResults,
+          adfResults: {
+            statistic: adfResults.statistic,
+            pValue: adfResults.p_value,
+            criticalValues: adfResults.critical_values,
+            isStationary: adfResults.is_stationary,
+          },
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
