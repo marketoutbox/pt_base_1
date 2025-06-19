@@ -52,7 +52,7 @@ const matrixAdd2x2 = (A: number[][], B: number[][]): number[][] => {
 const matrixSubtract2x2 = (A: number[][], B: number[][]): number[][] => {
   return [
     [A[0][0] - B[0][0], A[0][1] - B[0][1]],
-    [A[1][0] - B[1][0], A[1][1] - B[1][1]],
+    [A[1][0] - B[0][0], A[1][1] - B[1][1]],
   ]
 }
 
@@ -2046,25 +2046,25 @@ Last day (${pricesA[endIdx].date}):`)
                   <div className="flex justify-between">
                     <span className="text-gray-300">Test Statistic:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.statistic.toFixed(4)}
+                      {analysisData.statistics.adfResults.t_statistic.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">p-value:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.pValue.toFixed(4)}
+                      {analysisData.statistics.adfResults.p_value.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (1%):</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.criticalValues["1%"]}
+                      {analysisData.statistics.adfResults.critical_values["1%"]}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (5%):</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.criticalValues["5%"]}
+                      {analysisData.statistics.adfResults.critical_values["5%"]}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -2137,7 +2137,7 @@ Last day (${pricesA[endIdx].date}):`)
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
                               ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short                                ? \`Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
