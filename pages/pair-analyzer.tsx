@@ -919,7 +919,7 @@ Last day (${pricesA[endIdx].date}):`)
     const lags = []
     const rs = []
 
-    for (let lag = 2; lag <= maxLag; lag += 1) {
+    for (let lag = 10; lag <= maxLag; lag += 10) {
       const rsValues = []
 
       // Calculate R/S for multiple windows
