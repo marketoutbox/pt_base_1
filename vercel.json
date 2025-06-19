@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/adf-test.py": {
+      "runtime": "python3.9"
+    }
+  }
+}
