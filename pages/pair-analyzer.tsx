@@ -107,6 +107,7 @@ export default function PairAnalyzer() {
   const [isLoading, setIsLoading] = useState(false)
   const [analysisData, setAnalysisData] = useState(null)
   const [error, setError] = useState("")
+  const [backendUrl, setBackendUrl] = useState("")
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -124,6 +125,13 @@ export default function PairAnalyzer() {
         oneYearAgo.setFullYear(today.getFullYear() - 1)
         setFromDate(oneYearAgo.toISOString().split("T")[0])
         setToDate(today.toISOString().split("T")[0])
+
+        // Set backend URL from environment variable
+        if (process.env.NEXT_PUBLIC_ADF_BACKEND_URL) {
+          setBackendUrl(process.env.NEXT_PUBLIC_ADF_BACKEND_URL)
+        } else {
+          console.warn("NEXT_PUBLIC_ADF_BACKEND_URL is not set. ADF test will not work.")
+        }
 
         // Check for URL parameters
         const urlParams = new URLSearchParams(window.location.search)
@@ -578,130 +586,42 @@ Last day (${pricesA[endIdx].date}):`)
   }
 
   // Replace the simplified ADF test with a more robust implementation
-  const adfTest = (data) => {
-    const n = data.length
-    if (n < 20) return { statistic: 0, pValue: 1, isStationary: false }
-
-    // Calculate differences
-    const diff = []
-    for (let i = 1; i < n; i++) {
-      diff.push(data[i] - data[i - 1])
+  const adfTest = async (data: number[]) => {
+    if (!backendUrl) {
+      console.error("ADF Backend URL is not set.")
+      return { statistic: 0, pValue: 1, isStationary: false, criticalValues: { "1%": 0, "5%": 0, "10%": 0 } }
     }
 
-    // Calculate lag
-    const lag = []
-    for (let i = 0; i < n - 1; i++) {
-      lag.push(data[i])
+    if (data.length < 5) {
+      console.warn(`Not enough data for ADF test. Need at least 5, got ${data.length}`)
+      return { statistic: 0, pValue: 1, isStationary: false, criticalValues: { "1%": 0, "5%": 0, "10%": 0 } }
     }
 
-    // Add lagged differences for augmentation (p=1)
-    const laggedDiff = []
-    for (let i = 1; i < n - 1; i++) {
-      laggedDiff.push(diff[i - 1])
-    }
+    try {
+      const response = await fetch(`${backendUrl}/adf-test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ time_series: data }),
+      })
 
-    // Prepare data for regression
-    const y = diff.slice(1) // Remove first element to align with laggedDiff
-    const X = [] // Design matrix
-
-    for (let i = 0; i < y.length; i++) {
-      X.push([1, lag[i + 1], laggedDiff[i]]) // Intercept, lag, lagged diff
-    }
-
-    // Perform OLS regression
-    // X'X
-    const XtX = [
-      [0, 0, 0],
-      [0, 0, 0],
-      [0, 0, 0],
-    ]
-
-    for (let i = 0; i < X.length; i++) {
-      for (let j = 0; j < 3; j++) {
-        for (let k = 0; k < 3; k++) {
-          XtX[j][k] += X[i][j] * X[i][k]
-        }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
-    }
 
-    // X'y
-    const Xty = [0, 0, 0]
-    for (let i = 0; i < X.length; i++) {
-      for (let j = 0; j < 3; j++) {
-        Xty[j] += X[i][j] * y[i]
+      const result = await response.json()
+      return {
+        statistic: result.statistic,
+        pValue: result.pValue,
+        criticalValues: result.criticalValues,
+        isStationary: result.isStationary,
       }
-    }
-
-    // Invert X'X (simplified for 3x3)
-    const det =
-      XtX[0][0] * (XtX[1][1] * XtX[2][2] - XtX[1][2] * XtX[2][1]) -
-      XtX[0][1] * (XtX[1][0] * XtX[2][2] - XtX[1][2] * XtX[2][0]) +
-      XtX[0][2] * (XtX[1][0] * XtX[2][1] - XtX[1][1] * XtX[2][0])
-
-    if (Math.abs(det) < 1e-10) {
-      return { statistic: 0, pValue: 1, isStationary: false }
-    }
-
-    const invXtX = [
-      [0, 0, 0],
-      [0, 0, 0],
-      [0, 0, 0],
-    ]
-
-    invXtX[0][0] = (XtX[1][1] * XtX[2][2] - XtX[1][2] * XtX[2][1]) / det
-    invXtX[0][1] = (XtX[0][2] * XtX[2][1] - XtX[0][1] * XtX[2][2]) / det
-    invXtX[0][2] = (XtX[0][1] * XtX[1][2] - XtX[0][2] * XtX[1][1]) / det
-    invXtX[1][0] = (XtX[1][2] * XtX[2][0] - XtX[1][0] * XtX[2][2]) / det
-    invXtX[1][1] = (XtX[0][0] * XtX[2][2] - XtX[0][2] * XtX[2][0]) / det
-    invXtX[1][2] = (XtX[0][2] * XtX[1][0] - XtX[0][0] * XtX[1][2]) / det
-    invXtX[2][0] = (XtX[1][0] * XtX[2][1] - XtX[1][1] * XtX[2][0]) / det
-    invXtX[2][1] = (XtX[0][1] * XtX[2][0] - XtX[0][0] * XtX[2][1]) / det
-    invXtX[2][2] = (XtX[0][0] * XtX[1][1] - XtX[0][1] * XtX[1][0]) / det
-
-    // Calculate coefficients
-    const beta = [0, 0, 0]
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 3; j++) {
-        beta[i] += invXtX[i][j] * Xty[j]
-      }
-    }
-
-    // Calculate residuals and residual sum of squares
-    let rss = 0
-    for (let i = 0; i < y.length; i++) {
-      let yHat = 0
-      for (let j = 0; j < 3; j++) {
-        yHat += X[i][j] * beta[j]
-      }
-      rss += Math.pow(y[i] - yHat, 2)
-    }
-
-    // Calculate standard error of coefficient
-    const sigma2 = rss / (y.length - 3)
-    const se = [0, 0, 0]
-    for (let i = 0; i < 3; i++) {
-      se[i] = Math.sqrt(sigma2 * invXtX[i][i])
-    }
-
-    // Calculate t-statistic for the lagged level
-    const tStatistic = beta[1] / se[1]
-
-    // Critical values from MacKinnon (1991)
-    const criticalValues = {
-      "1%": -3.43,
-      "5%": -2.86,
-      "10%": -2.57,
-    }
-
-    // Approximate p-value using t-distribution
-    // This is a simplification - in practice, use proper statistical tables
-    const pValue = 2 * (1 - Math.abs(tStatistic) / Math.sqrt(y.length))
-
-    return {
-      statistic: tStatistic,
-      pValue: pValue,
-      criticalValues,
-      isStationary: pValue < 0.05,
+    } catch (error) {
+      console.error("Error fetching ADF test results from backend:", error)
+      setError(`Failed to perform ADF test: ${error.message}`)
+      return { statistic: 0, pValue: 1, isStationary: false, criticalValues: { "1%": 0, "5%": 0, "10%": 0 } }
     }
   }
 
