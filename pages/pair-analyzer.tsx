@@ -645,7 +645,7 @@ Last day (${pricesA[endIdx].date}):`)
     for (let i = 0; i < n; i++) {
       sumA += pricesA[i].close
       sumB += pricesB[i].close
-      sumAB += pricesA[i].close * pricesB[i].close
+      sumAB += pricesA[i].close * pricesA[i].close
       sumA2 += pricesA[i].close * pricesA[i].close
       sumB2 += pricesB[i].close * pricesB[i].close
     }
@@ -761,15 +761,9 @@ Last day (${pricesA[endIdx].date}):`)
 
   // New function to calculate practical trade half-life
   const calculatePracticalTradeHalfLife = (zScores, entryThreshold = 2.0, exitThreshold = 0.5) => {
-    \
-    console.log("\
-=== Practical Trade Cycle Calculation Debug ===")
-    console.log(\`Entry Threshold: $
-    entryThreshold
-    , Exit Threshold: $
-    exitThreshold
-    ;`)
-    console.log(\`Total Z-scores to process: ${zScores.length}\`)
+    console.log(`=== Practical Trade Cycle Calculation Debug ===`)
+    console.log(`Entry Threshold: ${entryThreshold}, Exit Threshold: ${exitThreshold};`)
+    console.log(`Total Z-scores to process: ${zScores.length}`)
 
     const tradeCycles = []
     let inTrade = false
@@ -779,14 +773,14 @@ Last day (${pricesA[endIdx].date}):`)
     // Find all historical trade cycles
     for (let i = 0; i < zScores.length; i++) {
       const currentZScore = zScores[i]
-      console.log(\`Day ${i}: Z-score = ${currentZScore.toFixed(4)}\`)
+      console.log(`Day ${i}: Z-score = ${currentZScore.toFixed(4)}`)
 
       // Entry condition
       if (!inTrade && Math.abs(currentZScore) >= entryThreshold) {
         inTrade = true
         entryDay = i
         entryDirection = currentZScore > 0 ? "positive" : "negative"
-        console.log(\`  TRADE ENTRY: Day ${i}, Z-score ${currentZScore.toFixed(4)}, Direction: ${entryDirection}\`)
+        console.log(`  TRADE ENTRY: Day ${i}, Z-score ${currentZScore.toFixed(4)}, Direction: ${entryDirection}`)
       }
 
       // Exit condition - reached target
@@ -797,8 +791,8 @@ Last day (${pricesA[endIdx].date}):`)
         ) {
           const cycleLength = i - entryDay + 1
           tradeCycles.push(cycleLength)
-          console.log(\`  TRADE EXIT: Day ${i}, Z-score ${currentZScore.toFixed(4)}, Cycle Length: ${cycleLength} days\`)
-          console.log(\`  Current Trade Cycles: [${tradeCycles.join(", ")}]\`)
+          console.log(`  TRADE EXIT: Day ${i}, Z-score ${currentZScore.toFixed(4)}, Cycle Length: ${cycleLength} days`)
+          console.log(`  Current Trade Cycles: [${tradeCycles.join(", ")}]`)
           inTrade = false
         }
 
@@ -809,8 +803,7 @@ Last day (${pricesA[endIdx].date}):`)
     // Calculate statistics on trade cycles
     if (tradeCycles.length === 0) {
       console.log("No completed trade cycles found.")
-      console.log("===========================================
-")
+      console.log("===========================================")
       return {
         tradeCycleLength: 0,
         isValid: false,
@@ -829,15 +822,13 @@ Last day (${pricesA[endIdx].date}):`)
     const sortedCycles = [...tradeCycles].sort((a, b) => a - b)
     const medianCycleLength = sortedCycles[Math.floor(sortedCycles.length / 2)]
 
-    console.log("
---- Practical Trade Cycle Summary ---")
-    console.log(\`Total Completed Trade Cycles: ${tradeCycles.length}\`)
-    console.log(\`Average Cycle Length: ${avgCycleLength.toFixed(2)} days\`)
-    console.log(\`Median Cycle Length: ${medianCycleLength} days\`)
-    console.log(\`Success Rate (completed/total potential): ${(successRate * 100).toFixed(2)}%\`)
-    console.log(\`Is Valid (min 5 cycles & >70% success): ${tradeCycles.length >= 5 && successRate > 0.7}\`)
-    console.log("===========================================
-")
+    console.log(`--- Practical Trade Cycle Summary ---`)
+    console.log(`Total Completed Trade Cycles: ${tradeCycles.length}`)
+    console.log(`Average Cycle Length: ${avgCycleLength.toFixed(2)} days`)
+    console.log(`Median Cycle Length: ${medianCycleLength} days`)
+    console.log(`Success Rate (completed/total potential): ${(successRate * 100).toFixed(2)}%`)
+    console.log(`Is Valid (min 5 cycles & >70% success): ${tradeCycles.length >= 5 && successRate > 0.7}`)
+    console.log("===========================================")
 
     return {
       tradeCycleLength: avgCycleLength,
@@ -1110,578 +1101,564 @@ Last day (${pricesA[endIdx].date}):`)
     Filtered
     data
     \
-length: TCS = $
-    pricesA.length
-    , HCL=$
-    pricesB.length
-    ;`)
+length: TCS = ${pricesA.length}, HCL=${pricesB.length};`)
       console.log("Sample data types and values:")
       for (let i = 0; i < Math.min(3, pricesA.length); i++) {
         console.log(
           `
     Day
     \
-$
-    i
-    \
-: TCS=$
-    pricesA[i].close
-    ($
-    typeof pricesA[i].close
-    ), HCL=$
-    pricesB[i].close
-    ($
-    typeof pricesB[i].close
-    )`,
+${i}: TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
         )
-  }
-  console.log("Last few data points:")
-  for (let i = Math.max(0, pricesA.length - 3); i < pricesA.length; i++) {
-    console.log(
-      `  Day ${i}: ${pricesA[i].date} - TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
-    )
-  }
-  console.log("=======================")
+      }
+      console.log("Last few data points:")
+      for (let i = Math.max(0, pricesA.length - 3); i < pricesA.length; i++) {
+        console.log(
+          `  Day ${i}: ${pricesA[i].date} - TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
+        )
+      }
+      console.log("=======================")
 
-  if (pricesA.length < olsLookbackWindow || pricesB.length < olsLookbackWindow) {
-    setError(`Not enough data points for the selected lookback window (${olsLookbackWindow} days).`)
-    setIsLoading(false)
-    return
-  }
+      if (pricesA.length < olsLookbackWindow || pricesB.length < olsLookbackWindow) {
+        setError(`Not enough data points for the selected lookback window (${olsLookbackWindow} days).`)
+        setIsLoading(false)
+        return
+      }
 
-  const minLength = Math.min(pricesA.length, pricesB.length)
-  const hedgeRatios = []
-  const spreads = []
-  const dates = []
-  const stockAPrices = []
-  const stockBPrices = []
-  const alphas = []
+      const minLength = Math.min(pricesA.length, pricesB.length)
+      const hedgeRatios = []
+      const spreads = []
+      const dates = []
+      const stockAPrices = []
+      const stockBPrices = []
+      const alphas = []
 
-  // Add comparison data for ChatGPT
-  if (minLength > 60) {
-    compareWithChatGPT(pricesA, pricesB, 60)
-  }
+      // Add comparison data for ChatGPT
+      if (minLength > 60) {
+        compareWithChatGPT(pricesA, pricesB, 60)
+      }
 
-  // Replace the spread calculation loop in runOLSAnalysis with this enhanced version
-  for (let i = 0; i < minLength; i++) {
-    const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
+      // Replace the spread calculation loop in runOLSAnalysis with this enhanced version
+      for (let i = 0; i < minLength; i++) {
+        const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
 
-    // Ensure numeric values for spread calculation
-    const currentPriceA = typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
-    const currentPriceB = typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+        // Ensure numeric values for spread calculation
+        const currentPriceA =
+          typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+        const currentPriceB =
+          typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
 
-    const spread = currentPriceA - (alpha + beta * currentPriceB)
+        const spread = currentPriceA - (alpha + beta * currentPriceB)
 
-    hedgeRatios.push(beta)
-    alphas.push(alpha)
-    spreads.push(spread)
-    dates.push(pricesA[i].date)
-    stockAPrices.push(currentPriceA)
-    stockBPrices.push(currentPriceB)
+        hedgeRatios.push(beta)
+        alphas.push(alpha)
+        spreads.push(spread)
+        dates.push(pricesA[i].date)
+        stockAPrices.push(currentPriceA)
+        stockBPrices.push(currentPriceB)
 
-    // Debug the last calculation
-    if (i === minLength - 1) {
-      console.log("=== FINAL SPREAD CALCULATION ===")
-      console.log(`Date: ${pricesA[i].date}`)
-      console.log(`TCS price: ${currentPriceA}`)
-      console.log(`HCL price: ${currentPriceB}`)
-      console.log(`Alpha: ${alpha}`)
-      console.log(`Beta: ${beta}`)
-      console.log(`Expected TCS: ${alpha + beta * currentPriceB}`)
-      console.log(`Actual TCS: ${currentPriceA}`)
-      console.log(`Spread: ${spread}`)
-      console.log("================================")
-    }
-  }
+        // Debug the last calculation
+        if (i === minLength - 1) {
+          console.log("=== FINAL SPREAD CALCULATION ===")
+          console.log(`Date: ${pricesA[i].date}`)
+          console.log(`TCS price: ${currentPriceA}`)
+          console.log(`HCL price: ${currentPriceB}`)
+          console.log(`Alpha: ${alpha}`)
+          console.log(`Beta: ${beta}`)
+          console.log(`Expected TCS: ${alpha + beta * currentPriceB}`)
+          console.log(`Actual TCS: ${currentPriceA}`)
+          console.log(`Spread: ${spread}`)
+          console.log("================================")
+        }
+      }
 
-  // Calculate z-scores for spreads using Gemini's methodology
-  const zScores = []
-  for (let i = 0; i < minLength; i++) {
-    const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
+      // Calculate z-scores for spreads using Gemini's methodology
+      const zScores = []
+      for (let i = 0; i < minLength; i++) {
+        const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
 
-    // Calculate current day's spread
-    const currentPriceA = typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
-    const currentPriceB = typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
-    const currentSpread = currentPriceA - (alpha + beta * currentPriceB)
+        // Calculate current day's spread
+        const currentPriceA =
+          typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+        const currentPriceB =
+          typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+        const currentSpread = currentPriceA - (alpha + beta * currentPriceB)
 
-    // Calculate window spreads using current alpha/beta for the entire window
-    const windowStart = Math.max(0, i - olsLookbackWindow + 1)
-    const windowSpreads = []
+        // Calculate window spreads using current alpha/beta for the entire window
+        const windowStart = Math.max(0, i - olsLookbackWindow + 1)
+        const windowSpreads = []
 
-    for (let j = windowStart; j <= i; j++) {
-      const windowPriceA = typeof pricesA[j].close === "string" ? Number.parseFloat(pricesA[j].close) : pricesA[j].close
-      const windowPriceB = typeof pricesB[j].close === "string" ? Number.parseFloat(pricesB[j].close) : pricesB[j].close
-      const windowSpread = windowPriceA - (alpha + beta * windowPriceB)
-      windowSpreads.push(windowSpread)
-    }
+        for (let j = windowStart; j <= i; j++) {
+          const windowPriceA =
+            typeof pricesA[j].close === "string" ? Number.parseFloat(pricesA[j].close) : pricesA[j].close
+          const windowPriceB =
+            typeof pricesB[j].close === "string" ? Number.parseFloat(pricesB[j].close) : pricesB[j].close
+          const windowSpread = windowPriceA - (alpha + beta * windowPriceB)
+          windowSpreads.push(windowSpread)
+        }
 
-    // Calculate z-score using sample standard deviation
-    if (windowSpreads.length > 1) {
-      const meanSpread = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
-      const sampleStdDev = Math.sqrt(
-        windowSpreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / (windowSpreads.length - 1),
+        // Calculate z-score using sample standard deviation
+        if (windowSpreads.length > 1) {
+          const meanSpread = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
+          const sampleStdDev = Math.sqrt(
+            windowSpreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / (windowSpreads.length - 1),
+          )
+
+          if (sampleStdDev > 0) {
+            const zScore = (currentSpread - meanSpread) / sampleStdDev
+            zScores.push(zScore)
+          } else {
+            zScores.push(0)
+          }
+        } else {
+          zScores.push(0)
+        }
+      }
+
+      // Calculate spread statistics
+      const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
+      const stdDevSpread = Math.sqrt(
+        spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
       )
 
-      if (sampleStdDev > 0) {
-        const zScore = (currentSpread - meanSpread) / sampleStdDev
-        zScores.push(zScore)
-      } else {
-        zScores.push(0)
+      // Calculate min/max z-score - Filter out NaN values before calculating min/max
+      const validZScores = zScores.filter((z) => !isNaN(z))
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
+
+      // Calculate correlation
+      const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
+
+      // Run ADF test on spreads
+      const adfResults = await adfTest(spreads)
+
+      // Calculate half-life and Hurst exponent
+      const halfLifeResult = calculateHalfLife(spreads)
+      const hurstExponent = calculateHurstExponent(spreads)
+
+      // Calculate practical trade half-life
+      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+
+      // Prepare table data (last 30 days or less)
+      // Prepare complete table data
+      const tableData = []
+      for (let i = 0; i < dates.length; i++) {
+        tableData.push({
+          date: dates[i],
+          priceA: stockAPrices[i],
+          priceB: stockBPrices[i],
+          alpha: alphas[i],
+          hedgeRatio: hedgeRatios[i],
+          spread: spreads[i],
+          zScore: zScores[i],
+        })
       }
-    } else {
-      zScores.push(0)
+
+      // Calculate rolling mean and standard deviation for spread chart
+      const rollingMean = []
+      const rollingUpperBand1 = []
+      const rollingLowerBand1 = []
+      const rollingUpperBand2 = []
+      const rollingLowerBand2 = []
+
+      for (let i = 0; i < spreads.length; i++) {
+        const windowStart = Math.max(0, i - olsLookbackWindow + 1)
+        const window = spreads.slice(windowStart, i + 1)
+        const mean = window.reduce((sum, val) => sum + val, 0) / window.length
+        const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
+
+        rollingMean.push(mean)
+        rollingUpperBand1.push(mean + stdDev)
+        rollingLowerBand1.push(mean - stdDev)
+        rollingUpperBand2.push(mean + 2 * stdDev)
+        rollingLowerBand2.push(mean - stdDev)
+      }
+
+      setAnalysisData({
+        dates,
+        hedgeRatios,
+        alphas,
+        spreads,
+        zScores,
+        stockAPrices,
+        stockBPrices,
+        statistics: {
+          correlation,
+          meanSpread,
+          stdDevSpread,
+          minZScore,
+          maxZScore,
+          adfResults,
+          halfLife: halfLifeResult.halfLife,
+          halfLifeValid: halfLifeResult.isValid,
+          hurstExponent,
+          practicalTradeHalfLife,
+          modelType: "ols",
+        },
+        tableData,
+        chartData: {
+          rollingMean,
+          rollingUpperBand1,
+          rollingLowerBand1,
+          rollingUpperBand2,
+          rollingLowerBand2,
+        },
+      })
+    } catch (error) {
+      console.error("Error in analysis:", error)
+      setError("An error occurred during analysis. Please try again.")
+    } finally {
+      setIsLoading(false)
+      console.timeEnd("Total Analysis Time") // Add this line
     }
   }
 
-  // Calculate spread statistics
-  const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
-  const stdDevSpread = Math.sqrt(spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length)
-
-  // Calculate min/max z-score - Filter out NaN values before calculating min/max
-  const validZScores = zScores.filter((z) => !isNaN(z))
-  const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
-  const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
-
-  // Calculate correlation
-  const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
-
-  // Run ADF test on spreads
-  const adfResults = await adfTest(spreads)
-
-  // Calculate half-life and Hurst exponent
-  const halfLifeResult = calculateHalfLife(spreads)
-  const hurstExponent = calculateHurstExponent(spreads)
-
-  // Calculate practical trade half-life
-  const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
-
-  // Prepare table data (last 30 days or less)
-  // Prepare complete table data
-  const tableData = []
-  for (let i = 0; i < dates.length; i++) {
-    tableData.push({
-      date: dates[i],
-      priceA: stockAPrices[i],
-      priceB: stockBPrices[i],
-      alpha: alphas[i],
-      hedgeRatio: hedgeRatios[i],
-      spread: spreads[i],
-      zScore: zScores[i],
-    })
-  }
-
-  // Calculate rolling mean and standard deviation for spread chart
-  const rollingMean = []
-  const rollingUpperBand1 = []
-  const rollingLowerBand1 = []
-  const rollingUpperBand2 = []
-  const rollingLowerBand2 = []
-
-  for (let i = 0; i < spreads.length; i++) {
-    const windowStart = Math.max(0, i - olsLookbackWindow + 1)
-    const window = spreads.slice(windowStart, i + 1)
-    const mean = window.reduce((sum, val) => sum + val, 0) / window.length
-    const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
-
-    rollingMean.push(mean)
-    rollingUpperBand1.push(mean + stdDev)
-    rollingLowerBand1.push(mean - stdDev)
-    rollingUpperBand2.push(mean + 2 * stdDev)
-    rollingLowerBand2.push(mean - stdDev)
-  }
-
-  setAnalysisData({
-    dates,
-    hedgeRatios,
-    alphas,
-    spreads,
-    zScores,
-    stockAPrices,
-    stockBPrices,
-    statistics: {
-      correlation,
-      meanSpread,
-      stdDevSpread,
-      minZScore,
-      maxZScore,
-      adfResults,
-      halfLife: halfLifeResult.halfLife,
-      halfLifeValid: halfLifeResult.isValid,
-      hurstExponent,
-      practicalTradeHalfLife,
-      modelType: "ols",
-    },
-    tableData,
-    chartData: {
-      rollingMean,
-      rollingUpperBand1,
-      rollingLowerBand1,
-      rollingUpperBand2,
-      rollingLowerBand2,
-    },
-  })
-  \
-}
-catch (error)
-{
-  console.error("Error in analysis:", error)
-  setError("An error occurred during analysis. Please try again.")
-  \
-}
-finally
-{
-  setIsLoading(false)
-  console.timeEnd("Total Analysis Time") // Add this line
-}
-\
-  }
-
-const runKalmanAnalysis = async () => {
-  if (!selectedPair.stockA || !selectedPair.stockB) {
-    setError("Please select both stocks for analysis.")
-    return
-  }
-
-  if (!fromDate || !toDate) {
-    setError("Please select a date range for analysis.")
-    return
-  }
-
-  setIsLoading(true)
-  setError("")
-
-  try {
-    const db = await openDB("StockDatabase", 2)
-    const tx = db.transaction("stocks", "readonly")
-    const store = tx.objectStore("stocks")
-    const stockAData = await store.get(selectedPair.stockA)
-    const stockBData = await store.get(selectedPair.stockB)
-
-    if (!stockAData || !stockBData) {
-      setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
-      setIsLoading(false)
+  const runKalmanAnalysis = async () => {
+    if (!selectedPair.stockA || !selectedPair.stockB) {
+      setError("Please select both stocks for analysis.")
       return
     }
 
-    const pricesA = filterByDate(stockAData.data)
-    const pricesB = filterByDate(stockBData.data)
+    if (!fromDate || !toDate) {
+      setError("Please select a date range for analysis.")
+      return
+    }
 
-    if (pricesA.length < kalmanInitialLookback || pricesB.length < kalmanInitialLookback) {
-      setError(
-        `Not enough data points for Kalman filter initialization. Need ${kalmanInitialLookback}, got ${Math.min(pricesA.length, pricesB.length)}.`,
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const db = await openDB("StockDatabase", 2)
+      const tx = db.transaction("stocks", "readonly")
+      const store = tx.objectStore("stocks")
+      const stockAData = await store.get(selectedPair.stockA)
+      const stockBData = await store.get(selectedPair.stockB)
+
+      if (!stockAData || !stockBData) {
+        setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
+        setIsLoading(false)
+        return
+      }
+
+      const pricesA = filterByDate(stockAData.data)
+      const pricesB = filterByDate(stockBData.data)
+
+      if (pricesA.length < kalmanInitialLookback || pricesB.length < kalmanInitialLookback) {
+        setError(
+          `Not enough data points for Kalman filter initialization. Need ${kalmanInitialLookback}, got ${Math.min(pricesA.length, pricesB.length)}.`,
+        )
+        setIsLoading(false)
+        return
+      }
+
+      const minLength = Math.min(pricesA.length, pricesB.length)
+      const dates = []
+      const stockAPrices = []
+      const stockBPrices = []
+
+      // Prepare price data
+      for (let i = 0; i < minLength; i++) {
+        dates.push(pricesA[i].date)
+        stockAPrices.push(pricesA[i].close)
+        stockBPrices.push(pricesB[i].close)
+      }
+
+      // Apply improved Kalman filter to estimate hedge ratios
+      const { hedgeRatios, alphas } = kalmanFilter(
+        pricesA.slice(0, minLength),
+        pricesB.slice(0, minLength),
+        kalmanProcessNoise,
+        kalmanMeasurementNoise,
+        kalmanInitialLookback,
       )
-      setIsLoading(false)
-      return
-    }
 
-    const minLength = Math.min(pricesA.length, pricesB.length)
-    const dates = []
-    const stockAPrices = []
-    const stockBPrices = []
-
-    // Prepare price data
-    for (let i = 0; i < minLength; i++) {
-      dates.push(pricesA[i].date)
-      stockAPrices.push(pricesA[i].close)
-      stockBPrices.push(pricesB[i].close)
-    }
-
-    // Apply improved Kalman filter to estimate hedge ratios
-    const { hedgeRatios, alphas } = kalmanFilter(
-      pricesA.slice(0, minLength),
-      pricesB.slice(0, minLength),
-      kalmanProcessNoise,
-      kalmanMeasurementNoise,
-      kalmanInitialLookback,
-    )
-
-    // Calculate spreads using Kalman filter hedge ratios
-    const spreads = []
-    for (let i = 0; i < minLength; i++) {
-      const spread = stockAPrices[i] - (alphas[i] + hedgeRatios[i] * stockBPrices[i])
-      spreads.push(spread)
-    }
-
-    // Calculate z-scores for spreads
-    const zScores = []
-    for (let i = 0; i < spreads.length; i++) {
-      const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
-      zScores.push(calculateZScore(windowData).pop())
-    }
-
-    // Calculate spread statistics
-    const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
-    const stdDevSpread = Math.sqrt(
-      spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
-    )
-
-    // Calculate min/max z-score - Filter out NaN values before calculating min/max
-    const validZScores = zScores.filter((z) => !isNaN(z))
-    const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
-    const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
-
-    // Calculate correlation
-    const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
-
-    // Run ADF test on spreads
-    const adfResults = await adfTest(spreads)
-
-    // Calculate half-life and Hurst exponent
-    const halfLifeResult = calculateHalfLife(spreads)
-    const hurstExponent = calculateHurstExponent(spreads)
-
-    // Calculate practical trade half-life
-    const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
-
-    // Prepare complete table data
-    const tableData = []
-    for (let i = 0; i < dates.length; i++) {
-      tableData.push({
-        date: dates[i],
-        priceA: stockAPrices[i],
-        priceB: stockBPrices[i],
-        alpha: alphas[i],
-        hedgeRatio: hedgeRatios[i],
-        spread: spreads[i],
-        zScore: zScores[i],
-      })
-    }
-
-    // Calculate rolling mean and standard deviation for spread chart
-    const rollingMean = []
-    const rollingUpperBand1 = []
-    const rollingLowerBand1 = []
-    const rollingUpperBand2 = []
-    const rollingLowerBand2 = []
-
-    const rollingStatsWindow = 60 // Fixed window for rolling statistics display
-    for (let i = 0; i < spreads.length; i++) {
-      const windowStart = Math.max(0, i - rollingStatsWindow + 1)
-      const window = spreads.slice(windowStart, i + 1)
-      const mean = window.reduce((sum, val) => sum + val, 0) / window.length
-      const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
-
-      rollingMean.push(mean)
-      rollingUpperBand1.push(mean + stdDev)
-      rollingLowerBand1.push(mean - stdDev)
-      rollingUpperBand2.push(mean + 2 * stdDev)
-      rollingLowerBand2.push(mean - stdDev)
-    }
-
-    setAnalysisData({
-      dates,
-      hedgeRatios,
-      alphas,
-      spreads,
-      zScores,
-      stockAPrices,
-      stockBPrices,
-      statistics: {
-        correlation,
-        meanSpread,
-        stdDevSpread,
-        minZScore,
-        maxZScore,
-        adfResults,
-        halfLife: halfLifeResult.halfLife,
-        halfLifeValid: halfLifeResult.isValid,
-        hurstExponent,
-        practicalTradeHalfLife,
-        modelType: "kalman",
-      },
-      tableData,
-      chartData: {
-        rollingMean,
-        rollingUpperBand1,
-        rollingLowerBand1,
-        rollingUpperBand2,
-        rollingLowerBand2,
-      },
-    })
-  } catch (error) {
-    console.error("Error in analysis:", error)
-    setError("An error occurred during analysis. Please try again.")
-  } finally {
-    setIsLoading(false)
-    console.timeEnd("Total Analysis Time") // Add this line
-  }
-}
-
-const runEuclideanAnalysis = async () => {
-  if (!selectedPair.stockA || !selectedPair.stockB) {
-    setError("Please select both stocks for analysis.")
-    return
-  }
-
-  if (!fromDate || !toDate) {
-    setError("Please select a date range for analysis.")
-    return
-  }
-
-  setIsLoading(true)
-  setError("")
-
-  try {
-    const db = await openDB("StockDatabase", 2)
-    const tx = db.transaction("stocks", "readonly")
-    const store = tx.objectStore("stocks")
-    const stockAData = await store.get(selectedPair.stockA)
-    const stockBData = await store.get(selectedPair.stockB)
-
-    if (!stockAData || !stockBData) {
-      setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
-      setIsLoading(false)
-      return
-    }
-
-    const pricesA = filterByDate(stockAData.data)
-    const pricesB = filterByDate(stockBData.data)
-
-    if (pricesA.length < euclideanLookbackWindow || pricesB.length < euclideanLookbackWindow) {
-      setError(`Not enough data points for the selected lookback window (${euclideanLookbackWindow} days).`)
-      setIsLoading(false)
-      return
-    }
-
-    const minLength = Math.min(pricesA.length, pricesB.length)
-    const dates = []
-    const stockAPrices = []
-    const stockBPrices = []
-    const normalizedPricesA = []
-    const normalizedPricesB = []
-    const distances = []
-
-    // Get initial prices for normalization
-    const initialPriceA = pricesA[0].close
-    const initialPriceB = pricesB[0].close
-
-    // Calculate normalized prices and Euclidean distance
-    for (let i = 0; i < minLength; i++) {
-      dates.push(pricesA[i].date)
-      stockAPrices.push(pricesA[i].close)
-      stockBPrices.push(pricesB[i].close)
-
-      const normA = pricesA[i].close / initialPriceA
-      const normB = pricesB[i].close / initialPriceB
-      normalizedPricesA.push(normA)
-      normalizedPricesB.push(normB)
-
-      const distance = Math.abs(normA - normB) // Simplified Euclidean distance for 1D
-      distances.push(distance)
-    }
-
-    // Calculate rolling mean and standard deviation of the distance
-    const rollingMeanDistance = []
-    const rollingStdDistance = []
-    const zScores = []
-
-    for (let i = 0; i < distances.length; i++) {
-      const windowStart = Math.max(0, i - euclideanLookbackWindow + 1)
-      const window = distances.slice(windowStart, i + 1)
-      const mean = window.reduce((sum, val) => sum + val, 0) / window.length
-      const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
-
-      rollingMeanDistance.push(mean)
-      rollingStdDistance.push(stdDev)
-
-      // Calculate Z-score for the Distance
-      if (stdDev !== 0 && !isNaN(stdDev)) {
-        zScores.push((distances[i] - mean) / stdDev)
-      } else {
-        zScores.push(0) // Or NaN, depending on desired behavior for zero std dev
+      // Calculate spreads using Kalman filter hedge ratios
+      const spreads = []
+      for (let i = 0; i < minLength; i++) {
+        const spread = stockAPrices[i] - (alphas[i] + hedgeRatios[i] * stockBPrices[i])
+        spreads.push(spread)
       }
-    }
 
-    // Calculate statistics
-    const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
-    const meanDistance = distances.reduce((sum, val) => sum + val, 0) / distances.length
-    const stdDevDistance = Math.sqrt(
-      distances.reduce((sum, val) => sum + Math.pow(val - meanDistance, 2), 0) / distances.length,
-    )
+      // Calculate z-scores for spreads
+      const zScores = []
+      for (let i = 0; i < spreads.length; i++) {
+        const windowData = spreads.slice(Math.max(0, i - zScoreLookback + 1), i + 1)
+        zScores.push(calculateZScore(windowData).pop())
+      }
 
-    const validZScores = zScores.filter((z) => !isNaN(z))
-    const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
-    const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
+      // Calculate spread statistics
+      const meanSpread = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
+      const stdDevSpread = Math.sqrt(
+        spreads.reduce((sum, val) => sum + Math.pow(val - meanSpread, 2), 0) / spreads.length,
+      )
 
-    const adfResults = await adfTest(distances)
-    const halfLifeResult = calculateHalfLife(distances)
-    const hurstExponent = calculateHurstExponent(distances)
-    const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+      // Calculate min/max z-score - Filter out NaN values before calculating min/max
+      const validZScores = zScores.filter((z) => !isNaN(z))
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
-    // Prepare table data
-    const tableData = []
-    const rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow) // Calculate rolling half-life for table
-    for (let i = 0; i < dates.length; i++) {
-      tableData.push({
-        date: dates[i],
-        priceA: stockAPrices[i],
-        priceB: stockBPrices[i],
-        normalizedA: normalizedPricesA[i],
-        normalizedB: normalizedPricesB[i],
-        distance: distances[i],
-        zScore: zScores[i],
-        halfLife: rollingHalfLifes[i] !== null ? rollingHalfLifes[i].toFixed(2) : "N/A",
+      // Calculate correlation
+      const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
+
+      // Run ADF test on spreads
+      const adfResults = await adfTest(spreads)
+
+      // Calculate half-life and Hurst exponent
+      const halfLifeResult = calculateHalfLife(spreads)
+      const hurstExponent = calculateHurstExponent(spreads)
+
+      // Calculate practical trade half-life
+      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+
+      // Prepare complete table data
+      const tableData = []
+      for (let i = 0; i < dates.length; i++) {
+        tableData.push({
+          date: dates[i],
+          priceA: stockAPrices[i],
+          priceB: stockBPrices[i],
+          alpha: alphas[i],
+          hedgeRatio: hedgeRatios[i],
+          spread: spreads[i],
+          zScore: zScores[i],
+        })
+      }
+
+      // Calculate rolling mean and standard deviation for spread chart
+      const rollingMean = []
+      const rollingUpperBand1 = []
+      const rollingLowerBand1 = []
+      const rollingUpperBand2 = []
+      const rollingLowerBand2 = []
+
+      const rollingStatsWindow = 60 // Fixed window for rolling statistics display
+      for (let i = 0; i < spreads.length; i++) {
+        const windowStart = Math.max(0, i - rollingStatsWindow + 1)
+        const window = spreads.slice(windowStart, i + 1)
+        const mean = window.reduce((sum, val) => sum + val, 0) / window.length
+        const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
+
+        rollingMean.push(mean)
+        rollingUpperBand1.push(mean + stdDev)
+        rollingLowerBand1.push(mean - stdDev)
+        rollingUpperBand2.push(mean + 2 * stdDev)
+        rollingLowerBand2.push(mean - stdDev)
+      }
+
+      setAnalysisData({
+        dates,
+        hedgeRatios,
+        alphas,
+        spreads,
+        zScores,
+        stockAPrices,
+        stockBPrices,
+        statistics: {
+          correlation,
+          meanSpread,
+          stdDevSpread,
+          minZScore,
+          maxZScore,
+          adfResults,
+          halfLife: halfLifeResult.halfLife,
+          halfLifeValid: halfLifeResult.isValid,
+          hurstExponent,
+          practicalTradeHalfLife,
+          modelType: "kalman",
+        },
+        tableData,
+        chartData: {
+          rollingMean,
+          rollingUpperBand1,
+          rollingLowerBand1,
+          rollingUpperBand2,
+          rollingLowerBand2,
+        },
       })
+    } catch (error) {
+      console.error("Error in analysis:", error)
+      setError("An error occurred during analysis. Please try again.")
+    } finally {
+      setIsLoading(false)
+      console.timeEnd("Total Analysis Time") // Add this line
+    }
+  }
+
+  const runEuclideanAnalysis = async () => {
+    if (!selectedPair.stockA || !selectedPair.stockB) {
+      setError("Please select both stocks for analysis.")
+      return
     }
 
-    // Prepare chart data (using rolling mean and std dev of distance)
-    const chartData = {
-      rollingMean: rollingMeanDistance,
-      rollingUpperBand1: rollingMeanDistance.map((m, i) => m + rollingStdDistance[i]),
-      rollingLowerBand1: rollingMeanDistance.map((m, i) => m - rollingStdDistance[i]),
-      rollingUpperBand2: rollingMeanDistance.map((m, i) => m + 2 * rollingStdDistance[i]),
-      rollingLowerBand2: rollingMeanDistance.map((m, i) => m - 2 * rollingStdDistance[i]),
+    if (!fromDate || !toDate) {
+      setError("Please select a date range for analysis.")
+      return
     }
 
-    setAnalysisData({
-      dates,
-      distances,
-      zScores,
-      stockAPrices,
-      stockBPrices,
-      normalizedPricesA,
-      normalizedPricesB,
-      statistics: {
-        correlation,
-        meanDistance,
-        stdDevDistance,
-        minZScore,
-        maxZScore,
-        adfResults,
-        halfLife: halfLifeResult.halfLife,
-        halfLifeValid: halfLifeResult.isValid,
-        hurstExponent,
-        practicalTradeHalfLife,
-        modelType: "euclidean",
-      },
-      tableData,
-      chartData,
-    })
-  } catch (error) {
-    console.error("Error in analysis:", error)
-    setError("An error occurred during analysis. Please try again.")
-  } finally {
-    setIsLoading(false)
-    console.timeEnd("Total Analysis Time") // Add this line
-  }
-}
+    setIsLoading(true)
+    setError("")
 
-const runAnalysis = () => {
-  console.time("Total Analysis Time") // Add this line
-  if (activeTab === "ratio") {
-    runRatioAnalysis()
-  } else if (activeTab === "ols") {
-    runOLSAnalysis()
-  } else if (activeTab === "kalman") {
-    runKalmanAnalysis()
-  } else if (activeTab === "euclidean") {
-    runEuclideanAnalysis()
-  }
-  // The console.timeEnd will be called inside the individual analysis functions
-  // after all async operations are complete.
-}
+    try {
+      const db = await openDB("StockDatabase", 2)
+      const tx = db.transaction("stocks", "readonly")
+      const store = tx.objectStore("stocks")
+      const stockAData = await store.get(selectedPair.stockA)
+      const stockBData = await store.get(selectedPair.stockB)
 
-return (
+      if (!stockAData || !stockBData) {
+        setError("Stock data not found. Please make sure you've fetched the data for both stocks.")
+        setIsLoading(false)
+        return
+      }
+
+      const pricesA = filterByDate(stockAData.data)
+      const pricesB = filterByDate(stockBData.data)
+
+      if (pricesA.length < euclideanLookbackWindow || pricesB.length < euclideanLookbackWindow) {
+        setError(`Not enough data points for the selected lookback window (${euclideanLookbackWindow} days).`)
+        setIsLoading(false)
+        return
+      }
+
+      const minLength = Math.min(pricesA.length, pricesB.length)
+      const dates = []
+      const stockAPrices = []
+      const stockBPrices = []
+      const normalizedPricesA = []
+      const normalizedPricesB = []
+      const distances = []
+
+      // Get initial prices for normalization
+      const initialPriceA = pricesA[0].close
+      const initialPriceB = pricesB[0].close
+
+      // Calculate normalized prices and Euclidean distance
+      for (let i = 0; i < minLength; i++) {
+        dates.push(pricesA[i].date)
+        stockAPrices.push(pricesA[i].close)
+        stockBPrices.push(pricesB[i].close)
+
+        const normA = pricesA[i].close / initialPriceA
+        const normB = pricesB[i].close / initialPriceB
+        normalizedPricesA.push(normA)
+        normalizedPricesB.push(normB)
+
+        const distance = Math.abs(normA - normB) // Simplified Euclidean distance for 1D
+        distances.push(distance)
+      }
+
+      // Calculate rolling mean and standard deviation of the distance
+      const rollingMeanDistance = []
+      const rollingStdDistance = []
+      const zScores = []
+
+      for (let i = 0; i < distances.length; i++) {
+        const windowStart = Math.max(0, i - euclideanLookbackWindow + 1)
+        const window = distances.slice(windowStart, i + 1)
+        const mean = window.reduce((sum, val) => sum + val, 0) / window.length
+        const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
+
+        rollingMeanDistance.push(mean)
+        rollingStdDistance.push(stdDev)
+
+        // Calculate Z-score for the Distance
+        if (stdDev !== 0 && !isNaN(stdDev)) {
+          zScores.push((distances[i] - mean) / stdDev)
+        } else {
+          zScores.push(0) // Or NaN, depending on desired behavior for zero std dev
+        }
+      }
+
+      // Calculate statistics
+      const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
+      const meanDistance = distances.reduce((sum, val) => sum + val, 0) / distances.length
+      const stdDevDistance = Math.sqrt(
+        distances.reduce((sum, val) => sum + Math.pow(val - meanDistance, 2), 0) / distances.length,
+      )
+
+      const validZScores = zScores.filter((z) => !isNaN(z))
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
+
+      const adfResults = await adfTest(distances)
+      const halfLifeResult = calculateHalfLife(distances)
+      const hurstExponent = calculateHurstExponent(distances)
+      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+
+      // Prepare table data
+      const tableData = []
+      const rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow) // Calculate rolling half-life for table
+      for (let i = 0; i < dates.length; i++) {
+        tableData.push({
+          date: dates[i],
+          priceA: stockAPrices[i],
+          priceB: stockBPrices[i],
+          normalizedA: normalizedPricesA[i],
+          normalizedB: normalizedPricesB[i],
+          distance: distances[i],
+          zScore: zScores[i],
+          halfLife: rollingHalfLifes[i] !== null ? rollingHalfLifes[i].toFixed(2) : "N/A",
+        })
+      }
+
+      // Prepare chart data (using rolling mean and std dev of distance)
+      const chartData = {
+        rollingMean: rollingMeanDistance,
+        rollingUpperBand1: rollingMeanDistance.map((m, i) => m + rollingStdDistance[i]),
+        rollingLowerBand1: rollingMeanDistance.map((m, i) => m - rollingStdDistance[i]),
+        rollingUpperBand2: rollingMeanDistance.map((m, i) => m + 2 * rollingStdDistance[i]),
+        rollingLowerBand2: rollingMeanDistance.map((m, i) => m - 2 * rollingStdDistance[i]),
+      }
+
+      setAnalysisData({
+        dates,
+        distances,
+        zScores,
+        stockAPrices,
+        stockBPrices,
+        normalizedPricesA,
+        normalizedPricesB,
+        statistics: {
+          correlation,
+          meanDistance,
+          stdDevDistance,
+          minZScore,
+          maxZScore,
+          adfResults,
+          halfLife: halfLifeResult.halfLife,
+          halfLifeValid: halfLifeResult.isValid,
+          hurstExponent,
+          practicalTradeHalfLife,
+          modelType: "euclidean",
+        },
+        tableData,
+        chartData,
+      })
+    } catch (error) {
+      console.error("Error in analysis:", error)
+      setError("An error occurred during analysis. Please try again.")
+    } finally {
+      setIsLoading(false)
+      console.timeEnd("Total Analysis Time") // Add this line
+    }
+  }
+
+  const runAnalysis = () => {
+    console.time("Total Analysis Time") // Add this line
+    if (activeTab === "ratio") {
+      runRatioAnalysis()
+    } else if (activeTab === "ols") {
+      runOLSAnalysis()
+    } else if (activeTab === "kalman") {
+      runKalmanAnalysis()
+    } else if (activeTab === "euclidean") {
+      runEuclideanAnalysis()
+    }
+    // The console.timeEnd will be called inside the individual analysis functions
+    // after all async operations are complete.
+  }
+
+  return (
     <div className="space-y-8">
       <div className="text-center space-y-2">
         <h1 className="text-5xl font-bold text-white">Pair Analyzer</h1>
