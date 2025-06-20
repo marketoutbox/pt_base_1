@@ -103,34 +103,6 @@ const adfTest = async (data) => {
   }
 }
 
-const ppTest = async (data) => {
-  if (data.length < 5) {
-    // Minimum observations for PP test
-    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
-  }
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_ADF_BACKEND_URL}/pp-test`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ time_series: data }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-    }
-
-    const result = await response.json()
-    return result
-  } catch (error) {
-    console.error("Error fetching Phillips-Perron test results:", error)
-    // Return a default non-stationary result on error
-    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
-  }
-}
-
 export default function PairAnalyzer() {
   const [stocks, setStocks] = useState([])
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
@@ -314,7 +286,7 @@ export default function PairAnalyzer() {
         const manualSumAB = last3A.reduce((sum, val, i) => sum + val * last3B[i], 0)
         const manualSumB2 = last3B.reduce((sum, val) => sum + val * val, 0)
 
-        const manualNumerator = n * manualSumAB - manualSumA * manualSumB
+        const manualNumerator = n * manualSumAB - manualSumA * sumB
         const manualDenominator = n * manualSumB2 - manualSumB * sumB
         const manualBeta = manualNumerator / manualDenominator
         const manualAlpha = manualSumA / n - manualBeta * (manualSumB / n)
@@ -929,11 +901,11 @@ Last day (${pricesA[endIdx].date}):`)
 
       if (pricesA.length < ratioLookbackWindow || pricesB.length < ratioLookbackWindow) {
         setError(`
-    Not
-    enough
-    data
-    points
-    for the selected lookback window (${ratioLookbackWindow} days).`)
+Not
+enough
+data
+points
+for the selected lookback window (${ratioLookbackWindow} days).`)
         setIsLoading(false)
         return
       }
@@ -956,15 +928,6 @@ Last day (${pricesA[endIdx].date}):`)
       const rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
 
       // Calculate z-scores for ratios
-      // OLD CODE:
-      // const zScores = []
-      // for (let i = 0; i < ratios.length; i++) {
-      //   // Use the same lookback window as for ratio statistics
-      //   const windowData = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
-      //   zScores.push(calculateZScore(windowData).pop())
-      // }
-
-      // NEW CODE:
       const zScores = []
       for (let i = 0; i < ratios.length; i++) {
         const windowData = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
@@ -994,8 +957,6 @@ Last day (${pricesA[endIdx].date}):`)
 
       // Run ADF test on ratios
       const adfResults = await adfTest(ratios)
-      // Add the Phillips-Perron test right after the ADF test
-      const ppResults = await ppTest(ratios)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(ratios)
@@ -1050,7 +1011,6 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
-          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1071,6 +1031,7 @@ Last day (${pricesA[endIdx].date}):`)
       setError("An error occurred during analysis. Please try again.")
     } finally {
       setIsLoading(false)
+      console.timeEnd("Total Analysis Time") // Add this line
     }
   }
 
@@ -1107,17 +1068,17 @@ Last day (${pricesA[endIdx].date}):`)
       // Add this right after the filterByDate calls in runOLSAnalysis
       console.log("=== DATA VALIDATION ===")
       console.log(`
-    Filtered
-    data
-    length: TCS = ${pricesA.length}, HCL=${pricesB.length}
-    ;`)
+Filtered
+data
+length: TCS = ${pricesA.length}, HCL=${pricesB.length}
+;`)
       console.log("Sample data types and values:")
       for (let i = 0; i < Math.min(3, pricesA.length); i++) {
         console.log(
           `
-    Day
-    ${i}
-    : TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
+Day
+${i}
+: TCS=${pricesA[i].close} (${typeof pricesA[i].close}), HCL=${pricesB[i].close} (${typeof pricesB[i].close})`,
         )
       }
       console.log("Last few data points:")
@@ -1240,8 +1201,6 @@ Last day (${pricesA[endIdx].date}):`)
 
       // Run ADF test on spreads
       const adfResults = await adfTest(spreads)
-      // Add the Phillips-Perron test right after the ADF test
-      const ppResults = await ppTest(spreads)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1300,7 +1259,6 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
-          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1321,6 +1279,7 @@ Last day (${pricesA[endIdx].date}):`)
       setError("An error occurred during analysis. Please try again.")
     } finally {
       setIsLoading(false)
+      console.timeEnd("Total Analysis Time") // Add this line
     }
   }
 
@@ -1413,8 +1372,6 @@ Last day (${pricesA[endIdx].date}):`)
 
       // Run ADF test on spreads
       const adfResults = await adfTest(spreads)
-      // Add the Phillips-Perron test right after the ADF test
-      const ppResults = await ppTest(spreads)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1473,7 +1430,6 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
-          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1494,6 +1450,7 @@ Last day (${pricesA[endIdx].date}):`)
       setError("An error occurred during analysis. Please try again.")
     } finally {
       setIsLoading(false)
+      console.timeEnd("Total Analysis Time") // Add this line
     }
   }
 
@@ -1594,8 +1551,6 @@ Last day (${pricesA[endIdx].date}):`)
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       const adfResults = await adfTest(distances)
-      // Add the Phillips-Perron test right after the ADF test
-      const ppResults = await ppTest(distances)
       const halfLifeResult = calculateHalfLife(distances)
       const hurstExponent = calculateHurstExponent(distances)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
@@ -1640,7 +1595,6 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
-          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1655,10 +1609,12 @@ Last day (${pricesA[endIdx].date}):`)
       setError("An error occurred during analysis. Please try again.")
     } finally {
       setIsLoading(false)
+      console.timeEnd("Total Analysis Time") // Add this line
     }
   }
 
   const runAnalysis = () => {
+    console.time("Total Analysis Time") // Add this line
     if (activeTab === "ratio") {
       runRatioAnalysis()
     } else if (activeTab === "ols") {
@@ -1668,6 +1624,8 @@ Last day (${pricesA[endIdx].date}):`)
     } else if (activeTab === "euclidean") {
       runEuclideanAnalysis()
     }
+    // The console.timeEnd will be called inside the individual analysis functions
+    // after all async operations are complete.
   }
 
   return (
@@ -2123,46 +2081,6 @@ Last day (${pricesA[endIdx].date}):`)
                   </div>
                 </div>
               </div>
-
-              <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
-                <h3 className="text-xl font-semibold text-white mb-4">Phillips-Perron Test Results</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">Test Statistic:</span>
-                    <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.ppResults.statistic.toFixed(4)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">p-value:</span>
-                    <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.ppResults.pValue.toFixed(4)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">Critical Value (1%):</span>
-                    <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.ppResults.criticalValues["1%"]}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">Critical Value (5%):</span>
-                    <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.ppResults.criticalValues["5%"]}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">Stationarity:</span>
-                    <span
-                      className={`font-medium ${
-                        analysisData.statistics.ppResults.isStationary ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
-                      {analysisData.statistics.ppResults.isStationary ? "Yes ✅" : "No ❌"}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700 mb-8">
@@ -2221,7 +2139,7 @@ Last day (${pricesA[endIdx].date}):`)
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
                               ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short                                ? \`Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
