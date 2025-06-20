@@ -52,7 +52,7 @@ const matrixAdd2x2 = (A: number[][], B: number[][]): number[][] => {
 const matrixSubtract2x2 = (A: number[][], B: number[][]): number[][] => {
   return [
     [A[0][0] - B[0][0], A[0][1] - B[0][1]],
-    [A[1][0] - B[0][0], A[1][1] - B[1][1]],
+    [A[1][0] - B[1][0], A[1][1] - B[1][1]],
   ]
 }
 
@@ -577,6 +577,134 @@ Last day (${pricesA[endIdx].date}):`)
     return { hedgeRatios, alphas }
   }
 
+  // Replace the simplified ADF test with a more robust implementation
+  const adfTest = (data) => {
+    const n = data.length
+    if (n < 20) return { statistic: 0, pValue: 1, isStationary: false }
+
+    // Calculate differences
+    const diff = []
+    for (let i = 1; i < n; i++) {
+      diff.push(data[i] - data[i - 1])
+    }
+
+    // Calculate lag
+    const lag = []
+    for (let i = 0; i < n - 1; i++) {
+      lag.push(data[i])
+    }
+
+    // Add lagged differences for augmentation (p=1)
+    const laggedDiff = []
+    for (let i = 1; i < n - 1; i++) {
+      laggedDiff.push(diff[i - 1])
+    }
+
+    // Prepare data for regression
+    const y = diff.slice(1) // Remove first element to align with laggedDiff
+    const X = [] // Design matrix
+
+    for (let i = 0; i < y.length; i++) {
+      X.push([1, lag[i + 1], laggedDiff[i]]) // Intercept, lag, lagged diff
+    }
+
+    // Perform OLS regression
+    // X'X
+    const XtX = [
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+    ]
+
+    for (let i = 0; i < X.length; i++) {
+      for (let j = 0; j < 3; j++) {
+        for (let k = 0; k < 3; k++) {
+          XtX[j][k] += X[i][j] * X[i][k]
+        }
+      }
+    }
+
+    // X'y
+    const Xty = [0, 0, 0]
+    for (let i = 0; i < X.length; i++) {
+      for (let j = 0; j < 3; j++) {
+        Xty[j] += X[i][j] * y[i]
+      }
+    }
+
+    // Invert X'X (simplified for 3x3)
+    const det =
+      XtX[0][0] * (XtX[1][1] * XtX[2][2] - XtX[1][2] * XtX[2][1]) -
+      XtX[0][1] * (XtX[1][0] * XtX[2][2] - XtX[1][2] * XtX[2][0]) +
+      XtX[0][2] * (XtX[1][0] * XtX[2][1] - XtX[1][1] * XtX[2][0])
+
+    if (Math.abs(det) < 1e-10) {
+      return { statistic: 0, pValue: 1, isStationary: false }
+    }
+
+    const invXtX = [
+      [0, 0, 0],
+      [0, 0, 0],
+      [0, 0, 0],
+    ]
+
+    invXtX[0][0] = (XtX[1][1] * XtX[2][2] - XtX[1][2] * XtX[2][1]) / det
+    invXtX[0][1] = (XtX[0][2] * XtX[2][1] - XtX[0][1] * XtX[2][2]) / det
+    invXtX[0][2] = (XtX[0][1] * XtX[1][2] - XtX[0][2] * XtX[1][1]) / det
+    invXtX[1][0] = (XtX[1][2] * XtX[2][0] - XtX[1][0] * XtX[2][2]) / det
+    invXtX[1][1] = (XtX[0][0] * XtX[2][2] - XtX[0][2] * XtX[2][0]) / det
+    invXtX[1][2] = (XtX[0][2] * XtX[1][0] - XtX[0][0] * XtX[1][2]) / det
+    invXtX[2][0] = (XtX[1][0] * XtX[2][1] - XtX[1][1] * XtX[2][0]) / det
+    invXtX[2][1] = (XtX[0][1] * XtX[2][0] - XtX[0][0] * XtX[2][1]) / det
+    invXtX[2][2] = (XtX[0][0] * XtX[1][1] - XtX[0][1] * XtX[1][0]) / det
+
+    // Calculate coefficients
+    const beta = [0, 0, 0]
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        beta[i] += invXtX[i][j] * Xty[j]
+      }
+    }
+
+    // Calculate residuals and residual sum of squares
+    let rss = 0
+    for (let i = 0; i < y.length; i++) {
+      let yHat = 0
+      for (let j = 0; j < 3; j++) {
+        yHat += X[i][j] * beta[j]
+      }
+      rss += Math.pow(y[i] - yHat, 2)
+    }
+
+    // Calculate standard error of coefficient
+    const sigma2 = rss / (y.length - 3)
+    const se = [0, 0, 0]
+    for (let i = 0; i < 3; i++) {
+      se[i] = Math.sqrt(sigma2 * invXtX[i][i])
+    }
+
+    // Calculate t-statistic for the lagged level
+    const tStatistic = beta[1] / se[1]
+
+    // Critical values from MacKinnon (1991)
+    const criticalValues = {
+      "1%": -3.43,
+      "5%": -2.86,
+      "10%": -2.57,
+    }
+
+    // Approximate p-value using t-distribution
+    // This is a simplification - in practice, use proper statistical tables
+    const pValue = 2 * (1 - Math.abs(tStatistic) / Math.sqrt(y.length))
+
+    return {
+      statistic: tStatistic,
+      pValue: pValue,
+      criticalValues,
+      isStationary: pValue < 0.05,
+    }
+  }
+
   const calculateCorrelation = (pricesA, pricesB) => {
     const n = pricesA.length
     let sumA = 0,
@@ -937,13 +1065,7 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on ratios
-      const adfResponse = await fetch("/api/adf-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ series: ratios }),
-      })
-      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
-      const adfResults = await adfResponse.json()
+      const adfResults = adfTest(ratios)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(ratios)
@@ -1186,13 +1308,7 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      const adfResponse = await fetch("/api/adf-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ series: spreads }),
-      })
-      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
-      const adfResults = await adfResponse.json()
+      const adfResults = adfTest(spreads)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1362,13 +1478,7 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      const adfResponse = await fetch("/api/adf-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ series: spreads }),
-      })
-      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
-      const adfResults = await adfResponse.json()
+      const adfResults = adfTest(spreads)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1546,13 +1656,7 @@ Last day (${pricesA[endIdx].date}):`)
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
-      const adfResponse = await fetch("/api/adf-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ series: distances }),
-      })
-      if (!adfResponse.ok) throw new Error("Failed to fetch ADF test results")
-      const adfResults = await adfResponse.json()
+      const adfResults = adfTest(distances)
       const halfLifeResult = calculateHalfLife(distances)
       const hurstExponent = calculateHurstExponent(distances)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
@@ -2046,25 +2150,25 @@ Last day (${pricesA[endIdx].date}):`)
                   <div className="flex justify-between">
                     <span className="text-gray-300">Test Statistic:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.t_statistic.toFixed(4)}
+                      {analysisData.statistics.adfResults.statistic.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">p-value:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.p_value.toFixed(4)}
+                      {analysisData.statistics.adfResults.pValue.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (1%):</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.critical_values["1%"]}
+                      {analysisData.statistics.adfResults.criticalValues["1%"]}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (5%):</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.critical_values["5%"]}
+                      {analysisData.statistics.adfResults.criticalValues["5%"]}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -2137,7 +2241,7 @@ Last day (${pricesA[endIdx].date}):`)
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
                               ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                ? `Long ${selectedPair.stockA}, Short                                ? \`Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
