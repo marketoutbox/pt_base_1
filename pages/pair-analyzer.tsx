@@ -75,6 +75,62 @@ const scalarInverse = (x: number): number => {
   return Math.abs(x) < 1e-10 ? 1.0 : 1.0 / x
 }
 
+const adfTest = async (data) => {
+  if (data.length < 5) {
+    // Minimum observations for ADF test
+    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
+  }
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_ADF_BACKEND_URL}/adf-test`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ time_series: data }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    console.error("Error fetching ADF test results:", error)
+    // Return a default non-stationary result on error
+    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
+  }
+}
+
+const ppTest = async (data) => {
+  if (data.length < 5) {
+    // Minimum observations for PP test
+    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
+  }
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_ADF_BACKEND_URL}/pp-test`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ time_series: data }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    return result
+  } catch (error) {
+    console.error("Error fetching Phillips-Perron test results:", error)
+    // Return a default non-stationary result on error
+    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
+  }
+}
+
 export default function PairAnalyzer() {
   const [stocks, setStocks] = useState([])
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
@@ -107,7 +163,6 @@ export default function PairAnalyzer() {
   const [isLoading, setIsLoading] = useState(false)
   const [analysisData, setAnalysisData] = useState(null)
   const [error, setError] = useState("")
-  const [backendUrl, setBackendUrl] = useState("")
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -125,13 +180,6 @@ export default function PairAnalyzer() {
         oneYearAgo.setFullYear(today.getFullYear() - 1)
         setFromDate(oneYearAgo.toISOString().split("T")[0])
         setToDate(today.toISOString().split("T")[0])
-
-        // Set backend URL from environment variable
-        if (process.env.NEXT_PUBLIC_ADF_BACKEND_URL) {
-          setBackendUrl(process.env.NEXT_PUBLIC_ADF_BACKEND_URL)
-        } else {
-          console.warn("NEXT_PUBLIC_ADF_BACKEND_URL is not set. ADF test will not work.")
-        }
 
         // Check for URL parameters
         const urlParams = new URLSearchParams(window.location.search)
@@ -267,7 +315,7 @@ export default function PairAnalyzer() {
         const manualSumB2 = last3B.reduce((sum, val) => sum + val * val, 0)
 
         const manualNumerator = n * manualSumAB - manualSumA * manualSumB
-        const manualDenominator = n * manualSumB2 - manualSumB * manualSumB
+        const manualDenominator = n * manualSumB2 - manualSumB * sumB
         const manualBeta = manualNumerator / manualDenominator
         const manualAlpha = manualSumA / n - manualBeta * (manualSumB / n)
 
@@ -583,46 +631,6 @@ Last day (${pricesA[endIdx].date}):`)
     console.log("=====================================")
 
     return { hedgeRatios, alphas }
-  }
-
-  // Replace the simplified ADF test with a more robust implementation
-  const adfTest = async (data: number[]) => {
-    if (!backendUrl) {
-      console.error("ADF Backend URL is not set.")
-      return { statistic: 0, pValue: 1, isStationary: false, criticalValues: { "1%": 0, "5%": 0, "10%": 0 } }
-    }
-
-    if (data.length < 5) {
-      console.warn(`Not enough data for ADF test. Need at least 5, got ${data.length}`)
-      return { statistic: 0, pValue: 1, isStationary: false, criticalValues: { "1%": 0, "5%": 0, "10%": 0 } }
-    }
-
-    try {
-      const response = await fetch(`${backendUrl}/adf-test`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ time_series: data }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
-      }
-
-      const result = await response.json()
-      return {
-        statistic: result.statistic,
-        pValue: result.pValue,
-        criticalValues: result.criticalValues,
-        isStationary: result.isStationary,
-      }
-    } catch (error) {
-      console.error("Error fetching ADF test results from backend:", error)
-      setError(`Failed to perform ADF test: ${error.message}`)
-      return { statistic: 0, pValue: 1, isStationary: false, criticalValues: { "1%": 0, "5%": 0, "10%": 0 } }
-    }
   }
 
   const calculateCorrelation = (pricesA, pricesB) => {
@@ -985,7 +993,9 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on ratios
-      const adfResults = adfTest(ratios)
+      const adfResults = await adfTest(ratios)
+      // Add the Phillips-Perron test right after the ADF test
+      const ppResults = await ppTest(ratios)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(ratios)
@@ -1040,6 +1050,7 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
+          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1228,7 +1239,9 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      const adfResults = adfTest(spreads)
+      const adfResults = await adfTest(spreads)
+      // Add the Phillips-Perron test right after the ADF test
+      const ppResults = await ppTest(spreads)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1287,6 +1300,7 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
+          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1398,7 +1412,9 @@ Last day (${pricesA[endIdx].date}):`)
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
 
       // Run ADF test on spreads
-      const adfResults = adfTest(spreads)
+      const adfResults = await adfTest(spreads)
+      // Add the Phillips-Perron test right after the ADF test
+      const ppResults = await ppTest(spreads)
 
       // Calculate half-life and Hurst exponent
       const halfLifeResult = calculateHalfLife(spreads)
@@ -1457,6 +1473,7 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
+          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -1576,7 +1593,9 @@ Last day (${pricesA[endIdx].date}):`)
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
-      const adfResults = adfTest(distances)
+      const adfResults = await adfTest(distances)
+      // Add the Phillips-Perron test right after the ADF test
+      const ppResults = await ppTest(distances)
       const halfLifeResult = calculateHalfLife(distances)
       const hurstExponent = calculateHurstExponent(distances)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
@@ -1621,6 +1640,7 @@ Last day (${pricesA[endIdx].date}):`)
           minZScore,
           maxZScore,
           adfResults,
+          ppResults, // Add PP results here
           halfLife: halfLifeResult.halfLife,
           halfLifeValid: halfLifeResult.isValid,
           hurstExponent,
@@ -2099,6 +2119,46 @@ Last day (${pricesA[endIdx].date}):`)
                       }`}
                     >
                       {analysisData.statistics.adfResults.isStationary ? "Yes ✅" : "No ❌"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-navy-800/50 p-6 rounded-lg border border-navy-700">
+                <h3 className="text-xl font-semibold text-white mb-4">Phillips-Perron Test Results</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Test Statistic:</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.ppResults.statistic.toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">p-value:</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.ppResults.pValue.toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Critical Value (1%):</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.ppResults.criticalValues["1%"]}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Critical Value (5%):</span>
+                    <span className="text-gold-400 font-medium">
+                      {analysisData.statistics.ppResults.criticalValues["5%"]}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Stationarity:</span>
+                    <span
+                      className={`font-medium ${
+                        analysisData.statistics.ppResults.isStationary ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
+                      {analysisData.statistics.ppResults.isStationary ? "Yes ✅" : "No ❌"}
                     </span>
                   </div>
                 </div>
