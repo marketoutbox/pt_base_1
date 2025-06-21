@@ -108,7 +108,7 @@ export default function PairAnalyzer() {
   const [error, setError] = useState("")
 
   // Ref for the worker instance
-  const workerRef = useRef(null)
+  const workerRef = useRef<Worker | null>(null)
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -145,10 +145,36 @@ export default function PairAnalyzer() {
     }
     fetchStocks()
 
+    // Initialize worker once when component mounts
+    if (!workerRef.current) {
+      workerRef.current = new Worker("/workers/calculations-worker.js")
+      workerRef.current.onmessage = (event) => {
+        if (event.data.type === "analysisComplete") {
+          setIsLoading(false)
+          if (event.data.error) {
+            setError(event.data.error)
+          } else {
+            setAnalysisData(event.data.analysisData)
+          }
+          // Do NOT terminate worker here
+        } else if (event.data.type === "debug") {
+          console.log("[Worker Debug]", event.data.message)
+        } else if (event.data.type === "error") {
+          console.error("[Worker Error]", event.data.message)
+        }
+      }
+      workerRef.current.onerror = (e) => {
+        console.error("Worker error:", e)
+        setIsLoading(false)
+        setError("An error occurred in the background analysis. Please check console for details.")
+        // Do NOT terminate worker on error, allow it to potentially recover or be reused
+      }
+    }
+
     // Cleanup worker on component unmount
     return () => {
       if (workerRef.current) {
-        workerRef.current.terminate()
+        workerRef.current.terminate() // Terminate only on unmount
         workerRef.current = null
       }
     }
@@ -202,38 +228,34 @@ export default function PairAnalyzer() {
         return
       }
 
-      // Terminate existing worker if any
-      if (workerRef.current) {
-        workerRef.current.terminate()
-      }
-
-      // Create a new worker for each analysis run
-      const worker = new Worker("/workers/calculations-worker.js")
-      workerRef.current = worker
-
-      worker.onmessage = (event) => {
-        if (event.data.type === "analysisComplete") {
-          setIsLoading(false)
-          if (event.data.error) {
-            setError(event.data.error)
-          } else {
-            setAnalysisData(event.data.analysisData)
+      // Ensure worker is initialized (it should be by useEffect, but as a fallback)
+      if (!workerRef.current) {
+        console.warn("Worker not initialized, attempting to create in runAnalysis.")
+        workerRef.current = new Worker("/workers/calculations-worker.js")
+        // Re-attach message/error handlers if worker was just created
+        workerRef.current.onmessage = (event) => {
+          if (event.data.type === "analysisComplete") {
+            setIsLoading(false)
+            if (event.data.error) {
+              setError(event.data.error)
+            } else {
+              setAnalysisData(event.data.analysisData)
+            }
+          } else if (event.data.type === "debug") {
+            console.log("[Worker Debug]", event.data.message)
+          } else if (event.data.type === "error") {
+            console.error("[Worker Error]", event.data.message)
           }
-          worker.terminate() // Terminate worker after use
-          workerRef.current = null
+        }
+        workerRef.current.onerror = (e) => {
+          console.error("Worker error:", e)
+          setIsLoading(false)
+          setError("An error occurred in the background analysis. Please check console for details.")
         }
       }
 
-      worker.onerror = (e) => {
-        console.error("Worker error:", e)
-        setIsLoading(false)
-        setError("An error occurred in the background analysis. Please check console for details.")
-        worker.terminate() // Terminate worker on error
-        workerRef.current = null
-      }
-
       // Send data and parameters to the worker
-      worker.postMessage({
+      workerRef.current.postMessage({
         type: "runAnalysis",
         data: { pricesA, pricesB },
         params: {
