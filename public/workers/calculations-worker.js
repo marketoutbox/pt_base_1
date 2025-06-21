@@ -9,7 +9,8 @@ async function loadPyodideAndPackages() {
   if (!pyodideReadyPromise) {
     pyodideReadyPromise = (async () => {
       console.log("Loading Pyodide...")
-      self.pyodide = await window.loadPyodide() // Declare the loadPyodide variable
+      // CORRECTED: Use self.loadPyodide instead of window.loadPyodide
+      self.pyodide = await self.loadPyodide()
       console.log("Pyodide loaded. Loading statsmodels...")
       await self.pyodide.loadPackage("statsmodels")
       console.log("statsmodels loaded.")
