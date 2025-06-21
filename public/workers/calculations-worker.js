@@ -413,8 +413,30 @@ const calculateHurstExponent = (data) => {
 }
 
 // ADF Test function (now using Pyodide)
-const adfTestPyodide = async (data) => {
-  if (data.length < 5) {
+const adfTestPyodide = async (data, seriesType) => {
+  // Filter out NaN and Infinity values
+  const cleanData = data.filter((val) => typeof val === "number" && isFinite(val))
+
+  self.postMessage({
+    type: "debug",
+    message: `ADF Test: Received ${data.length} raw data points for ${seriesType}. Cleaned to ${cleanData.length} points.`,
+  })
+  if (cleanData.length > 0) {
+    self.postMessage({
+      type: "debug",
+      message: `ADF Test: Sample of clean data (first 5): ${cleanData.slice(0, 5).join(", ")}`,
+    })
+    self.postMessage({
+      type: "debug",
+      message: `ADF Test: Sample of clean data (last 5): ${cleanData.slice(-5).join(", ")}`,
+    })
+  }
+
+  if (cleanData.length < 5) {
+    self.postMessage({
+      type: "debug",
+      message: `ADF Test: Not enough clean data points (${cleanData.length}) for ADF test. Returning default.`,
+    })
     return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
   }
 
@@ -422,7 +444,7 @@ const adfTestPyodide = async (data) => {
     const pyodide = await loadPyodideAndPackages() // Ensure Pyodide is loaded
 
     // Convert JS array to Python list
-    const pythonData = pyodide.toPy(data)
+    const pythonData = pyodide.toPy(cleanData)
 
     // Run ADF test in Python
     const pythonCode = `
@@ -430,23 +452,26 @@ import numpy as np
 from statsmodels.tsa.stattools import adfuller
 
 def run_adf(series):
-    if len(series) < 5: # adfuller requires at least 5 observations
-        return {"statistic": 0, "pvalue": 1, "critical_values": {"1%": 0, "5%": 0, "10%": 0}, "is_stationary": False}
-    
-    result = adfuller(series, autolag='AIC')
-    
-    statistic = result[0]
-    pvalue = result[1]
-    critical_values = result[4]
-    
-    is_stationary = pvalue <= 0.05 and statistic < critical_values['5%']
-    
-    return {
-        "statistic": statistic,
-        "pvalue": pvalue,
-        "critical_values": critical_values,
-        "is_stationary": is_stationary
-    }
+  # statsmodels adfuller internally handles NaNs by dropping them, but we pre-clean for safety
+  # and to ensure the length check is accurate for the *usable* data.
+  if len(series) < 5: # adfuller requires at least 5 observations
+      return {"statistic": 0, "pvalue": 1, "critical_values": {"1%": 0, "5%": 0, "10%": 0}, "is_stationary": False}
+  
+  result = adfuller(series, autolag='AIC')
+  
+  statistic = result[0]
+  pvalue = result[1]
+  critical_values = result[4]
+  
+  # Check if test statistic is less than critical value AND p-value is significant
+  is_stationary = pvalue <= 0.05 and statistic < critical_values['5%']
+  
+  return {
+      "statistic": statistic,
+      "pvalue": pvalue,
+      "critical_values": critical_values,
+      "is_stationary": is_stationary
+  }
 
 run_adf(series)
 `
@@ -456,6 +481,7 @@ run_adf(series)
     // Convert Python result back to JS object
     const jsResult = result.toJs({ dict_converter: Object.fromEntries })
     result.destroy() // Clean up Python object
+    self.postMessage({ type: "debug", message: `ADF Test: Pyodide result: ${JSON.stringify(jsResult)}` })
 
     return {
       statistic: jsResult.statistic,
@@ -465,6 +491,7 @@ run_adf(series)
     }
   } catch (error) {
     console.error("Error running ADF test with Pyodide:", error)
+    self.postMessage({ type: "error", message: `ADF Test Pyodide error: ${error.message}` })
     return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
   }
 }
@@ -569,9 +596,9 @@ self.onmessage = async (event) => {
 
       const correlation = calculateCorrelation(pricesA.slice(0, minLength), pricesB.slice(0, minLength))
       // Use Pyodide for ADF test
-      const adfResults = await adfTestPyodide(
-        modelType === "ratio" ? ratios : modelType === "euclidean" ? distances : spreads,
-      )
+      const seriesForADF = modelType === "ratio" ? ratios : modelType === "euclidean" ? distances : spreads
+      const seriesTypeForADF = modelType === "ratio" ? "ratios" : modelType === "euclidean" ? "distances" : "spreads"
+      const adfResults = await adfTestPyodide(seriesForADF, seriesTypeForADF)
       const halfLifeResult = calculateHalfLife(
         modelType === "ratio" ? ratios : modelType === "euclidean" ? distances : spreads,
       )
