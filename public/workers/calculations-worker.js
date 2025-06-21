@@ -471,12 +471,16 @@ run_adf(series)
 
 // Main message handler for the worker
 self.onmessage = async (event) => {
-  const { type, data, params, selectedPair } = event.data // backendUrl is no longer needed for ADF
+  // Corrected destructuring: pricesA and pricesB are inside event.data.data
+  const {
+    type,
+    data: { pricesA, pricesB },
+    params,
+    selectedPair,
+  } = event.data
 
   if (type === "runAnalysis") {
     const {
-      pricesA,
-      pricesB,
       modelType,
       ratioLookbackWindow,
       olsLookbackWindow,
