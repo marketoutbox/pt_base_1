@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { openDB } from "idb"
-// Removed direct import of calculateZScore as it's now in the worker
 import {
   LineChart,
   Line,
@@ -18,6 +17,7 @@ import {
   BarChart,
   Bar,
 } from "recharts"
+import { getCalculationsWorker } from "../pages/_app" // Import the getter function for the shared worker
 
 // Matrix operations for 2x2 matrices (these are no longer directly used in pair-analyzer.tsx, but kept for completeness if other parts of the app still use them)
 const matrixMultiply2x2 = (A: number[][], B: number[][]): number[][] => {
@@ -75,11 +75,6 @@ const scalarInverse = (x: number): number => {
   return Math.abs(x) < 1e-10 ? 1.0 : 1.0 / x
 }
 
-// The adfTest function is now completely removed from the main thread,
-// as it's handled by the calculations-worker.js
-// The previous adfTest function was already using a worker, but now that worker
-// will use Pyodide instead of fetching from the backend.
-
 export default function PairAnalyzer() {
   const [stocks, setStocks] = useState([])
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
@@ -107,8 +102,8 @@ export default function PairAnalyzer() {
   const [analysisData, setAnalysisData] = useState(null)
   const [error, setError] = useState("")
 
-  // Ref for the worker instance
-  const workerRef = useRef<Worker | null>(null)
+  // No longer need a useRef for the worker, as it's managed globally
+  // const workerRef = useRef<Worker | null>(null) // REMOVED
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -145,39 +140,9 @@ export default function PairAnalyzer() {
     }
     fetchStocks()
 
-    // Initialize worker once when component mounts
-    if (!workerRef.current) {
-      workerRef.current = new Worker("/workers/calculations-worker.js")
-      workerRef.current.onmessage = (event) => {
-        if (event.data.type === "analysisComplete") {
-          setIsLoading(false)
-          if (event.data.error) {
-            setError(event.data.error)
-          } else {
-            setAnalysisData(event.data.analysisData)
-          }
-          // Do NOT terminate worker here
-        } else if (event.data.type === "debug") {
-          console.log("[Worker Debug]", event.data.message)
-        } else if (event.data.type === "error") {
-          console.error("[Worker Error]", event.data.message)
-        }
-      }
-      workerRef.current.onerror = (e) => {
-        console.error("Worker error:", e)
-        setIsLoading(false)
-        setError("An error occurred in the background analysis. Please check console for details.")
-        // Do NOT terminate worker on error, allow it to potentially recover or be reused
-      }
-    }
-
-    // Cleanup worker on component unmount
-    return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate() // Terminate only on unmount
-        workerRef.current = null
-      }
-    }
+    // The worker is now initialized globally in _app.tsx.
+    // No need for worker initialization or cleanup here.
+    // The global worker will be terminated when the app unmounts.
   }, [])
 
   const handleSelection = (event) => {
@@ -228,18 +193,19 @@ export default function PairAnalyzer() {
         return
       }
 
-      // Ensure worker is initialized (it should be by useEffect, but as a fallback)
-      if (!workerRef.current) {
-        console.warn("Worker not initialized, attempting to create in runAnalysis.")
-        workerRef.current = new Worker("/workers/calculations-worker.js")
-        // Re-attach message/error handlers if worker was just created
-        workerRef.current.onmessage = (event) => {
+      // Get the shared worker instance
+      const worker = getCalculationsWorker()
+
+      // Use a Promise to handle the worker's response for this specific analysis run
+      const analysisPromise = new Promise((resolve, reject) => {
+        const messageHandler = (event) => {
           if (event.data.type === "analysisComplete") {
-            setIsLoading(false)
+            worker.removeEventListener("message", messageHandler) // Clean up listener
+            worker.removeEventListener("error", errorHandler) // Clean up listener
             if (event.data.error) {
-              setError(event.data.error)
+              reject(new Error(event.data.error))
             } else {
-              setAnalysisData(event.data.analysisData)
+              resolve(event.data.analysisData)
             }
           } else if (event.data.type === "debug") {
             console.log("[Worker Debug]", event.data.message)
@@ -247,35 +213,42 @@ export default function PairAnalyzer() {
             console.error("[Worker Error]", event.data.message)
           }
         }
-        workerRef.current.onerror = (e) => {
-          console.error("Worker error:", e)
-          setIsLoading(false)
-          setError("An error occurred in the background analysis. Please check console for details.")
-        }
-      }
 
-      // Send data and parameters to the worker
-      workerRef.current.postMessage({
-        type: "runAnalysis",
-        data: { pricesA, pricesB },
-        params: {
-          modelType: activeTab,
-          ratioLookbackWindow,
-          olsLookbackWindow,
-          kalmanProcessNoise,
-          kalmanMeasurementNoise, // Still passed, though worker's Kalman might not use it directly
-          kalmanInitialLookback,
-          euclideanLookbackWindow,
-          zScoreLookback,
-          entryThreshold,
-          exitThreshold,
-        },
-        // backendUrl is no longer needed for ADF test, but could be passed if other backend calls are added later
-        selectedPair: selectedPair, // Pass selectedPair for dynamic text in worker logs if needed
+        const errorHandler = (e) => {
+          worker.removeEventListener("message", messageHandler) // Clean up listener
+          worker.removeEventListener("error", errorHandler) // Clean up listener
+          reject(new Error("An error occurred in the background analysis. Please check console for details."))
+        }
+
+        worker.addEventListener("message", messageHandler)
+        worker.addEventListener("error", errorHandler)
+
+        // Send data and parameters to the worker
+        worker.postMessage({
+          type: "runAnalysis",
+          data: { pricesA, pricesB },
+          params: {
+            modelType: activeTab,
+            ratioLookbackWindow,
+            olsLookbackWindow,
+            kalmanProcessNoise,
+            kalmanMeasurementNoise,
+            kalmanInitialLookback,
+            euclideanLookbackWindow,
+            zScoreLookback,
+            entryThreshold,
+            exitThreshold,
+          },
+          selectedPair: selectedPair,
+        })
       })
+
+      const result = await analysisPromise
+      setIsLoading(false)
+      setAnalysisData(result)
     } catch (error) {
       console.error("Error initiating analysis:", error)
-      setError("An error occurred while preparing data for analysis. Please try again.")
+      setError(error.message || "An error occurred while preparing data for analysis. Please try again.")
       setIsLoading(false)
     }
   }
