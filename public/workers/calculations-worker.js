@@ -2,7 +2,8 @@
 
 // Import the WASM module and its initialization function
 // Adjust the path based on where you placed your 'pkg' folder in the public directory
-import init, { get_adf_p_value_and_stationarity } from "../wasm/adf_test_pkg/adf_test.js"
+// QUICKEDIT: Changed path from "../wasm/adf_test_pkg/adf_test.js" to "../wasm/adf_test.js"
+import init, { get_adf_p_value_and_stationarity } from "../wasm/adf_test.js"
 
 let wasmInitialized = false
 
@@ -16,8 +17,13 @@ async function initializeWasm() {
       self.postMessage({ type: "debug", message: "WASM initialized." })
     } catch (e) {
       console.error("Failed to initialize WASM:", e)
-      self.postMessage({ type: "error", message: `WASM initialization error: ${e.message}` })
-      // Potentially re-throw or handle more gracefully
+      // Ensure we send the error message from the exception
+      self.postMessage({
+        type: "error",
+        message: `WASM initialization error: ${e instanceof Error ? e.message : String(e)}`,
+      })
+      // Re-throw the error to ensure the worker's onerror handler is also triggered
+      throw e
     }
   }
 }
