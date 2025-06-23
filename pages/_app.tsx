@@ -15,7 +15,8 @@ let calculationsWorker: Worker | null = null
 export function getCalculationsWorker(): Worker {
   if (!calculationsWorker) {
     console.log("Instantiating calculations worker (first access)...")
-    calculationsWorker = new Worker("/workers/calculations-worker.js")
+    // *** FIX: Add { type: 'module' } to load the worker as an ES Module ***
+    calculationsWorker = new Worker("/workers/calculations-worker.js", { type: "module" })
     // Attach global message/error handlers for debugging or general worker status
     calculationsWorker.onmessage = (event) => {
       if (event.data.type === "debug") {
