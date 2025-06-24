@@ -3,6 +3,28 @@
 import { useState, useEffect } from "react"
 import { openDB } from "idb"
 
+const calculateZScoreLocal = (data, lookback) => {
+  if (data.length < lookback) {
+    return Array(data.length).fill(0) // Not enough data for initial z-score
+  }
+
+  const zScores = []
+  for (let i = 0; i < data.length; i++) {
+    const windowStart = Math.max(0, i - lookback + 1)
+    const windowData = data.slice(windowStart, i + 1)
+
+    if (windowData.length === lookback) {
+      const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
+      const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1) // Sample variance
+      const stdDev = Math.sqrt(variance)
+      zScores.push(stdDev > 0 ? (data[i] - mean) / stdDev : 0)
+    } else {
+      zScores.push(0) // Not enough data in window yet
+    }
+  }
+  return zScores
+}
+
 export default function BacktestSpread() {
   const [stocks, setStocks] = useState([])
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
@@ -13,7 +35,8 @@ export default function BacktestSpread() {
   const [backtestData, setBacktestData] = useState([])
   const [hedgedTradeResults, setHedgedTradeResults] = useState([])
   const [valueNeutralTradeResults, setValueNeutralTradeResults] = useState([])
-  const [lookbackPeriod, setLookbackPeriod] = useState(50)
+  const [olsLookbackWindow, setOlsLookbackWindow] = useState(60) // New state for OLS lookback
+  const [zScoreLookback, setZScoreLookback] = useState(30) // New state for Z-score lookback
   const [isLoading, setIsLoading] = useState(false)
   const [capitalPerTrade, setCapitalPerTrade] = useState(100000)
   const [riskFreeRate, setRiskFreeRate] = useState(0.02) // 2% annual risk-free rate
@@ -91,17 +114,26 @@ export default function BacktestSpread() {
     let count = 0
 
     for (let i = startIdx; i < endIdx; i++) {
-      sumA += pricesA[i].close
-      sumB += pricesB[i].close
-      sumAB += pricesA[i].close * pricesB[i].close
-      sumB2 += pricesB[i].close * pricesB[i].close
+      const priceA = pricesA[i].close
+      const priceB = pricesB[i].close
+      sumA += priceA
+      sumB += priceB
+      sumAB += priceA * priceB
+      sumB2 += priceB * priceB
       count++
     }
 
     // Avoid division by zero
-    if (count === 0 || count * sumB2 - sumB * sumB === 0) return 1
+    if (count === 0 || count * sumB2 - sumB * sumB === 0) {
+      return { beta: 1, alpha: 0 } // Return default alpha and beta
+    }
 
-    return (count * sumAB - sumA * sumB) / (count * sumB2 - sumB * sumB)
+    const numerator = count * sumAB - sumA * sumB
+    const denominator = count * sumB2 - sumB * sumB
+    const beta = numerator / denominator
+    const alpha = sumA / count - beta * (sumB / count)
+
+    return { beta, alpha } // Return both beta and alpha
   }
 
   const calculateAdvancedMetrics = (trades, method = "hedged") => {
@@ -259,7 +291,7 @@ export default function BacktestSpread() {
     const trades = []
     let openTrade = null
 
-    for (let i = lookbackPeriod; i < tableData.length; i++) {
+    for (let i = 0; i < tableData.length; i++) {
       const prevZ = i > 0 ? tableData[i - 1].zScore : 0
       const currZ = tableData[i].zScore
       const currentRow = tableData[i]
@@ -477,69 +509,47 @@ export default function BacktestSpread() {
 
       const minLength = Math.min(alignedPricesA.length, alignedPricesB.length)
 
-      if (minLength < lookbackPeriod) {
-        alert(`Insufficient data. Need at least ${lookbackPeriod} days, but only have ${minLength} days.`)
+      // Update minimum length check to use olsLookbackWindow
+      if (minLength < olsLookbackWindow || minLength < zScoreLookback) {
+        alert(
+          `Insufficient data. Need at least ${Math.max(
+            olsLookbackWindow,
+            zScoreLookback,
+          )} days, but only have ${minLength} days.`,
+        )
         setIsLoading(false)
         return
       }
 
       const spreads = []
       const hedgeRatios = []
+      const alphas = [] // New array to store alphas
 
-      // Calculate rolling hedge ratios and spreads
+      // Calculate rolling hedge ratios (beta) and alpha, and spreads
       for (let i = 0; i < minLength; i++) {
-        const currentHedgeRatio = calculateHedgeRatio(alignedPricesA, alignedPricesB, i, lookbackPeriod)
-        hedgeRatios.push(currentHedgeRatio)
+        // Use olsLookbackWindow for hedge ratio calculation
+        const { beta, alpha } = calculateHedgeRatio(alignedPricesA, alignedPricesB, i, olsLookbackWindow)
+        hedgeRatios.push(beta)
+        alphas.push(alpha) // Store alpha
 
-        spreads.push({
-          date: alignedPricesA[i].date,
-          spread: alignedPricesA[i].close - currentHedgeRatio * alignedPricesB[i].close,
-          stockAClose: alignedPricesA[i].close,
-          stockBClose: alignedPricesB[i].close,
-          hedgeRatio: currentHedgeRatio,
-          index: i,
-        })
+        const currentPriceA = alignedPricesA[i].close
+        const currentPriceB = alignedPricesB[i].close
+        // Calculate spread using the current alpha and beta
+        const spread = currentPriceA - (alpha + beta * currentPriceB)
+        spreads.push(spread)
       }
 
-      // Calculate z-scores using the corrected methodology
-      const zScores = []
-      for (let i = 0; i < spreads.length; i++) {
-        if (i < lookbackPeriod - 1) {
-          zScores.push(0) // Not enough data for z-score
-          continue
-        }
+      // Calculate z-scores using the spreads and zScoreLookback
+      const zScores = calculateZScoreLocal(spreads, zScoreLookback)
 
-        // Get the current regression parameters
-        const currentAlpha = spreads[i].stockAClose - spreads[i].hedgeRatio * spreads[i].stockBClose - spreads[i].spread
-        const currentBeta = spreads[i].hedgeRatio
-
-        // Calculate window spreads using current alpha/beta
-        const windowStart = Math.max(0, i - lookbackPeriod + 1)
-        const windowSpreads = []
-
-        for (let j = windowStart; j <= i; j++) {
-          const windowSpread = spreads[j].stockAClose - (currentAlpha + currentBeta * spreads[j].stockBClose)
-          windowSpreads.push(windowSpread)
-        }
-
-        // Calculate z-score using sample standard deviation
-        const mean = windowSpreads.reduce((sum, val) => sum + val, 0) / windowSpreads.length
-        const variance =
-          windowSpreads.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowSpreads.length - 1)
-        const stdDev = Math.sqrt(variance)
-
-        const currentSpread = spreads[i].spread
-        const zScore = stdDev > 0 ? (currentSpread - mean) / stdDev : 0
-        zScores.push(zScore)
-      }
-
-      const tableData = spreads.map((item, index) => ({
-        date: item.date,
-        stockAClose: item.stockAClose,
-        stockBClose: item.stockBClose,
-        spread: item.spread,
+      const tableData = spreads.map((spread, index) => ({
+        date: alignedPricesA[index].date,
+        stockAClose: alignedPricesA[index].close,
+        stockBClose: alignedPricesB[index].close,
+        spread: spread,
         zScore: zScores[index] || 0,
-        hedgeRatio: item.hedgeRatio,
+        hedgeRatio: hedgeRatios[index],
+        alpha: alphas[index], // Include alpha in tableData
         index: index,
       }))
 
@@ -641,16 +651,28 @@ export default function BacktestSpread() {
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
           <div>
-            <label className="block text-base font-medium text-gray-300 mb-2">Lookback Period (days)</label>
+            <label className="block text-base font-medium text-gray-300 mb-2">OLS Lookback Window (Days)</label>
             <input
               type="number"
-              value={lookbackPeriod}
-              onChange={(e) => setLookbackPeriod(Number.parseInt(e.target.value))}
+              value={olsLookbackWindow}
+              onChange={(e) => setOlsLookbackWindow(Number.parseInt(e.target.value))}
               min="10"
               max="252"
               className="input-field"
             />
-            <p className="mt-1 text-sm text-gray-400">Window size for calculating hedge ratio and z-score</p>
+            <p className="mt-1 text-sm text-gray-400">Window size for rolling OLS regression (Alpha & Beta)</p>
+          </div>
+          <div>
+            <label className="block text-base font-medium text-gray-300 mb-2">Z-Score Lookback (Days)</label>
+            <input
+              type="number"
+              value={zScoreLookback}
+              onChange={(e) => setZScoreLookback(Number.parseInt(e.target.value))}
+              min="5"
+              max="100"
+              className="input-field"
+            />
+            <p className="mt-1 text-sm text-gray-400">Window size for z-score calculation of the spread</p>
           </div>
           <div>
             <label className="block text-base font-medium text-gray-300 mb-2">Entry Z-score</label>
@@ -797,6 +819,7 @@ export default function BacktestSpread() {
                     <th className="table-header">Date</th>
                     <th className="table-header">{selectedPair.stockA} Close</th>
                     <th className="table-header">{selectedPair.stockB} Close</th>
+                    <th className="table-header">Alpha (α)</th>
                     <th className="table-header">Hedge Ratio (β)</th>
                     <th className="table-header">Spread (A - βB)</th>
                     <th className="table-header">Z-score</th>
@@ -808,6 +831,7 @@ export default function BacktestSpread() {
                       <td className="table-cell">{row.date}</td>
                       <td className="table-cell">{row.stockAClose.toFixed(2)}</td>
                       <td className="table-cell">{row.stockBClose.toFixed(2)}</td>
+                      <td className="table-cell">{row.alpha.toFixed(4)}</td>
                       <td className="table-cell">{row.hedgeRatio.toFixed(4)}</td>
                       <td className="table-cell">{row.spread.toFixed(4)}</td>
                       <td
