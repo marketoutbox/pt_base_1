@@ -1118,7 +1118,7 @@ const ADF_P_VALUE_LOOKUP: &[[f64; 2]] = &[
   [99.7, 0.0003014],
   [99.8, 0.0003016],
   [99.9, 0.0003018],
-  [100.0, 0.000302],
+  [100.0, 0.000302]
   // END OF GENERATED DATA FROM generated_adf_critical_values_table.csv
 ];
 
