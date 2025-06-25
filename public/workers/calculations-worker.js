@@ -2,7 +2,7 @@
 
 // Import the WASM module and its initialization function
 // Adjust the path based on where you placed your 'pkg' folder in the public directory
-import init, { get_adf_p_value_and_stationarity } from "../wasm/adf_test.js"
+import init, { perform_adf_test_full } from "../wasm/adf_test.js" // Updated import
 
 let wasmInitialized = false
 
@@ -423,155 +423,7 @@ const calculateHurstExponent = (data) => {
   return hurstExponent
 }
 
-// Placeholder for ADF Test Statistic Calculation in JavaScript
-// This is a complex statistical calculation that involves OLS regression.
-// For a full implementation, you would need to perform linear regression
-// of the differenced series on its lagged values and the original series.
-// For now, this returns a dummy value. You will need to replace this
-// with a proper implementation or move the full ADF calculation to Rust.
-const calculateAdfTestStatistic = (data) => {
-  const n = data.length
-  if (n < 5) return 0 // ADF requires at least 5 observations
-
-  // 1. Calculate the first difference (delta_y)
-  const diffData = data.slice(1).map((val, i) => val - data[i])
-
-  // 2. Prepare variables for regression:
-  //    Dependent variable (Y): delta_y
-  //    Independent variables (X): lagged_y (y_t-1), lagged_delta_y (delta_y_t-1), constant (intercept)
-
-  const Y = [] // delta_y
-  const X_lagged_y = [] // y_t-1
-  const X_lagged_delta_y = [] // delta_y_t-1 (for higher order lags, but we'll simplify to 1 lag for now)
-
-  // Start from the second element of diffData (which corresponds to the third element of original data)
-  // to ensure we have y_t-1 and delta_y_t-1
-  for (let i = 1; i < diffData.length; i++) {
-    Y.push(diffData[i])
-    X_lagged_y.push(data[i]) // y_t-1
-    X_lagged_delta_y.push(diffData[i - 1]) // delta_y_t-1
-  }
-
-  if (Y.length < 3) return 0 // Need at least 3 points for regression with 2 predictors + intercept
-
-  // Simple Linear Regression function (for multiple variables)
-  // This is a basic OLS implementation. For production, consider a dedicated library.
-  const runMultiLinearRegression = (y_values, x_matrix) => {
-    const numObservations = y_values.length
-    const numPredictors = x_matrix[0].length // Includes intercept
-
-    // Build X transpose * X
-    const XtX = Array(numPredictors)
-      .fill(0)
-      .map(() => Array(numPredictors).fill(0))
-    for (let i = 0; i < numPredictors; i++) {
-      for (let j = 0; j < numPredictors; j++) {
-        for (let k = 0; k < numObservations; k++) {
-          XtX[i][j] += x_matrix[k][i] * x_matrix[k][j]
-        }
-      }
-    }
-
-    // Build X transpose * Y
-    const XtY = Array(numPredictors).fill(0)
-    for (let i = 0; i < numPredictors; i++) {
-      for (let k = 0; k < numObservations; k++) {
-        XtY[i] += x_matrix[k][i] * y_values[k]
-      }
-    }
-
-    // Calculate (XtX)^-1
-    const det =
-      XtX[0][0] * XtX[1][1] * XtX[2][2] +
-      XtX[0][1] * XtX[1][2] * XtX[2][0] +
-      XtX[0][2] * XtX[1][0] * XtX[2][1] -
-      XtX[0][2] * XtX[1][1] * XtX[2][0] -
-      XtX[0][1] * XtX[1][0] * XtX[2][2] -
-      XtX[0][0] * XtX[1][2] * XtX[2][1]
-
-    if (Math.abs(det) < 1e-9) {
-      // Matrix is singular or nearly singular, cannot invert
-      return {
-        coefficients: Array(numPredictors).fill(0),
-        stdErrors: Array(numPredictors).fill(Number.POSITIVE_INFINITY),
-      }
-    }
-
-    const invDet = 1 / det
-    const adj = [
-      [
-        XtX[1][1] * XtX[2][2] - XtX[1][2] * XtX[2][1],
-        XtX[0][2] * XtX[2][1] - XtX[0][1] * XtX[2][2],
-        XtX[0][1] * XtX[1][2] - XtX[0][2] * XtX[1][1],
-      ],
-      [
-        XtX[1][2] * XtX[2][0] - XtX[1][0] * XtX[2][2],
-        XtX[0][0] * XtX[2][2] - XtX[0][2] * XtX[2][0],
-        XtX[0][2] * XtX[1][0] - XtX[0][0] * XtX[1][2],
-      ],
-      [
-        XtX[1][0] * XtX[2][1] - XtX[1][1] * XtX[2][0],
-        XtX[0][1] * XtX[2][0] - XtX[0][0] * XtX[2][1],
-        XtX[0][0] * XtX[1][1] - XtX[0][1] * XtX[1][0],
-      ],
-    ]
-    const XtX_inv = adj.map((row) => row.map((val) => val * invDet))
-
-    // Calculate coefficients (beta_hat = (XtX)^-1 * XtY)
-    const coefficients = Array(numPredictors).fill(0)
-    for (let i = 0; i < numPredictors; i++) {
-      for (let j = 0; j < numPredictors; j++) {
-        coefficients[i] += XtX_inv[i][j] * XtY[j]
-      }
-    }
-
-    // Calculate residuals
-    const residuals = []
-    for (let i = 0; i < numObservations; i++) {
-      let predictedY = 0
-      for (let j = 0; j < numPredictors; j++) {
-        predictedY += coefficients[j] * x_matrix[i][j]
-      }
-      residuals.push(y_values[i] - predictedY)
-    }
-
-    // Calculate Residual Sum of Squares (RSS)
-    const RSS = residuals.reduce((sum, r) => sum + r * r, 0)
-    // Calculate Mean Squared Error (MSE)
-    const MSE = RSS / (numObservations - numPredictors)
-
-    // Calculate standard errors of coefficients
-    const stdErrors = Array(numPredictors).fill(0)
-    for (let i = 0; i < numPredictors; i++) {
-      stdErrors[i] = Math.sqrt(MSE * XtX_inv[i][i])
-    }
-
-    return { coefficients, stdErrors }
-  }
-
-  // Construct the X matrix for regression: [constant, lagged_y, lagged_delta_y]
-  const X_matrix = []
-  for (let i = 0; i < Y.length; i++) {
-    X_matrix.push([1, X_lagged_y[i], X_lagged_delta_y[i]])
-  }
-
-  const regressionResults = runMultiLinearRegression(Y, X_matrix)
-
-  // The ADF test statistic is the t-statistic of the coefficient of the lagged original series (y_t-1)
-  // This corresponds to coefficients[1] (index 0 is intercept, index 1 is lagged_y, index 2 is lagged_delta_y)
-  const beta_lagged_y = regressionResults.coefficients[1]
-  const stdError_lagged_y = regressionResults.stdErrors[1]
-
-  if (stdError_lagged_y === 0 || isNaN(stdError_lagged_y) || !isFinite(stdError_lagged_y)) {
-    return 0 // Cannot calculate t-statistic if std error is zero or invalid
-  }
-
-  const tStatistic = beta_lagged_y / stdError_lagged_y
-
-  return tStatistic
-}
-
-// ADF Test function (now using WASM)
+// ADF Test function (now using WASM for full calculation including optimal lag selection)
 const adfTestWasm = async (data, seriesType) => {
   // Filter out NaN and Infinity values
   const cleanData = data.filter((val) => typeof val === "number" && isFinite(val))
@@ -596,30 +448,43 @@ const adfTestWasm = async (data, seriesType) => {
       type: "debug",
       message: `ADF Test: Not enough clean data points (${cleanData.length}) for ADF test. Returning default.`,
     })
-    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
+    return {
+      statistic: 0,
+      pValue: 1,
+      criticalValues: { "1%": 0, "5%": 0, "10%": 0 },
+      isStationary: false,
+      optimalLags: 0,
+    }
   }
 
   try {
     await initializeWasm() // Ensure WASM is loaded
 
-    // Calculate the test statistic in JavaScript (or pass raw data to Rust if full ADF is in WASM)
-    const testStatistic = calculateAdfTestStatistic(cleanData)
+    // Convert JavaScript array to Float64Array for WASM
+    const dataFloat64Array = new Float64Array(cleanData)
 
-    // Call the WASM function
-    const result = get_adf_p_value_and_stationarity(testStatistic)
+    // Call the new WASM function that performs the full ADF test with optimal lag selection
+    const result = perform_adf_test_full(dataFloat64Array)
 
     self.postMessage({ type: "debug", message: `ADF Test: WASM result: ${JSON.stringify(result)}` })
 
     return {
       statistic: result.statistic,
       pValue: result.p_value,
-      criticalValues: result.critical_values,
+      criticalValues: result.critical_values, // This will be a JS object from Rust
       isStationary: result.is_stationary,
+      optimalLags: result.optimal_lags, // Include optimal lags
     }
   } catch (error) {
     console.error("Error running ADF test with WASM:", error)
     self.postMessage({ type: "error", message: `ADF Test WASM error: ${error.message}` })
-    return { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false }
+    return {
+      statistic: 0,
+      pValue: 1,
+      criticalValues: { "1%": 0, "5%": 0, "10%": 0 },
+      isStationary: false,
+      optimalLags: 0,
+    }
   }
 }
 
