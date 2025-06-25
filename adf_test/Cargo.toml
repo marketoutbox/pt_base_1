@@ -9,9 +9,11 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 wasm-bindgen = "0.2.92"
 js-sys = "0.3.69"
-ndarray = "0.15"
-# Use a pure Rust LAPACK backend for ndarray-linalg, suitable for WASM
-ndarray-linalg = { version = "0.16", features = ["lapack-src"] }
+# Add ndarray for numerical operations
+ndarray = "0.15.6"
+# Add ndarray-linalg for linear algebra (e.g., matrix inverse)
+# Ensure to enable a WASM-compatible backend like "netlib"
+ndarray-linalg = { version = "0.16.0", features = ["netlib"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.42"
