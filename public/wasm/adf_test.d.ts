@@ -1,18 +1,33 @@
 /* tslint:disable */
 /* eslint-disable */
-export function adf_test(series_js: any, lags: number): any;
+export function get_adf_p_value_and_stationarity(test_statistic: number): AdfResult;
+export class AdfResult {
+  private constructor();
+  free(): void;
+  statistic: number;
+  p_value: number;
+  is_stationary: boolean;
+  readonly critical_values: any;
+}
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly adf_test: (a: any, b: number) => [number, number, number];
-  readonly __wbindgen_malloc: (a: number, b: number) => number;
-  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_adfresult_free: (a: number, b: number) => void;
+  readonly __wbg_get_adfresult_statistic: (a: number) => number;
+  readonly __wbg_set_adfresult_statistic: (a: number, b: number) => void;
+  readonly __wbg_get_adfresult_p_value: (a: number) => number;
+  readonly __wbg_set_adfresult_p_value: (a: number, b: number) => void;
+  readonly __wbg_get_adfresult_is_stationary: (a: number) => number;
+  readonly __wbg_set_adfresult_is_stationary: (a: number, b: number) => void;
+  readonly adfresult_critical_values: (a: number) => any;
+  readonly get_adf_p_value_and_stationarity: (a: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
   readonly __externref_table_alloc: () => number;
-  readonly __wbindgen_export_4: WebAssembly.Table;
-  readonly __externref_table_dealloc: (a: number) => void;
+  readonly __wbindgen_export_2: WebAssembly.Table;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_start: () => void;
 }
 
