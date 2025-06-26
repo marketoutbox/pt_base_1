@@ -669,13 +669,15 @@ self.onmessage = async (event) => {
       let meanValue = 0
       let stdDevValue = 0
 
-      let dataForMeanStdDev = [] // New variable to hold the sliced data
-
       if (modelType === "ratio") {
         ratios = stockAPrices.map((priceA, i) => priceA / stockBPrices[i])
         zScores = calculateZScore(ratios, ratioLookbackWindow)
         rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
-        dataForMeanStdDev = ratios.slice(ratioLookbackWindow - 1) // Slice after warm-up
+        meanValue = ratios.reduce((sum, val) => sum + val, 0) / ratios.length
+        const ratioStdDevDenominator = ratios.length > 1 ? ratios.length - 1 : ratios.length
+        stdDevValue = Math.sqrt(
+          ratios.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / ratioStdDevDenominator,
+        )
       } else if (modelType === "ols") {
         for (let i = 0; i < minLength; i++) {
           const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
@@ -690,7 +692,11 @@ self.onmessage = async (event) => {
         }
         zScores = calculateZScore(spreads, zScoreLookback)
         rollingHalfLifes = calculateRollingHalfLife(spreads, olsLookbackWindow) // Use OLS lookback for rolling half-life
-        dataForMeanStdDev = spreads.slice(olsLookbackWindow - 1) // Slice after warm-up
+        meanValue = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
+        const spreadStdDevDenominator = spreads.length > 1 ? spreads.length - 1 : spreads.length
+        stdDevValue = Math.sqrt(
+          spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreadStdDevDenominator,
+        )
       } else if (modelType === "kalman") {
         const kalmanResults = kalmanFilter(
           pricesA,
@@ -704,7 +710,11 @@ self.onmessage = async (event) => {
         spreads = stockAPrices.map((priceA, i) => priceA - (alphas[i] + hedgeRatios[i] * stockBPrices[i]))
         zScores = calculateZScore(spreads, zScoreLookback)
         rollingHalfLifes = calculateRollingHalfLife(spreads, kalmanInitialLookback) // Use Kalman initial lookback for rolling half-life
-        dataForMeanStdDev = spreads.slice(kalmanInitialLookback - 1) // Slice after warm-up
+        meanValue = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
+        const spreadStdDevDenominator = spreads.length > 1 ? spreads.length - 1 : spreads.length
+        stdDevValue = Math.sqrt(
+          spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreadStdDevDenominator,
+        )
       } else if (modelType === "euclidean") {
         const initialPriceA = pricesA[0].close
         const initialPriceB = pricesB[0].close
@@ -713,19 +723,11 @@ self.onmessage = async (event) => {
         distances = normalizedPricesA.map((normA, i) => Math.abs(normA - normalizedPricesB[i]))
         zScores = calculateZScore(distances, euclideanLookbackWindow)
         rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow)
-        dataForMeanStdDev = distances.slice(euclideanLookbackWindow - 1) // Slice after warm-up
-      }
-
-      // Calculate mean and std dev only on the "warmed up" data
-      if (dataForMeanStdDev.length > 0) {
-        meanValue = dataForMeanStdDev.reduce((sum, val) => sum + val, 0) / dataForMeanStdDev.length
-        const stdDevDenominator = dataForMeanStdDev.length > 1 ? dataForMeanStdDev.length - 1 : dataForMeanStdDev.length
+        meanValue = distances.reduce((sum, val) => sum + val, 0) / distances.length
+        const distanceStdDevDenominator = distances.length > 1 ? distances.length - 1 : distances.length
         stdDevValue = Math.sqrt(
-          dataForMeanStdDev.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / stdDevDenominator,
+          distances.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / distanceStdDevDenominator,
         )
-      } else {
-        meanValue = 0
-        stdDevValue = 0
       }
 
       const validZScores = zScores.filter((z) => !isNaN(z))
@@ -844,6 +846,6 @@ self.onmessage = async (event) => {
 const matrixAdd2x2 = (A, B) => {
   return [
     [A[0][0] + B[0][0], A[0][1] + B[0][1]],
-    [A[1][0] + B[0][0], A[1][1] + B[1][1]],
+    [A[1][0] + B[1][0], A[1][1] + B[1][1]],
   ]
 }
