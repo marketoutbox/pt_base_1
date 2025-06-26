@@ -2,7 +2,6 @@
 
 // Import the WASM module and its initialization function
 // Adjust the path based on where you placed your 'pkg' folder in the public directory
-// QUICKEDIT: Changed path from "../wasm/adf_test_pkg/adf_test.js" to "../wasm/adf_test.js"
 import init, { get_adf_p_value_and_stationarity } from "../wasm/adf_test.js"
 
 let wasmInitialized = false
@@ -47,7 +46,10 @@ const calculateZScore = (data, lookback) => {
 
     if (windowData.length === lookback) {
       const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
-      const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1) // Sample variance
+      const variance =
+        windowData.length > 1
+          ? windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1) // Sample variance
+          : 0 // Handle case where windowData.length is 1
       const stdDev = Math.sqrt(variance)
       zScores.push(stdDev > 0 ? (data[i] - mean) / stdDev : 0)
     } else {
@@ -667,12 +669,13 @@ self.onmessage = async (event) => {
       let meanValue = 0
       let stdDevValue = 0
 
+      let dataForMeanStdDev = [] // New variable to hold the sliced data
+
       if (modelType === "ratio") {
         ratios = stockAPrices.map((priceA, i) => priceA / stockBPrices[i])
         zScores = calculateZScore(ratios, ratioLookbackWindow)
         rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
-        meanValue = ratios.reduce((sum, val) => sum + val, 0) / ratios.length
-        stdDevValue = Math.sqrt(ratios.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / ratios.length)
+        dataForMeanStdDev = ratios.slice(ratioLookbackWindow - 1) // Slice after warm-up
       } else if (modelType === "ols") {
         for (let i = 0; i < minLength; i++) {
           const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
@@ -687,8 +690,7 @@ self.onmessage = async (event) => {
         }
         zScores = calculateZScore(spreads, zScoreLookback)
         rollingHalfLifes = calculateRollingHalfLife(spreads, olsLookbackWindow) // Use OLS lookback for rolling half-life
-        meanValue = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
-        stdDevValue = Math.sqrt(spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreads.length)
+        dataForMeanStdDev = spreads.slice(olsLookbackWindow - 1) // Slice after warm-up
       } else if (modelType === "kalman") {
         const kalmanResults = kalmanFilter(
           pricesA,
@@ -702,8 +704,7 @@ self.onmessage = async (event) => {
         spreads = stockAPrices.map((priceA, i) => priceA - (alphas[i] + hedgeRatios[i] * stockBPrices[i]))
         zScores = calculateZScore(spreads, zScoreLookback)
         rollingHalfLifes = calculateRollingHalfLife(spreads, kalmanInitialLookback) // Use Kalman initial lookback for rolling half-life
-        meanValue = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
-        stdDevValue = Math.sqrt(spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreads.length)
+        dataForMeanStdDev = spreads.slice(kalmanInitialLookback - 1) // Slice after warm-up
       } else if (modelType === "euclidean") {
         const initialPriceA = pricesA[0].close
         const initialPriceB = pricesB[0].close
@@ -712,10 +713,19 @@ self.onmessage = async (event) => {
         distances = normalizedPricesA.map((normA, i) => Math.abs(normA - normalizedPricesB[i]))
         zScores = calculateZScore(distances, euclideanLookbackWindow)
         rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow)
-        meanValue = distances.reduce((sum, val) => sum + val, 0) / distances.length
+        dataForMeanStdDev = distances.slice(euclideanLookbackWindow - 1) // Slice after warm-up
+      }
+
+      // Calculate mean and std dev only on the "warmed up" data
+      if (dataForMeanStdDev.length > 0) {
+        meanValue = dataForMeanStdDev.reduce((sum, val) => sum + val, 0) / dataForMeanStdDev.length
+        const stdDevDenominator = dataForMeanStdDev.length > 1 ? dataForMeanStdDev.length - 1 : dataForMeanStdDev.length
         stdDevValue = Math.sqrt(
-          distances.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / distances.length,
+          dataForMeanStdDev.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / stdDevDenominator,
         )
+      } else {
+        meanValue = 0
+        stdDevValue = 0
       }
 
       const validZScores = zScores.filter((z) => !isNaN(z))
@@ -834,6 +844,6 @@ self.onmessage = async (event) => {
 const matrixAdd2x2 = (A, B) => {
   return [
     [A[0][0] + B[0][0], A[0][1] + B[0][1]],
-    [A[1][0] + B[1][0], A[1][1] + B[1][1]],
+    [A[1][0] + B[0][0], A[1][1] + B[1][1]],
   ]
 }
