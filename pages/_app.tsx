@@ -1,62 +1,90 @@
 "use client"
 
-import type { AppProps } from "next/app"
-import { ThemeProvider } from "@/components/theme-provider"
-import "../app/globals.css"
-import { Toaster } from "@/components/ui/toaster"
-import { useEffect, useRef } from "react"
+import "../styles/globals.css"
+import Layout from "../components/Layout"
+import { useEffect } from "react"
 
-// Global worker instances
+// Declare module-level variables to hold the worker instances.
+// This makes them singletons across the client-side application.
 let calculationsWorker: Worker | null = null
 let ratioCalculationsWorker: Worker | null = null
 
-// Getter functions for workers
+/**
+ * Returns the singleton instance of the main calculations web worker.
+ * Instantiates it if it doesn't already exist.
+ */
 export function getCalculationsWorker(): Worker {
   if (!calculationsWorker) {
-    calculationsWorker = new Worker("/workers/calculations-worker.js")
-    console.log("Main calculations worker initialized.")
+    console.log("Instantiating main calculations worker (first access)...")
+    calculationsWorker = new Worker("/workers/calculations-worker.js", { type: "module" })
+    // Attach global message/error handlers for debugging or general worker status
+    calculationsWorker.onmessage = (event) => {
+      if (event.data.type === "debug") {
+        console.log("[Global Main Worker Debug]", event.data.message)
+      } else if (event.data.type === "error") {
+        console.error("[Global Main Worker Error Message]", event.data.message)
+      }
+      // Specific component messages (like analysisComplete) will be handled by their own listeners
+    }
+    calculationsWorker.onerror = (e) => {
+      console.error("[Global Main Worker Error]", e)
+    }
   }
   return calculationsWorker
 }
 
+/**
+ * Returns the singleton instance of the ratio calculations web worker.
+ * Instantiates it if it doesn't already exist.
+ */
 export function getRatioCalculationsWorker(): Worker {
   if (!ratioCalculationsWorker) {
-    ratioCalculationsWorker = new Worker("/workers/ratio-calculations-worker.js")
-    console.log("Ratio calculations worker initialized.")
+    console.log("Instantiating ratio calculations worker (first access)...")
+    ratioCalculationsWorker = new Worker("/workers/ratio-calculations-worker.js", { type: "module" })
+    // Attach global message/error handlers for debugging or general worker status
+    ratioCalculationsWorker.onmessage = (event) => {
+      if (event.data.type === "debug") {
+        console.log("[Global Ratio Worker Debug]", event.data.message)
+      } else if (event.data.type === "error") {
+        console.error("[Global Ratio Worker Error Message]", event.data.message)
+      }
+      // Specific component messages (like ratioAnalysisComplete) will be handled by their own listeners
+    }
+    ratioCalculationsWorker.onerror = (e) => {
+      console.error("[Global Ratio Worker Error]", e)
+    }
   }
   return ratioCalculationsWorker
 }
 
-export default function App({ Component, pageProps }: AppProps) {
-  const isInitialized = useRef(false)
-
+function MyApp({ Component, pageProps }) {
+  // This useEffect ensures the workers are instantiated as soon as the app loads,
+  // even if the getter functions aren't called immediately by a specific page component.
   useEffect(() => {
-    if (!isInitialized.current) {
-      // Initialize workers when the app mounts
-      getCalculationsWorker()
-      getRatioCalculationsWorker()
-      isInitialized.current = true
-    }
+    // Trigger worker instantiation on app mount
+    getCalculationsWorker()
+    getRatioCalculationsWorker()
 
-    // Clean up workers when the app unmounts
+    // Cleanup workers on app unmount (e.g., browser tab close)
     return () => {
       if (calculationsWorker) {
+        console.log("Terminating main calculations worker on app unmount...")
         calculationsWorker.terminate()
         calculationsWorker = null
-        console.log("Main calculations worker terminated.")
       }
       if (ratioCalculationsWorker) {
+        console.log("Terminating ratio calculations worker on app unmount...")
         ratioCalculationsWorker.terminate()
         ratioCalculationsWorker = null
-        console.log("Ratio calculations worker terminated.")
       }
     }
-  }, [])
+  }, []) // Empty dependency array ensures this runs once on app mount
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <Layout>
       <Component {...pageProps} />
-      <Toaster />
-    </ThemeProvider>
+    </Layout>
   )
 }
+
+export default MyApp
