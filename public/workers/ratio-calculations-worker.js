@@ -1,219 +1,234 @@
-// public/workers/ratio-calculations-worker.js
+// Ratio Calculations Worker
+// This worker handles ratio model calculations
 
-console.log("Ratio calculations worker loaded")
+console.log("Ratio calculations worker started")
 
-// Helper functions specific to the Ratio Model
-const calculateZScore = (data, lookback) => {
-  if (data.length < lookback) {
-    return Array(data.length).fill(0) // Not enough data for initial z-score
-  }
-
-  const zScores = []
-  for (let i = 0; i < data.length; i++) {
-    const windowStart = Math.max(0, i - lookback + 1)
-    const windowData = data.slice(windowStart, i + 1)
-
-    if (windowData.length === lookback) {
-      const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
-      const variance =
-        windowData.length > 1
-          ? windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1) // Sample variance
-          : 0 // Handle case where windowData.length is 1
-      const stdDev = Math.sqrt(variance)
-      zScores.push(stdDev > 0 ? (data[i] - mean) / stdDev : 0)
-    } else {
-      zScores.push(0) // Not enough data in window yet
-    }
-  }
-  return zScores
-}
-
-const calculateHalfLife = (spreads) => {
-  const n = spreads.length
-  if (n < 20) return { halfLife: 0, isValid: false }
-
-  const y = []
-  const x = []
-
-  for (let i = 1; i < n; i++) {
-    y.push(spreads[i] - spreads[i - 1])
-    x.push(spreads[i - 1])
-  }
-
-  let sumX = 0,
-    sumY = 0,
-    sumXY = 0,
-    sumX2 = 0
-  for (let i = 0; i < y.length; i++) {
-    sumX += x[i]
-    sumY += y[i]
-    sumXY += x[i] * y[i]
-    sumX2 += x[i] * x[i]
-  }
-
-  const beta = (y.length * sumXY - sumX * sumY) / (y.length * sumX2 - sumX * sumX)
-  const halfLife = -Math.log(2) / beta
-
-  return {
-    halfLife: beta < 0 ? halfLife : 0,
-    isValid: halfLife > 0 && halfLife < 252,
-  }
-}
-
-const calculateRollingHalfLife = (data, windowSize) => {
+// Simple rolling window calculations
+function calculateRollingMean(data, window) {
   const result = []
-  if (data.length < windowSize + 1) {
-    return Array(data.length).fill(null)
-  }
-
   for (let i = 0; i < data.length; i++) {
-    if (i < windowSize - 1) {
-      result.push(null)
-      continue
-    }
-
-    const windowData = data.slice(Math.max(0, i - windowSize + 1), i + 1)
-    const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
-
-    const y = []
-    const x = []
-
-    for (let j = 1; j < windowData.length; j++) {
-      y.push(windowData[j] - windowData[j - 1])
-      x.push(windowData[j - 1] - mean)
-    }
-
-    let sumX = 0,
-      sumY = 0,
-      sumXY = 0,
-      sumX2 = 0
-    for (let j = 0; j < y.length; j++) {
-      sumX += x[j]
-      sumY += y[j]
-      sumXY += x[j] * y[j]
-      sumX2 += x[j] * x[j]
-    }
-
-    if (sumX2 === 0) {
-      result.push(null)
-      continue
-    }
-
-    const beta = (y.length * sumXY - sumX * sumY) / (y.length * sumX2 - sumX * sumX)
-    const halfLife = beta < 0 ? -Math.log(2) / beta : null
-
-    if (halfLife !== null && halfLife > 0) {
-      result.push(halfLife)
+    if (i < window - 1) {
+      result.push(Number.NaN)
     } else {
-      result.push(null)
+      const slice = data.slice(i - window + 1, i + 1)
+      const mean = slice.reduce((sum, val) => sum + val, 0) / slice.length
+      result.push(mean)
     }
   }
   return result
 }
 
-// Main message handler for the Ratio Model worker
-self.onmessage = async (event) => {
-  console.log("Ratio worker received message:", event.data.type)
-  const { type, data } = event.data
+function calculateRollingStdDev(data, window) {
+  const result = []
+  const means = calculateRollingMean(data, window)
 
-  if (type === "runRatioAnalysis") {
-    const { pricesA, pricesB } = data.data
-    const { ratioLookbackWindow } = data.params
+  for (let i = 0; i < data.length; i++) {
+    if (i < window - 1) {
+      result.push(Number.NaN)
+    } else {
+      const slice = data.slice(i - window + 1, i + 1)
+      const mean = means[i]
+      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / slice.length
+      result.push(Math.sqrt(variance))
+    }
+  }
+  return result
+}
 
-    console.log("Starting ratio analysis with", pricesA.length, "data points")
+function calculateZScores(data, means, stdDevs) {
+  return data.map((value, i) => {
+    if (isNaN(means[i]) || isNaN(stdDevs[i]) || stdDevs[i] === 0) {
+      return Number.NaN
+    }
+    return (value - means[i]) / stdDevs[i]
+  })
+}
 
-    let analysisData = null
-    let error = ""
+// Simple half-life calculation using AR(1) model
+function calculateHalfLife(series) {
+  try {
+    // Remove NaN values
+    const cleanSeries = series.filter((val) => !isNaN(val))
+    if (cleanSeries.length < 10) return { halfLife: -1, isValid: false }
 
-    try {
-      const minLength = Math.min(pricesA.length, pricesB.length)
-      const dates = pricesA.map((d) => d.date).slice(0, minLength)
-      const stockAPrices = pricesA.map((d) => d.close).slice(0, minLength)
-      const stockBPrices = pricesB.map((d) => d.close).slice(0, minLength)
+    // Calculate lagged series
+    const y = cleanSeries.slice(1)
+    const x = cleanSeries.slice(0, -1)
 
-      console.log("Calculating ratios...")
+    if (y.length !== x.length || y.length < 5) return { halfLife: -1, isValid: false }
+
+    // Simple linear regression: y = a + b*x
+    const n = y.length
+    const sumX = x.reduce((sum, val) => sum + val, 0)
+    const sumY = y.reduce((sum, val) => sum + val, 0)
+    const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0)
+    const sumXX = x.reduce((sum, val) => sum + val * val, 0)
+
+    const beta = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
+
+    if (beta >= 1 || beta <= 0) return { halfLife: -1, isValid: false }
+
+    const halfLife = -Math.log(2) / Math.log(beta)
+    const isValid = halfLife > 0 && halfLife < 252 // Valid if between 0 and 252 days
+
+    return { halfLife, isValid }
+  } catch (error) {
+    console.error("Error calculating half-life:", error)
+    return { halfLife: -1, isValid: false }
+  }
+}
+
+// Calculate practical trade half-life
+function calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold) {
+  try {
+    const trades = []
+    let inTrade = false
+    let entryIndex = -1
+    let entryZScore = 0
+
+    for (let i = 0; i < zScores.length; i++) {
+      const zScore = zScores[i]
+      if (isNaN(zScore)) continue
+
+      if (!inTrade && Math.abs(zScore) >= entryThreshold) {
+        // Enter trade
+        inTrade = true
+        entryIndex = i
+        entryZScore = zScore
+      } else if (inTrade && Math.abs(zScore) <= exitThreshold) {
+        // Exit trade
+        const tradeDuration = i - entryIndex
+        const successful = (entryZScore > 0 && zScore < entryZScore) || (entryZScore < 0 && zScore > entryZScore)
+        trades.push({ duration: tradeDuration, successful })
+        inTrade = false
+      }
+    }
+
+    if (trades.length < 3) {
+      return { tradeCycleLength: -1, successRate: 0, isValid: false }
+    }
+
+    const avgDuration = trades.reduce((sum, trade) => sum + trade.duration, 0) / trades.length
+    const successRate = trades.filter((trade) => trade.successful).length / trades.length
+
+    return {
+      tradeCycleLength: avgDuration,
+      successRate,
+      isValid: true,
+    }
+  } catch (error) {
+    console.error("Error calculating practical trade half-life:", error)
+    return { tradeCycleLength: -1, successRate: 0, isValid: false }
+  }
+}
+
+// Message handler
+self.addEventListener("message", (e) => {
+  console.log("Ratio worker received message:", e.data.type)
+
+  try {
+    if (e.data.type === "runRatioAnalysis") {
+      const { pricesA, pricesB } = e.data.data
+      const { ratioLookbackWindow } = e.data.params
+
+      console.log("Processing ratio analysis with", pricesA.length, "data points")
+
+      // Extract price arrays
+      const stockAPrices = pricesA.map((d) => d.close)
+      const stockBPrices = pricesB.map((d) => d.close)
+      const dates = pricesA.map((d) => d.date)
+
+      // Calculate ratios
       const ratios = stockAPrices.map((priceA, i) => priceA / stockBPrices[i])
 
-      console.log("Calculating z-scores...")
-      const zScores = calculateZScore(ratios, ratioLookbackWindow)
+      // Calculate rolling statistics
+      const rollingMean = calculateRollingMean(ratios, ratioLookbackWindow)
+      const rollingStdDev = calculateRollingStdDev(ratios, ratioLookbackWindow)
 
-      console.log("Calculating rolling half-lives...")
-      const rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
+      // Calculate z-scores
+      const zScores = calculateZScores(ratios, rollingMean, rollingStdDev)
 
-      // Calculate mean and std dev only on the "warmed up" data
-      const dataForMeanStdDev = ratios.slice(ratioLookbackWindow - 1)
-      let meanValue = 0
-      let stdDevValue = 0
-      if (dataForMeanStdDev.length > 0) {
-        meanValue = dataForMeanStdDev.reduce((sum, val) => sum + val, 0) / dataForMeanStdDev.length
-        const stdDevDenominator = dataForMeanStdDev.length > 1 ? dataForMeanStdDev.length - 1 : dataForMeanStdDev.length
-        stdDevValue = Math.sqrt(
-          dataForMeanStdDev.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / stdDevDenominator,
-        )
+      // Calculate rolling half-lives (simplified)
+      const rollingHalfLifes = ratios.map((_, i) => {
+        if (i < ratioLookbackWindow) return "N/A"
+        const window = ratios.slice(Math.max(0, i - ratioLookbackWindow + 1), i + 1)
+        const { halfLife } = calculateHalfLife(window)
+        return halfLife > 0 ? halfLife.toFixed(1) : "N/A"
+      })
+
+      // Calculate overall statistics
+      const validRatios = ratios.filter((r) => !isNaN(r))
+      const validZScores = zScores.filter((z) => !isNaN(z))
+
+      const meanRatio = validRatios.reduce((sum, r) => sum + r, 0) / validRatios.length
+      const stdDevRatio = Math.sqrt(
+        validRatios.reduce((sum, r) => sum + Math.pow(r - meanRatio, 2), 0) / validRatios.length,
+      )
+      const minZScore = Math.min(...validZScores)
+      const maxZScore = Math.max(...validZScores)
+
+      // Calculate half-life
+      const { halfLife, isValid: halfLifeValid } = calculateHalfLife(ratios)
+
+      // Create chart data
+      const chartData = {
+        rollingMean,
+        rollingUpperBand1: rollingMean.map((mean, i) => mean + rollingStdDev[i]),
+        rollingLowerBand1: rollingMean.map((mean, i) => mean - rollingStdDev[i]),
+        rollingUpperBand2: rollingMean.map((mean, i) => mean + 2 * rollingStdDev[i]),
+        rollingLowerBand2: rollingMean.map((mean, i) => mean - 2 * rollingStdDev[i]),
       }
 
-      const tableData = []
-      for (let i = 0; i < dates.length; i++) {
-        tableData.push({
-          date: dates[i],
-          priceA: stockAPrices[i],
-          priceB: stockBPrices[i],
-          ratio: ratios[i],
-          zScore: zScores[i],
-          halfLife: rollingHalfLifes[i] !== null ? rollingHalfLifes[i].toFixed(2) : "N/A",
-        })
-      }
+      // Create table data
+      const tableData = dates.map((date, i) => ({
+        date: new Date(date).toLocaleDateString(),
+        priceA: stockAPrices[i],
+        priceB: stockBPrices[i],
+        ratio: ratios[i],
+        zScore: zScores[i],
+        halfLife: rollingHalfLifes[i],
+      }))
 
-      const rollingMean = []
-      const rollingUpperBand1 = []
-      const rollingLowerBand1 = []
-      const rollingUpperBand2 = []
-      const rollingLowerBand2 = []
-
-      const rollingStatsWindow = ratioLookbackWindow
-
-      for (let i = 0; i < ratios.length; i++) {
-        const windowStart = Math.max(0, i - rollingStatsWindow + 1)
-        const window = ratios.slice(windowStart, i + 1)
-        const mean = window.reduce((sum, val) => sum + val, 0) / window.length
-        const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
-
-        rollingMean.push(mean)
-        rollingUpperBand1.push(mean + stdDev)
-        rollingLowerBand1.push(mean - stdDev)
-        rollingUpperBand2.push(mean + 2 * stdDev)
-        rollingLowerBand2.push(mean - 2 * stdDev)
-      }
-
-      analysisData = {
+      const analysisData = {
         dates,
         ratios,
         zScores,
         stockAPrices,
         stockBPrices,
         statistics: {
-          meanRatio: meanValue,
-          stdDevRatio: stdDevValue,
+          meanRatio,
+          stdDevRatio,
+          minZScore,
+          maxZScore,
+          halfLife,
+          halfLifeValid,
           modelType: "ratio",
         },
         tableData,
-        chartData: {
-          rollingMean,
-          rollingUpperBand1,
-          rollingLowerBand1,
-          rollingUpperBand2,
-          rollingLowerBand2,
-        },
+        chartData,
       }
 
-      console.log("Ratio analysis completed successfully")
-    } catch (e) {
-      console.error("Error in ratio calculations worker:", e)
-      error = e.message || "An unknown error occurred during ratio analysis."
-    } finally {
-      self.postMessage({ type: "ratioAnalysisComplete", analysisData, error })
+      console.log("Ratio analysis completed, sending results")
+      self.postMessage({
+        type: "ratioAnalysisComplete",
+        analysisData,
+      })
+    } else {
+      console.warn("Unknown message type:", e.data.type)
     }
+  } catch (error) {
+    console.error("Error in ratio worker:", error)
+    self.postMessage({
+      type: "ratioAnalysisComplete",
+      error: error.message,
+    })
   }
-}
+})
 
-console.log("Ratio calculations worker ready")
+self.addEventListener("error", (error) => {
+  console.error("Ratio worker error:", error)
+  self.postMessage({
+    type: "error",
+    message: error.message,
+  })
+})
