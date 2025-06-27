@@ -76,7 +76,7 @@ function calculateRollingStdDev(data, window) {
     } else {
       const slice = data.slice(i - window + 1, i + 1)
       const mean = means[i]
-      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / slice.length
+      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (slice.length - 1)
       result.push(Math.sqrt(variance))
     }
   }
@@ -253,18 +253,8 @@ function calculateEuclideanDistance(pricesA, pricesB, lookbackWindow) {
   return { distances, normalizedPricesA, normalizedPricesB }
 }
 
-// ADF Test using WASM
+// ADF Test - calculate t-statistic in JavaScript, use WASM for p-value lookup
 function performADFTest(series) {
-  if (!isWasmReady || !wasmModule || !wasmModule.adf_test) {
-    console.warn("WASM not ready or adf_test function missing, using fallback ADF test")
-    return {
-      statistic: -2.5,
-      pValue: 0.1,
-      criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
-      isStationary: false,
-    }
-  }
-
   try {
     const cleanSeries = series.filter((val) => !isNaN(val) && isFinite(val))
     if (cleanSeries.length < 10) {
@@ -277,18 +267,72 @@ function performADFTest(series) {
       }
     }
 
-    const result = wasmModule.adf_test(new Float64Array(cleanSeries))
-    return {
-      statistic: result.statistic,
-      pValue: result.p_value,
-      criticalValues: result.critical_values,
-      isStationary: result.p_value < 0.05, // Common significance level
+    // Calculate ADF t-statistic in JavaScript
+    const n = cleanSeries.length
+    const y = cleanSeries.slice(1).map((val, i) => val - cleanSeries[i]) // First differences
+    const x = cleanSeries.slice(0, -1) // Lagged values
+
+    if (y.length !== x.length || y.length < 5) {
+      return {
+        statistic: -2.5,
+        pValue: 1,
+        criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
+        isStationary: false,
+      }
+    }
+
+    // OLS regression: y = beta * x + error
+    const n_reg = y.length
+    const sumX = x.reduce((sum, val) => sum + val, 0)
+    const sumY = y.reduce((sum, val) => sum + val, 0)
+    const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0)
+    const sumXX = x.reduce((sum, val) => sum + val * val, 0)
+
+    const denominator = n_reg * sumXX - sumX * sumX
+    if (denominator === 0) {
+      return {
+        statistic: -2.5,
+        pValue: 1,
+        criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
+        isStationary: false,
+      }
+    }
+
+    const beta = (n_reg * sumXY - sumX * sumY) / denominator
+
+    // Calculate residuals and standard error
+    const residuals = y.map((val, i) => val - beta * x[i])
+    const rss = residuals.reduce((sum, val) => sum + val * val, 0)
+    const mse = rss / (n_reg - 1)
+    const se_beta = Math.sqrt(mse / (sumXX - (sumX * sumX) / n_reg))
+
+    // ADF t-statistic
+    const adf_statistic = beta / se_beta
+
+    // Use WASM for p-value lookup
+    if (isWasmReady && wasmModule && wasmModule.get_adf_p_value_and_stationarity) {
+      const result = wasmModule.get_adf_p_value_and_stationarity(adf_statistic, n)
+      return {
+        statistic: adf_statistic,
+        pValue: result.p_value,
+        criticalValues: result.critical_values,
+        isStationary: result.is_stationary,
+      }
+    } else {
+      // Fallback without WASM
+      console.warn("WASM not ready, using fallback p-value estimation")
+      return {
+        statistic: adf_statistic,
+        pValue: adf_statistic < -2.86 ? 0.05 : 0.1,
+        criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
+        isStationary: adf_statistic < -2.86,
+      }
     }
   } catch (error) {
     console.error("ADF test error:", error)
     return {
       statistic: -2.5,
-      pValue: 1, // Default to non-stationary on error
+      pValue: 1,
       criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
       isStationary: false,
     }
