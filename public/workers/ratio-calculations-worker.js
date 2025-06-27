@@ -28,7 +28,7 @@ function calculateRollingStdDev(data, window) {
     } else {
       const slice = data.slice(i - window + 1, i + 1)
       const mean = means[i]
-      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (slice.length - 1)
+      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / slice.length
       result.push(Math.sqrt(variance))
     }
   }
