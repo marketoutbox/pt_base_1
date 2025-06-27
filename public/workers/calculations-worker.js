@@ -10,14 +10,19 @@ let isWasmReady = false
 async function loadWasm() {
   try {
     console.log("Loading WASM module...")
+    // Ensure the path is correct relative to the worker script
     const wasmScript = await import("/wasm/adf_test_pkg/adf_test.js")
-    await wasmScript.default()
+    await wasmScript.default() // Initialize the WASM module
     wasmModule = wasmScript
     isWasmReady = true
     console.log("WASM module loaded successfully")
   } catch (error) {
     console.error("Failed to load WASM module:", error)
     isWasmReady = false
+    self.postMessage({
+      type: "error",
+      message: `WASM initialization failed: ${error.message || error}`,
+    })
   }
 }
 
@@ -102,12 +107,20 @@ function calculateOLS(pricesA, pricesB, lookbackWindow) {
     const sumAB = windowA.reduce((sum, val, idx) => sum + val * windowB[idx], 0)
     const sumBB = windowB.reduce((sum, val) => sum + val * val, 0)
 
-    const beta = (n * sumAB - sumA * sumB) / (n * sumBB - sumB * sumB)
+    const denominator = n * sumBB - sumB * sumB
+    if (denominator === 0) {
+      hedgeRatios.push(Number.NaN)
+      alphas.push(Number.NaN)
+      spreads.push(Number.NaN)
+      continue
+    }
+
+    const beta = (n * sumAB - sumA * sumB) / denominator
     const alpha = (sumA - beta * sumB) / n
 
     hedgeRatios.push(beta)
     alphas.push(alpha)
-    spreads.push(pricesA[i] - beta * pricesB[i])
+    spreads.push(pricesA[i] - (alpha + beta * pricesB[i])) // Corrected spread calculation
   }
 
   return { hedgeRatios, alphas, spreads }
@@ -129,7 +142,7 @@ function calculateKalman(pricesA, pricesB, processNoise, initialLookback) {
     [processNoise, 0],
     [0, processNoise],
   ] // Process noise
-  const R = 1 // Measurement noise
+  const R = 1 // Measurement noise (simplified, could be adaptive)
 
   for (let i = 0; i < pricesA.length; i++) {
     if (i < initialLookback - 1) {
@@ -140,7 +153,7 @@ function calculateKalman(pricesA, pricesB, processNoise, initialLookback) {
     }
 
     if (i === initialLookback - 1) {
-      // Initialize with OLS
+      // Initialize with OLS for the first `initialLookback` points
       const windowA = pricesA.slice(0, initialLookback)
       const windowB = pricesB.slice(0, initialLookback)
 
@@ -150,45 +163,56 @@ function calculateKalman(pricesA, pricesB, processNoise, initialLookback) {
       const sumAB = windowA.reduce((sum, val, idx) => sum + val * windowB[idx], 0)
       const sumBB = windowB.reduce((sum, val) => sum + val * val, 0)
 
-      const beta = (n * sumAB - sumA * sumB) / (n * sumBB - sumB * sumB)
-      const alpha = (sumA - beta * sumB) / n
-
-      state = [alpha, beta]
+      const denominator = n * sumBB - sumB * sumB
+      if (denominator === 0) {
+        state = [0, 1] // Default if OLS fails
+      } else {
+        const beta = (n * sumAB - sumA * sumB) / denominator
+        const alpha = (sumA - beta * sumB) / n
+        state = [alpha, beta]
+      }
     } else {
       // Kalman filter update
       // Prediction step
-      const F = [
+      // F is identity for constant state model
+      P = matrixMultiply2x2(P, [
         [1, 0],
         [0, 1],
-      ] // State transition (identity for random walk)
-      P = matrixMultiply2x2(matrixMultiply2x2(F, P), [
-        [1, 0],
-        [0, 1],
-      ]) // F * P * F^T
+      ]) // P_pred = F * P * F^T
       P[0][0] += Q[0][0]
       P[1][1] += Q[1][1]
 
       // Update step
-      const H = [1, pricesB[i]] // Observation matrix
-      const y = pricesA[i] - (state[0] + state[1] * pricesB[i]) // Innovation
+      const H = [1, pricesB[i]] // Observation matrix [1, priceB]
+      const predictedY = state[0] + state[1] * pricesB[i]
+      const innovation = pricesA[i] - predictedY // y_t - H_t * x_pred
+
       const S = H[0] * P[0][0] * H[0] + H[1] * P[1][1] * H[1] + R // Innovation covariance
-
-      if (Math.abs(S) > 1e-10) {
-        const K = [(P[0][0] * H[0]) / S, (P[1][1] * H[1]) / S] // Kalman gain
-
-        // Update state
-        state[0] += K[0] * y
-        state[1] += K[1] * y
-
-        // Update covariance
-        P[0][0] *= 1 - K[0] * H[0]
-        P[1][1] *= 1 - K[1] * H[1]
+      if (Math.abs(S) < 1e-10) {
+        // Avoid division by zero, skip update
+        hedgeRatios.push(state[1])
+        alphas.push(state[0])
+        spreads.push(pricesA[i] - (state[0] + state[1] * pricesB[i]))
+        continue
       }
+
+      const K = [(P[0][0] * H[0]) / S, (P[1][1] * H[1]) / S] // Kalman gain
+
+      // Update state
+      state[0] += K[0] * innovation
+      state[1] += K[1] * innovation
+
+      // Update covariance
+      const I_minus_KH = [
+        [1 - K[0] * H[0], -K[0] * H[1]],
+        [-K[1] * H[0], 1 - K[1] * H[1]],
+      ]
+      P = matrixMultiply2x2(I_minus_KH, P)
     }
 
     hedgeRatios.push(state[1])
     alphas.push(state[0])
-    spreads.push(pricesA[i] - state[1] * pricesB[i])
+    spreads.push(pricesA[i] - (state[0] + state[1] * pricesB[i]))
   }
 
   return { hedgeRatios, alphas, spreads }
@@ -211,12 +235,13 @@ function calculateEuclideanDistance(pricesA, pricesB, lookbackWindow) {
     const windowA = pricesA.slice(i - lookbackWindow + 1, i + 1)
     const windowB = pricesB.slice(i - lookbackWindow + 1, i + 1)
 
-    // Normalize prices
+    // Calculate mean and std dev for the window
     const meanA = windowA.reduce((sum, val) => sum + val, 0) / windowA.length
     const meanB = windowB.reduce((sum, val) => sum + val, 0) / windowB.length
     const stdA = Math.sqrt(windowA.reduce((sum, val) => sum + Math.pow(val - meanA, 2), 0) / windowA.length)
     const stdB = Math.sqrt(windowB.reduce((sum, val) => sum + Math.pow(val - meanB, 2), 0) / windowB.length)
 
+    // Normalize current prices
     const normA = stdA > 0 ? (pricesA[i] - meanA) / stdA : 0
     const normB = stdB > 0 ? (pricesB[i] - meanB) / stdB : 0
 
@@ -230,8 +255,8 @@ function calculateEuclideanDistance(pricesA, pricesB, lookbackWindow) {
 
 // ADF Test using WASM
 function performADFTest(series) {
-  if (!isWasmReady || !wasmModule) {
-    console.warn("WASM not ready, using fallback ADF test")
+  if (!isWasmReady || !wasmModule || !wasmModule.adf_test) {
+    console.warn("WASM not ready or adf_test function missing, using fallback ADF test")
     return {
       statistic: -2.5,
       pValue: 0.1,
@@ -243,7 +268,13 @@ function performADFTest(series) {
   try {
     const cleanSeries = series.filter((val) => !isNaN(val) && isFinite(val))
     if (cleanSeries.length < 10) {
-      throw new Error("Insufficient data for ADF test")
+      console.warn("Insufficient data for ADF test, returning fallback.")
+      return {
+        statistic: -2.5,
+        pValue: 1,
+        criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
+        isStationary: false,
+      }
     }
 
     const result = wasmModule.adf_test(new Float64Array(cleanSeries))
@@ -251,13 +282,13 @@ function performADFTest(series) {
       statistic: result.statistic,
       pValue: result.p_value,
       criticalValues: result.critical_values,
-      isStationary: result.p_value < 0.05,
+      isStationary: result.p_value < 0.05, // Common significance level
     }
   } catch (error) {
     console.error("ADF test error:", error)
     return {
       statistic: -2.5,
-      pValue: 0.1,
+      pValue: 1, // Default to non-stationary on error
       criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
       isStationary: false,
     }
@@ -267,14 +298,14 @@ function performADFTest(series) {
 // Hurst Exponent calculation
 function calculateHurstExponent(series) {
   try {
-    const cleanSeries = series.filter((val) => !isNaN(val))
+    const cleanSeries = series.filter((val) => !isNaN(val) && isFinite(val))
     if (cleanSeries.length < 20) return 0.5
 
     const n = cleanSeries.length
     const lags = []
     const rs = []
 
-    for (let lag = 2; lag <= Math.min(n / 4, 100); lag++) {
+    for (let lag = 2; lag <= Math.min(Math.floor(n / 4), 100); lag++) {
       const chunks = Math.floor(n / lag)
       let rsSum = 0
 
@@ -315,7 +346,10 @@ function calculateHurstExponent(series) {
     const sumXY = lags.reduce((sum, val, i) => sum + val * rs[i], 0)
     const sumXX = lags.reduce((sum, val) => sum + val * val, 0)
 
-    const hurst = (n_points * sumXY - sumX * sumY) / (n_points * sumXX - sumX * sumX)
+    const denominator = n_points * sumXX - sumX * sumX
+    if (denominator === 0) return 0.5
+
+    const hurst = (n_points * sumXY - sumX * sumY) / denominator
     return Math.max(0, Math.min(1, hurst))
   } catch (error) {
     console.error("Error calculating Hurst exponent:", error)
@@ -326,7 +360,7 @@ function calculateHurstExponent(series) {
 // Half-life calculation
 function calculateHalfLife(series) {
   try {
-    const cleanSeries = series.filter((val) => !isNaN(val))
+    const cleanSeries = series.filter((val) => !isNaN(val) && isFinite(val))
     if (cleanSeries.length < 10) return { halfLife: -1, isValid: false }
 
     const y = cleanSeries.slice(1)
@@ -338,7 +372,10 @@ function calculateHalfLife(series) {
     const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0)
     const sumXX = x.reduce((sum, val) => sum + val * val, 0)
 
-    const beta = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
+    const denominator = n * sumXX - sumX * sumX
+    if (denominator === 0) return { halfLife: -1, isValid: false }
+
+    const beta = (n * sumXY - sumX * sumY) / denominator
 
     if (beta >= 1 || beta <= 0) return { halfLife: -1, isValid: false }
 
@@ -393,6 +430,8 @@ function calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
 // Calculate correlation
 function calculateCorrelation(pricesA, pricesB) {
   const n = Math.min(pricesA.length, pricesB.length)
+  if (n === 0) return 0
+
   const meanA = pricesA.slice(0, n).reduce((sum, val) => sum + val, 0) / n
   const meanB = pricesB.slice(0, n).reduce((sum, val) => sum + val, 0) / n
 
@@ -412,7 +451,7 @@ function calculateCorrelation(pricesA, pricesB) {
   return denominator > 0 ? numerator / denominator : 0
 }
 
-// Z-score calculation
+// Z-score calculation (re-defined for clarity, though similar to ratio worker)
 function calculateZScores(data, means, stdDevs) {
   return data.map((value, i) => {
     if (isNaN(means[i]) || isNaN(stdDevs[i]) || stdDevs[i] === 0) {
@@ -423,7 +462,7 @@ function calculateZScores(data, means, stdDevs) {
 }
 
 // Message handler
-self.addEventListener("message", (e) => {
+self.addEventListener("message", async (e) => {
   console.log("Main worker received message:", e.data.type)
 
   try {
@@ -438,7 +477,7 @@ self.addEventListener("message", (e) => {
       const stockBPrices = pricesB.map((d) => d.close)
       const dates = pricesA.map((d) => d.date)
 
-      let modelSpecificData = null
+      let modelSpecificData = []
       let hedgeRatios = []
       let alphas = []
       let normalizedPricesA = []
@@ -478,15 +517,16 @@ self.addEventListener("message", (e) => {
       const validData = modelSpecificData.filter((d) => !isNaN(d))
       const validZScores = zScores.filter((z) => !isNaN(z))
 
-      const meanValue = validData.reduce((sum, d) => sum + d, 0) / validData.length
-      const stdDevValue = Math.sqrt(
-        validData.reduce((sum, d) => sum + Math.pow(d - meanValue, 2), 0) / validData.length,
-      )
+      const meanValue = validData.length > 0 ? validData.reduce((sum, d) => sum + d, 0) / validData.length : 0
+      const stdDevValue =
+        validData.length > 0
+          ? Math.sqrt(validData.reduce((sum, d) => sum + Math.pow(d - meanValue, 2), 0) / validData.length)
+          : 0
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Statistical tests
-      const adfResults = performADFTest(modelSpecificData)
+      const adfResults = await performADFTest(modelSpecificData) // Await WASM call
       const { halfLife, isValid: halfLifeValid } = calculateHalfLife(modelSpecificData)
       const hurstExponent = calculateHurstExponent(modelSpecificData)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(
@@ -516,11 +556,12 @@ self.addEventListener("message", (e) => {
         normalizedA: normalizedPricesA[i],
         normalizedB: normalizedPricesB[i],
         zScore: zScores[i],
-        halfLife: "N/A",
+        halfLife: "N/A", // Rolling half-life is not in this table, but overall is in stats
       }))
 
       const analysisData = {
         dates,
+        ratios: [], // Only ratio model calculates this
         spreads: params.modelType === "ols" || params.modelType === "kalman" ? modelSpecificData : [],
         distances: params.modelType === "euclidean" ? modelSpecificData : [],
         hedgeRatios,
@@ -561,7 +602,7 @@ self.addEventListener("message", (e) => {
       const seriesForADF = params.seriesForADF
       const zScores = params.zScores
 
-      console.log("Processing common stats")
+      console.log("Processing common stats for ratio model")
 
       const stockAPrices = pricesA.map((d) => d.close)
       const stockBPrices = pricesB.map((d) => d.close)
@@ -575,7 +616,7 @@ self.addEventListener("message", (e) => {
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Statistical tests
-      const adfResults = performADFTest(seriesForADF)
+      const adfResults = await performADFTest(seriesForADF) // Await WASM call
       const { halfLife, isValid: halfLifeValid } = calculateHalfLife(seriesForADF)
       const hurstExponent = calculateHurstExponent(seriesForADF)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(
@@ -610,6 +651,7 @@ self.addEventListener("message", (e) => {
     self.postMessage({
       type: "analysisComplete",
       error: error.message,
+      analysisData: null, // Ensure analysisData is null on error
     })
   }
 })
