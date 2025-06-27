@@ -885,28 +885,35 @@ export default function PairAnalyzer() {
                   <h3 className="text-xl font-semibold text-white mb-4">Rolling Hedge Ratio Plot</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={analysisData.dates.map((date, i) => ({
-                          date,
-                          hedgeRatio: analysisData.hedgeRatios[i],
-                        }))}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fill: "#dce5f3" }}
-                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                          interval={Math.ceil(analysisData.dates.length / 10)}
-                        />
-                        <YAxis tick={{ fill: "#dce5f3" }} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [formatNumber(value as number, 4), "Hedge Ratio (β)"]}
-                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                        />
-                        <Line type="monotone" dataKey="hedgeRatio" stroke="#ffd700" dot={false} />
-                      </LineChart>
+                      {/* Check if hedgeRatios has valid data before rendering */}
+                      {analysisData.hedgeRatios && analysisData.hedgeRatios.filter((h) => isFinite(h)).length > 0 ? (
+                        <LineChart
+                          data={analysisData.dates.map((date, i) => ({
+                            date,
+                            hedgeRatio: analysisData.hedgeRatios[i],
+                          }))}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fill: "#dce5f3" }}
+                            tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                            interval={Math.ceil(analysisData.dates.length / 10)}
+                          />
+                          <YAxis tick={{ fill: "#dce5f3" }} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                            formatter={(value) => [formatNumber(value as number, 4), "Hedge Ratio (β)"]}
+                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                          />
+                          <Line type="monotone" dataKey="hedgeRatio" stroke="#ffd700" dot={false} />
+                        </LineChart>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-gray-400">
+                          No valid hedge ratio data to display.
+                        </div>
+                      )}
                     </ResponsiveContainer>
                   </div>
                   <p className="mt-4 text-sm text-gray-400">
@@ -1047,10 +1054,20 @@ export default function PairAnalyzer() {
                               ? analysisData.distances
                               : analysisData.spreads
                         const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
+
+                        if (filteredData.length === 0) {
+                          return (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                              No valid data for histogram.
+                            </div>
+                          )
+                        }
+
                         const min = Math.min(...filteredData)
                         const max = Math.max(...filteredData)
                         const binCount = 20
-                        const binSize = (max - min) / binCount
+                        // Ensure binSize is not zero if min === max
+                        const binSize = max - min === 0 ? 1 : (max - min) / binCount
 
                         const bins = Array(binCount)
                           .fill(0)
@@ -1182,10 +1199,19 @@ export default function PairAnalyzer() {
                       // Histogram
                       (() => {
                         const data = analysisData.zScores.filter((z) => isFinite(z)) // Filter out NaN/Infinity
+
+                        if (data.length === 0) {
+                          return (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                              No valid Z-score data for histogram.
+                            </div>
+                          )
+                        }
+
                         const min = Math.min(...data)
                         const max = Math.max(...data)
                         const binCount = 20
-                        const binSize = (max - min) / binCount
+                        const binSize = max - min === 0 ? 1 : (max - min) / binCount
 
                         const bins = Array(binCount)
                           .fill(0)
@@ -1354,8 +1380,15 @@ export default function PairAnalyzer() {
                           ) {
                             const lastBeta = analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
                             const lastAlpha = analysisData.alphas[analysisData.alphas.length - 1]
-                            const minB = Math.min(...analysisData.stockBPrices.filter((p) => isFinite(p)))
-                            const maxB = Math.max(...analysisData.stockBPrices.filter((p) => isFinite(p)))
+                            const filteredBPrices = analysisData.stockBPrices.filter((p) => isFinite(p))
+
+                            if (filteredBPrices.length === 0) return null // No valid data for regression line
+
+                            const minB = Math.min(...filteredBPrices)
+                            const maxB = Math.max(...filteredBPrices)
+
+                            // Ensure minB and maxB are not Infinity or -Infinity
+                            if (!isFinite(minB) || !isFinite(maxB)) return null
 
                             return (
                               <Line
@@ -1381,9 +1414,12 @@ export default function PairAnalyzer() {
                       (() => {
                         const createBins = (data: number[], binCount = 15) => {
                           const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
+
+                          if (filteredData.length === 0) return [] // Return empty array if no valid data
+
                           const min = Math.min(...filteredData)
                           const max = Math.max(...filteredData)
-                          const binSize = (max - min) / binCount
+                          const binSize = max - min === 0 ? 1 : (max - min) / binCount
 
                           const bins = Array(binCount)
                             .fill(0)
@@ -1402,6 +1438,14 @@ export default function PairAnalyzer() {
 
                         const binsA = createBins(analysisData.stockAPrices)
                         const binsB = createBins(analysisData.stockBPrices)
+
+                        if (binsA.length === 0 && binsB.length === 0) {
+                          return (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                              No valid price data for histogram.
+                            </div>
+                          )
+                        }
 
                         // Combine bins for side-by-side display
                         const combinedData = []
