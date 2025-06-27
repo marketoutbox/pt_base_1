@@ -28,9 +28,7 @@ function calculateRollingStdDev(data, window) {
     } else {
       const slice = data.slice(i - window + 1, i + 1)
       const mean = means[i]
-      // Use N-1 for sample standard deviation, ensure slice.length > 1
-      const denominator = slice.length > 1 ? slice.length - 1 : slice.length // Fallback to N if length is 1
-      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / denominator
+      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (slice.length - 1)
       result.push(Math.sqrt(variance))
     }
   }
