@@ -186,7 +186,7 @@ export const runMultiLinearRegression = (y_values, x_matrix) => {
 
   const stdErrors = Array(numPredictors).fill(0)
   for (let i = 0; i < numPredictors; i++) {
-    stdErrors[i] = Math.sqrt(MSE * Math.max(0, XtX_inv[i][i]))
+    stdErrors[i] = Math.sqrt(MSE * Math.max(0, XtX_inv[i][i])) // Ensure non-negative for sqrt
   }
 
   return { coefficients, stdErrors, SSR, nobs: numObservations, nparams: numPredictors }
