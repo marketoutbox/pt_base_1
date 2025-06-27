@@ -172,78 +172,12 @@ export default function PairAnalyzer() {
           ratioWorker.postMessage({
             type: "runRatioAnalysis",
             data: { pricesA, pricesB },
-            params: { ratioLookbackWindow },
+            params: { ratioLookbackWindow, entryThreshold, exitThreshold }, // Pass trade params
           })
         })
 
         const ratioResult = await ratioAnalysisPromise
-        console.log("Got ratio result, now getting common stats")
-
-        const mainWorker = getCalculationsWorker()
-        const statsPromise = new Promise((resolve, reject) => {
-          const messageHandler = (event) => {
-            console.log("Received message from main worker (common stats):", event.data.type)
-            if (event.data.type === "analysisComplete") {
-              mainWorker.removeEventListener("message", messageHandler)
-              mainWorker.removeEventListener("error", errorHandler)
-              if (event.data.error) {
-                console.error("Main worker error (common stats):", event.data.error)
-                reject(new Error(event.data.error))
-              } else {
-                console.log("Common stats completed successfully")
-                resolve(event.data.analysisData)
-              }
-            } else if (event.data.type === "debug") {
-              console.log("[Main Worker Debug]", event.data.message)
-            } else if (event.data.type === "error") {
-              console.error("[Main Worker Error]", event.data.message)
-            }
-          }
-
-          const errorHandler = (e) => {
-            console.error("Main worker error handler (common stats):", e)
-            mainWorker.removeEventListener("message", messageHandler)
-            mainWorker.removeEventListener("error", errorHandler)
-            reject(new Error("An error occurred in the main stats worker. Please check console for details."))
-          }
-
-          mainWorker.addEventListener("message", messageHandler)
-          mainWorker.addEventListener("error", errorHandler)
-
-          console.log("Sending data to main worker for common stats")
-          mainWorker.postMessage({
-            type: "runCommonStats",
-            data: { pricesA, pricesB }, // Pass original prices for correlation
-            params: {
-              modelType: activeTab,
-              seriesForADF: ratioResult.ratios, // Pass the calculated ratios for ADF, Hurst, Half-Life
-              zScores: ratioResult.zScores, // Pass zScores for practical half-life
-              entryThreshold,
-              exitThreshold,
-            },
-            selectedPair: selectedPair,
-          })
-        })
-
-        const commonStatsResult = await statsPromise
-
-        // Combine results
-        const finalAnalysisData = {
-          ...ratioResult,
-          statistics: {
-            ...ratioResult.statistics,
-            correlation: commonStatsResult.statistics.correlation,
-            minZScore: commonStatsResult.statistics.minZScore,
-            maxZScore: commonStatsResult.statistics.maxZScore,
-            adfResults: commonStatsResult.statistics.adfResults,
-            halfLife: commonStatsResult.statistics.halfLife,
-            halfLifeValid: commonStatsResult.statistics.halfLifeValid,
-            hurstExponent: commonStatsResult.statistics.hurstExponent,
-            practicalTradeHalfLife: commonStatsResult.statistics.practicalTradeHalfLife,
-          },
-        }
-
-        setAnalysisData(finalAnalysisData)
+        setAnalysisData(ratioResult) // Directly set the result from ratio worker
       } else {
         console.log("Using main calculations worker")
         const mainWorker = getCalculationsWorker()
@@ -1112,7 +1046,7 @@ export default function PairAnalyzer() {
                     ? "ratio"
                     : analysisData.statistics.modelType === "euclidean"
                       ? "Euclidean distance"
-                      : "spread"}{" "}
+                      : "spread"}
                   between {selectedPair.stockA} and {selectedPair.stockB}
                   {plotType === "line"
                     ? " with rolling mean and standard deviation bands."
