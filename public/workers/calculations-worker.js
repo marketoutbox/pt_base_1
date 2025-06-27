@@ -2,7 +2,6 @@
 
 // Import the WASM module and its initialization function
 // Adjust the path based on where you placed your 'pkg' folder in the public directory
-// QUICKEDIT: Changed path from "../wasm/adf_test_pkg/adf_test.js" to "../wasm/adf_test.js"
 import init, { get_adf_p_value_and_stationarity } from "../wasm/adf_test.js"
 
 let wasmInitialized = false
@@ -47,7 +46,10 @@ const calculateZScore = (data, lookback) => {
 
     if (windowData.length === lookback) {
       const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
-      const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1) // Sample variance
+      const variance =
+        windowData.length > 1
+          ? windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1) // Sample variance
+          : 0 // Handle case where windowData.length is 1
       const stdDev = Math.sqrt(variance)
       zScores.push(stdDev > 0 ? (data[i] - mean) / stdDev : 0)
     } else {
@@ -672,7 +674,10 @@ self.onmessage = async (event) => {
         zScores = calculateZScore(ratios, ratioLookbackWindow)
         rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
         meanValue = ratios.reduce((sum, val) => sum + val, 0) / ratios.length
-        stdDevValue = Math.sqrt(ratios.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / ratios.length)
+        const ratioStdDevDenominator = ratios.length > 1 ? ratios.length - 1 : ratios.length
+        stdDevValue = Math.sqrt(
+          ratios.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / ratioStdDevDenominator,
+        )
       } else if (modelType === "ols") {
         for (let i = 0; i < minLength; i++) {
           const { beta, alpha } = calculateHedgeRatio(pricesA, pricesB, i, olsLookbackWindow)
@@ -688,7 +693,10 @@ self.onmessage = async (event) => {
         zScores = calculateZScore(spreads, zScoreLookback)
         rollingHalfLifes = calculateRollingHalfLife(spreads, olsLookbackWindow) // Use OLS lookback for rolling half-life
         meanValue = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
-        stdDevValue = Math.sqrt(spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreads.length)
+        const spreadStdDevDenominator = spreads.length > 1 ? spreads.length - 1 : spreads.length
+        stdDevValue = Math.sqrt(
+          spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreadStdDevDenominator,
+        )
       } else if (modelType === "kalman") {
         const kalmanResults = kalmanFilter(
           pricesA,
@@ -703,7 +711,10 @@ self.onmessage = async (event) => {
         zScores = calculateZScore(spreads, zScoreLookback)
         rollingHalfLifes = calculateRollingHalfLife(spreads, kalmanInitialLookback) // Use Kalman initial lookback for rolling half-life
         meanValue = spreads.reduce((sum, val) => sum + val, 0) / spreads.length
-        stdDevValue = Math.sqrt(spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreads.length)
+        const spreadStdDevDenominator = spreads.length > 1 ? spreads.length - 1 : spreads.length
+        stdDevValue = Math.sqrt(
+          spreads.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / spreadStdDevDenominator,
+        )
       } else if (modelType === "euclidean") {
         const initialPriceA = pricesA[0].close
         const initialPriceB = pricesB[0].close
@@ -713,8 +724,9 @@ self.onmessage = async (event) => {
         zScores = calculateZScore(distances, euclideanLookbackWindow)
         rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow)
         meanValue = distances.reduce((sum, val) => sum + val, 0) / distances.length
+        const distanceStdDevDenominator = distances.length > 1 ? distances.length - 1 : distances.length
         stdDevValue = Math.sqrt(
-          distances.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / distances.length,
+          distances.reduce((sum, val) => sum + Math.pow(val - meanValue, 2), 0) / distanceStdDevDenominator,
         )
       }
 
