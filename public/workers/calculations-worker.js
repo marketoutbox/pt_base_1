@@ -9,15 +9,15 @@ let isWasmReady = false
 // Load WASM module
 async function loadWasm() {
   try {
-    console.log("Loading WASM module...")
+    console.log("Loading WASM module in main worker...")
     // Ensure the path is correct relative to the worker script
     const wasmScript = await import("/wasm/adf_test_pkg/adf_test.js")
     await wasmScript.default() // Initialize the WASM module
     wasmModule = wasmScript
     isWasmReady = true
-    console.log("WASM module loaded successfully")
+    console.log("WASM module loaded successfully in main worker")
   } catch (error) {
-    console.error("Failed to load WASM module:", error)
+    console.error("Failed to load WASM module in main worker:", error)
     isWasmReady = false
     self.postMessage({
       type: "error",
@@ -76,7 +76,7 @@ function calculateRollingStdDev(data, window) {
     } else {
       const slice = data.slice(i - window + 1, i + 1)
       const mean = means[i]
-      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (slice.length - 1)
+      const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (slice.length - 1) // Bessel's correction
       result.push(Math.sqrt(variance))
     }
   }
@@ -267,20 +267,12 @@ function performADFTest(series) {
       }
     }
 
+    // Calculate ADF t-statistic in JavaScript
     const n = cleanSeries.length
-    
-    // ADF regression: Δy_t = α + γy_{t-1} + ε_t
-    // where Δy_t = y_t - y_{t-1} and we test if γ = 0 (unit root)
-    
-    const y = [] // First differences: Δy_t = y_t - y_{t-1}
-    const x = [] // Lagged levels: y_{t-1}
-    
-    for (let i = 1; i < n; i++) {
-      y.push(cleanSeries[i] - cleanSeries[i - 1]) // First difference
-      x.push(cleanSeries[i - 1]) // Lagged level
-    }
-    
-    if (y.length < 5) {
+    const y = cleanSeries.slice(1).map((val, i) => val - cleanSeries[i]) // First differences
+    const x = cleanSeries.slice(0, -1) // Lagged values
+
+    if (y.length !== x.length || y.length < 5) {
       return {
         statistic: -2.5,
         pValue: 1,
@@ -289,35 +281,15 @@ function performADFTest(series) {
       }
     }
 
+    // OLS regression: y = beta * x + error
     const n_reg = y.length
-    
-    // Add constant term for regression with intercept
-    // Regression: y = α + γ*x + ε
-    const X = [] // Design matrix [1, x_i] for each observation
-    for (let i = 0; i < n_reg; i++) {
-      X.push([1, x[i]]) // [constant, lagged_level]
-    }
-    
-    // Calculate (X'X)^(-1) for 2x2 case
-    let sumXX = 0, sumX = 0, sumXY = 0, sumY = 0, sumXX_lag = 0, sumXY_lag = 0
-    
-    for (let i = 0; i < n_reg; i++) {
-      sumX += X[i][0] // sum of 1's = n_reg
-      sumXX += X[i][0] * X[i][0] // sum of 1's = n_reg  
-      sumY += y[i]
-      sumXY += X[i][0] * y[i] // sum of y's
-      sumXX_lag += X[i][1] * X[i][1] // sum of x_i^2
-      sumXY_lag += X[i][1] * y[i] // sum of x_i * y_i
-    }
-    
-    // For matrix [[n, sum_x], [sum_x, sum_x^2]]
-    const XTX_11 = n_reg
-    const XTX_12 = x.reduce((sum, val) => sum + val, 0)
-    const XTX_21 = XTX_12
-    const XTX_22 = sumXX_lag
-    
-    const det = XTX_11 * XTX_22 - XTX_12 * XTX_21
-    if (Math.abs(det) < 1e-10) {
+    const sumX = x.reduce((sum, val) => sum + val, 0)
+    const sumY = y.reduce((sum, val) => sum + val, 0)
+    const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0)
+    const sumXX = x.reduce((sum, val) => sum + val * val, 0)
+
+    const denominator = n_reg * sumXX - sumX * sumX
+    if (denominator === 0) {
       return {
         statistic: -2.5,
         pValue: 1,
@@ -325,72 +297,37 @@ function performADFTest(series) {
         isStationary: false,
       }
     }
-    
-    // (X'X)^(-1)
-    const XTX_inv_11 = XTX_22 / det
-    const XTX_inv_12 = -XTX_12 / det
-    const XTX_inv_21 = -XTX_21 / det
-    const XTX_inv_22 = XTX_11 / det
-    
-    // X'y vector
-    const XTy_1 = sumY
-    const XTy_2 = sumXY_lag
-    
-    // β = (X'X)^(-1) X'y
-    const alpha = XTX_inv_11 * XTy_1 + XTX_inv_12 * XTy_2 // intercept
-    const gamma = XTX_inv_21 * XTy_1 + XTX_inv_22 * XTy_2 // coefficient on lagged level
-    
-    // Calculate residuals and MSE
-    const residuals = []
-    for (let i = 0; i < n_reg; i++) {
-      const predicted = alpha + gamma * x[i]
-      residuals.push(y[i] - predicted)
-    }
-    
+
+    const beta = (n_reg * sumXY - sumX * sumY) / denominator
+
+    // Calculate residuals and standard error
+    const residuals = y.map((val, i) => val - beta * x[i])
     const rss = residuals.reduce((sum, val) => sum + val * val, 0)
-    const mse = rss / (n_reg - 2) // degrees of freedom = n - k where k=2 (intercept + slope)
-    
-    // Standard error of gamma coefficient
-    const se_gamma = Math.sqrt(mse * XTX_inv_22)
-    
+    const mse = rss / (n_reg - 1) // Using n_reg - 1 for sample variance of residuals
+    const se_beta = Math.sqrt(mse / (sumXX - (sumX * sumX) / n_reg))
+
     // ADF t-statistic
-    const adf_statistic = gamma / se_gamma
-    
-    console.log(`ADF Test: n=${n}, gamma=${gamma}, se_gamma=${se_gamma}, t_stat=${adf_statistic}`)
+    const adf_statistic = beta / se_beta
 
     // Use WASM for p-value lookup
     if (isWasmReady && wasmModule && wasmModule.get_adf_p_value_and_stationarity) {
-      try {
-        const result = wasmModule.get_adf_p_value_and_stationarity(adf_statistic, n)
-        console.log(`WASM result: p_value=${result.p_value}, is_stationary=${result.is_stationary}`)
-        return {
-          statistic: adf_statistic,
-          pValue: result.p_value,
-          criticalValues: result.critical_values,
-          isStationary: result.is_stationary,
-        }
-      } catch (wasmError) {
-        console.error("WASM call failed:", wasmError)
-        // Fall through to fallback
+      const result = wasmModule.get_adf_p_value_and_stationarity(adf_statistic, n)
+      return {
+        statistic: adf_statistic,
+        pValue: result.p_value,
+        criticalValues: result.critical_values,
+        isStationary: result.is_stationary,
+      }
+    } else {
+      // Fallback without WASM
+      console.warn("WASM not ready, using fallback p-value estimation")
+      return {
+        statistic: adf_statistic,
+        pValue: adf_statistic < -2.86 ? 0.05 : 0.1,
+        criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
+        isStationary: adf_statistic < -2.86,
       }
     }
-    
-    // Fallback without WASM
-    console.warn("WASM not ready, using fallback p-value estimation")
-    const criticalValues = { "1%": -3.43, "5%": -2.86, "10%": -2.57 }
-    let pValue = 0.1
-    if (adf_statistic < -3.43) pValue = 0.01
-    else if (adf_statistic < -2.86) pValue = 0.05
-    else if (adf_statistic < -2.57) pValue = 0.1
-    else pValue = 0.5
-    
-    return {
-      statistic: adf_statistic,
-      pValue: pValue,
-      criticalValues: criticalValues,
-      isStationary: adf_statistic < -2.86,
-    }
-    
   } catch (error) {
     console.error("ADF test error:", error)
     return {
@@ -402,170 +339,87 @@ function performADFTest(series) {
   }
 }
 
-// Hurst Exponent calculation
-function calculateHurstExponent(series) {
-  try {
-    const cleanSeries = series.filter((val) => !isNaN(val) && isFinite(val))
-    if (cleanSeries.length < 20) return 0.5
-
-    const n = cleanSeries.length
-    const lags = []
-    const rs = []
-
-    for (let lag = 2; lag <= Math.min(Math.floor(n / 4), 100); lag++) {
-      const chunks = Math.floor(n / lag)
-      let rsSum = 0
-
-      for (let i = 0; i < chunks; i++) {
-        const chunk = cleanSeries.slice(i * lag, (i + 1) * lag)
-        const mean = chunk.reduce((sum, val) => sum + val, 0) / chunk.length
-
-        let cumulativeDeviation = 0
-        let maxDeviation = Number.NEGATIVE_INFINITY
-        let minDeviation = Number.POSITIVE_INFINITY
-
-        for (let j = 0; j < chunk.length; j++) {
-          cumulativeDeviation += chunk[j] - mean
-          maxDeviation = Math.max(maxDeviation, cumulativeDeviation)
-          minDeviation = Math.min(minDeviation, cumulativeDeviation)
-        }
-
-        const range = maxDeviation - minDeviation
-        const stdDev = Math.sqrt(chunk.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / chunk.length)
-
-        if (stdDev > 0) {
-          rsSum += range / stdDev
-        }
-      }
-
-      if (chunks > 0) {
-        lags.push(Math.log(lag))
-        rs.push(Math.log(rsSum / chunks))
-      }
-    }
-
-    if (lags.length < 3) return 0.5
-
-    // Linear regression to find Hurst exponent
-    const n_points = lags.length
-    const sumX = lags.reduce((sum, val) => sum + val, 0)
-    const sumY = rs.reduce((sum, val) => sum + val, 0)
-    const sumXY = lags.reduce((sum, val, i) => sum + val * rs[i], 0)
-    const sumXX = lags.reduce((sum, val) => sum + val * val, 0)
-
-    const denominator = n_points * sumXX - sumX * sumX
-    if (denominator === 0) return 0.5
-
-    const hurst = (n_points * sumXY - sumX * sumY) / denominator
-    return Math.max(0, Math.min(1, hurst))
-  } catch (error) {
-    console.error("Error calculating Hurst exponent:", error)
-    return 0.5
-  }
+// Z-Score calculation
+function calculateZScores(data, mean, stdDev) {
+  return data.map((val, i) => (val - mean[i]) / stdDev[i])
 }
 
-// Half-life calculation
-function calculateHalfLife(series) {
-  try {
-    const cleanSeries = series.filter((val) => !isNaN(val) && isFinite(val))
-    if (cleanSeries.length < 10) return { halfLife: -1, isValid: false }
-
-    const y = cleanSeries.slice(1)
-    const x = cleanSeries.slice(0, -1)
-
-    const n = y.length
-    const sumX = x.reduce((sum, val) => sum + val, 0)
-    const sumY = y.reduce((sum, val) => sum + val, 0)
-    const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0)
-    const sumXX = x.reduce((sum, val) => sum + val * val, 0)
-
-    const denominator = n * sumXX - sumX * sumX
-    if (denominator === 0) return { halfLife: -1, isValid: false }
-
-    const beta = (n * sumXY - sumX * sumY) / denominator
-
-    if (beta >= 1 || beta <= 0) return { halfLife: -1, isValid: false }
-
-    const halfLife = -Math.log(2) / Math.log(beta)
-    const isValid = halfLife > 0 && halfLife < 252
-
-    return { halfLife, isValid }
-  } catch (error) {
-    console.error("Error calculating half-life:", error)
-    return { halfLife: -1, isValid: false }
-  }
-}
-
-// Practical trade half-life
-function calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold) {
-  try {
-    const trades = []
-    let inTrade = false
-    let entryIndex = -1
-    let entryZScore = 0
-
-    for (let i = 0; i < zScores.length; i++) {
-      const zScore = zScores[i]
-      if (isNaN(zScore)) continue
-
-      if (!inTrade && Math.abs(zScore) >= entryThreshold) {
-        inTrade = true
-        entryIndex = i
-        entryZScore = zScore
-      } else if (inTrade && Math.abs(zScore) <= exitThreshold) {
-        const tradeDuration = i - entryIndex
-        const successful = (entryZScore > 0 && zScore < entryZScore) || (entryZScore < 0 && zScore > entryZScore)
-        trades.push({ duration: tradeDuration, successful })
-        inTrade = false
-      }
-    }
-
-    if (trades.length < 3) {
-      return { tradeCycleLength: -1, successRate: 0, isValid: false }
-    }
-
-    const avgDuration = trades.reduce((sum, trade) => sum + trade.duration, 0) / trades.length
-    const successRate = trades.filter((trade) => trade.successful).length / trades.length
-
-    return { tradeCycleLength: avgDuration, successRate, isValid: true }
-  } catch (error) {
-    console.error("Error calculating practical trade half-life:", error)
-    return { tradeCycleLength: -1, successRate: 0, isValid: false }
-  }
-}
-
-// Calculate correlation
+// Correlation calculation
 function calculateCorrelation(pricesA, pricesB) {
-  const n = Math.min(pricesA.length, pricesB.length)
-  if (n === 0) return 0
+  const n = pricesA.length
+  const meanA = pricesA.reduce((sum, val) => sum + val, 0) / n
+  const meanB = pricesB.reduce((sum, val) => sum + val, 0) / n
+  const sumA = pricesA.reduce((sum, val) => sum + Math.pow(val - meanA, 2), 0)
+  const sumB = pricesB.reduce((sum, val) => sum + Math.pow(val - meanB, 2), 0)
+  const sumAB = pricesA.reduce((sum, val, i) => sum + (val - meanA) * (pricesB[i] - meanB), 0)
 
-  const meanA = pricesA.slice(0, n).reduce((sum, val) => sum + val, 0) / n
-  const meanB = pricesB.slice(0, n).reduce((sum, val) => sum + val, 0) / n
-
-  let numerator = 0
-  let sumSqA = 0
-  let sumSqB = 0
-
-  for (let i = 0; i < n; i++) {
-    const devA = pricesA[i] - meanA
-    const devB = pricesB[i] - meanB
-    numerator += devA * devB
-    sumSqA += devA * devA
-    sumSqB += devB * devB
+  const denominator = Math.sqrt(sumA * sumB)
+  if (denominator === 0) {
+    return 0
   }
 
-  const denominator = Math.sqrt(sumSqA * sumSqB)
-  return denominator > 0 ? numerator / denominator : 0
+  return sumAB / denominator
 }
 
-// Z-score calculation (re-defined for clarity, though similar to ratio worker)
-function calculateZScores(data, means, stdDevs) {
-  return data.map((value, i) => {
-    if (isNaN(means[i]) || isNaN(stdDevs[i]) || stdDevs[i] === 0) {
-      return Number.NaN
+// Half-Life calculation
+function calculateHalfLife(data) {
+  const isValid = data.length > 0
+  let halfLife = 0
+
+  if (isValid) {
+    const mean = calculateRollingMean(data, data.length)[data.length - 1]
+    const deviations = data.map((val) => Math.abs(val - mean))
+    const sortedDeviations = deviations.slice().sort((a, b) => a - b)
+    const midDeviation = sortedDeviations[Math.floor(sortedDeviations.length / 2)]
+
+    const decayIndex = deviations.findIndex((dev) => dev <= midDeviation)
+    halfLife = decayIndex !== -1 ? decayIndex : data.length
+  }
+
+  return { halfLife, isValid }
+}
+
+// Hurst Exponent calculation
+function calculateHurstExponent(data) {
+  const n = data.length
+  const maxWindowSize = Math.floor(n / 2)
+  let hurstExponent = 0
+
+  for (let windowSize = 2; windowSize <= maxWindowSize; windowSize *= 2) {
+    const variances = []
+    for (let i = 0; i <= n - windowSize; i++) {
+      const window = data.slice(i, i + windowSize)
+      const mean = window.reduce((sum, val) => sum + val, 0) / windowSize
+      const variance = window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / windowSize
+      variances.push(variance)
     }
-    return (value - means[i]) / stdDevs[i]
-  })
+
+    const logVariances = variances.map((variance) => Math.log(variance))
+    const logWindowSizes = Array.from({ length: variances.length }, (_, i) => Math.log(windowSize * i + windowSize))
+
+    const olsResult = calculateOLS(logWindowSizes, logVariances, logWindowSizes.length)
+    hurstExponent += olsResult.hedgeRatios[olsResult.hedgeRatios.length - 1]
+  }
+
+  hurstExponent /= Math.log(maxWindowSize) / Math.log(2)
+  return hurstExponent
+}
+
+// Practical Trade Half-Life calculation
+function calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold) {
+  const isValid = zScores.length > 0
+  let halfLife = 0
+
+  if (isValid) {
+    const entryIndex = zScores.findIndex((z) => z >= entryThreshold)
+    const exitIndex = zScores.findIndex((z) => z <= exitThreshold)
+
+    if (entryIndex !== -1 && exitIndex !== -1) {
+      halfLife = exitIndex - entryIndex
+    }
+  }
+
+  return { halfLife, isValid }
 }
 
 // Message handler
@@ -627,13 +481,13 @@ self.addEventListener("message", async (e) => {
       const meanValue = validData.length > 0 ? validData.reduce((sum, d) => sum + d, 0) / validData.length : 0
       const stdDevValue =
         validData.length > 0
-          ? Math.sqrt(validData.reduce((sum, d) => sum + Math.pow(d - meanValue, 2), 0) / validData.length)
+          ? Math.sqrt(validData.reduce((sum, d) => sum + Math.pow(d - meanValue, 2), 0) / (validData.length - 1)) // Bessel's correction
           : 0
       const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Statistical tests
-      const adfResults = performADFTest(modelSpecificData)
+      const adfResults = await performADFTest(modelSpecificData) // Await WASM call
       const { halfLife, isValid: halfLifeValid } = calculateHalfLife(modelSpecificData)
       const hurstExponent = calculateHurstExponent(modelSpecificData)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(
@@ -698,54 +552,6 @@ self.addEventListener("message", async (e) => {
       }
 
       console.log("Analysis completed, sending results")
-      self.postMessage({
-        type: "analysisComplete",
-        analysisData,
-      })
-    } else if (e.data.type === "runCommonStats") {
-      // Handle common statistics calculation for ratio model
-      const { pricesA, pricesB } = e.data.data
-      const params = e.data.params
-      const seriesForADF = params.seriesForADF
-      const zScores = params.zScores
-
-      console.log("Processing common stats for ratio model")
-
-      const stockAPrices = pricesA.map((d) => d.close)
-      const stockBPrices = pricesB.map((d) => d.close)
-
-      // Calculate correlation
-      const correlation = calculateCorrelation(stockAPrices, stockBPrices)
-
-      // Calculate z-score statistics
-      const validZScores = zScores.filter((z) => !isNaN(z))
-      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
-      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
-
-      // Statistical tests
-      const adfResults = performADFTest(seriesForADF)
-      const { halfLife, isValid: halfLifeValid } = calculateHalfLife(seriesForADF)
-      const hurstExponent = calculateHurstExponent(seriesForADF)
-      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(
-        zScores,
-        params.entryThreshold,
-        params.exitThreshold,
-      )
-
-      const analysisData = {
-        statistics: {
-          correlation,
-          minZScore,
-          maxZScore,
-          adfResults,
-          halfLife,
-          halfLifeValid,
-          hurstExponent,
-          practicalTradeHalfLife,
-        },
-      }
-
-      console.log("Common stats completed, sending results")
       self.postMessage({
         type: "analysisComplete",
         analysisData,
