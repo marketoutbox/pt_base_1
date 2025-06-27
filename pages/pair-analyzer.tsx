@@ -935,124 +935,154 @@ export default function PairAnalyzer() {
                 </h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    {plotType === "line" ? (
-                      <LineChart
-                        data={analysisData.dates.map((date, i) => ({
-                          date,
-                          value:
-                            analysisData.statistics.modelType === "ratio"
-                              ? analysisData.ratios[i]
+                    {(() => {
+                      const primaryChartData =
+                        analysisData.statistics.modelType === "ratio"
+                          ? analysisData.ratios
+                          : analysisData.statistics.modelType === "euclidean"
+                            ? analysisData.distances
+                            : analysisData.spreads
+                      const hasValidPrimaryChartData = primaryChartData && primaryChartData.filter(isFinite).length > 0
+
+                      if (!hasValidPrimaryChartData) {
+                        return (
+                          <div className="flex items-center justify-center h-full text-gray-400">
+                            No valid{" "}
+                            {analysisData.statistics.modelType === "ratio"
+                              ? "ratio"
                               : analysisData.statistics.modelType === "euclidean"
-                                ? analysisData.distances[i]
-                                : analysisData.spreads[i],
-                          mean: analysisData.chartData.rollingMean[i],
-                          upperBand1: analysisData.chartData.rollingUpperBand1[i],
-                          lowerBand1: analysisData.chartData.rollingLowerBand1[i],
-                          upperBand2: analysisData.chartData.rollingUpperBand2[i],
-                          lowerBand2: analysisData.chartData.rollingLowerBand2[i],
-                        }))}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fill: "#dce5f3" }}
-                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                          interval={Math.ceil(analysisData.dates.length / 10)}
-                        />
-                        <YAxis tick={{ fill: "#dce5f3" }} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [formatNumber(value as number, 4), "Value"]}
-                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                        />
-                        <Line type="monotone" dataKey="value" stroke="#ffd700" dot={false} />
-                        <Line type="monotone" dataKey="mean" stroke="#ffffff" dot={false} strokeDasharray="5 5" />
-                        <Line type="monotone" dataKey="upperBand1" stroke="#3a4894" dot={false} strokeDasharray="3 3" />
-                        <Line type="monotone" dataKey="lowerBand1" stroke="#3a4894" dot={false} strokeDasharray="3 3" />
-                        <Line type="monotone" dataKey="upperBand2" stroke="#ff6b6b" dot={false} strokeDasharray="3 3" />
-                        <Line type="monotone" dataKey="lowerBand2" stroke="#ff6b6b" dot={false} strokeDasharray="3 3" />
-                      </LineChart>
-                    ) : plotType === "scatter" ? (
-                      <ScatterChart
-                        data={analysisData.dates.map((date, i) => ({
-                          date: i, // Use index for x-axis
-                          value:
-                            analysisData.statistics.modelType === "ratio"
-                              ? analysisData.ratios[i]
-                              : analysisData.statistics.modelType === "euclidean"
-                                ? analysisData.distances[i]
-                                : analysisData.spreads[i],
-                        }))}
-                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                        <XAxis
-                          type="number"
-                          dataKey="date"
-                          name="Time"
-                          tick={{ fill: "#dce5f3" }}
-                          label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
-                        />
-                        <YAxis
-                          type="number"
-                          dataKey="value"
-                          name="Value"
-                          tick={{ fill: "#dce5f3" }}
-                          label={{
-                            value:
-                              analysisData.statistics.modelType === "ratio"
-                                ? "Ratio"
-                                : analysisData.statistics.modelType === "euclidean"
-                                  ? "Distance"
-                                  : "Spread",
-                            angle: -90,
-                            position: "insideLeft",
-                            fill: "#dce5f3",
-                          }}
-                        />
-                        <ZAxis range={[15, 15]} />
-                        <Tooltip
-                          cursor={{ strokeDasharray: "3 3" }}
-                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [
-                            formatNumber(value as number, 4),
-                            analysisData.statistics.modelType === "ratio"
-                              ? "Ratio"
-                              : analysisData.statistics.modelType === "euclidean"
-                                ? "Distance"
-                                : "Spread",
-                          ]}
-                        />
-                        <Scatter
-                          name={
-                            analysisData.statistics.modelType === "ratio"
-                              ? "Ratio"
-                              : analysisData.statistics.modelType === "euclidean"
-                                ? "Distance"
-                                : "Spread"
-                          }
-                          data={analysisData.dates.map((date, i) => ({
-                            date: i,
-                            value:
-                              analysisData.statistics.modelType === "ratio"
-                                ? analysisData.ratios[i]
-                                : analysisData.statistics.modelType === "euclidean"
-                                  ? analysisData.distances[i]
-                                  : analysisData.spreads[i],
-                          }))}
-                          fill="#ffd700"
-                        />
-                      </ScatterChart>
-                    ) : (
-                      // Histogram
-                      (() => {
-                        const data =
-                          analysisData.statistics.modelType === "ratio"
-                            ? analysisData.ratios
-                            : analysisData.statistics.modelType === "euclidean"
-                              ? analysisData.distances
-                              : analysisData.spreads
+                                ? "distance"
+                                : "spread"}{" "}
+                            data to display.
+                          </div>
+                        )
+                      }
+
+                      if (plotType === "line") {
+                        return (
+                          <LineChart
+                            data={analysisData.dates.map((date, i) => ({
+                              date,
+                              value: primaryChartData[i],
+                              mean: analysisData.chartData.rollingMean[i],
+                              upperBand1: analysisData.chartData.rollingUpperBand1[i],
+                              lowerBand1: analysisData.chartData.rollingLowerBand1[i],
+                              upperBand2: analysisData.chartData.rollingUpperBand2[i],
+                              lowerBand2: analysisData.chartData.rollingLowerBand2[i],
+                            }))}
+                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              dataKey="date"
+                              tick={{ fill: "#dce5f3" }}
+                              tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                              interval={Math.ceil(analysisData.dates.length / 10)}
+                            />
+                            <YAxis tick={{ fill: "#dce5f3" }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value) => [formatNumber(value as number, 4), "Value"]}
+                              labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            />
+                            <Line type="monotone" dataKey="value" stroke="#ffd700" dot={false} />
+                            <Line type="monotone" dataKey="mean" stroke="#ffffff" dot={false} strokeDasharray="5 5" />
+                            <Line
+                              type="monotone"
+                              dataKey="upperBand1"
+                              stroke="#3a4894"
+                              dot={false}
+                              strokeDasharray="3 3"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="lowerBand1"
+                              stroke="#3a4894"
+                              dot={false}
+                              strokeDasharray="3 3"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="upperBand2"
+                              stroke="#ff6b6b"
+                              dot={false}
+                              strokeDasharray="3 3"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="lowerBand2"
+                              stroke="#ff6b6b"
+                              dot={false}
+                              strokeDasharray="3 3"
+                            />
+                          </LineChart>
+                        )
+                      } else if (plotType === "scatter") {
+                        return (
+                          <ScatterChart
+                            data={analysisData.dates.map((date, i) => ({
+                              date: i, // Use index for x-axis
+                              value: primaryChartData[i],
+                            }))}
+                            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              type="number"
+                              dataKey="date"
+                              name="Time"
+                              tick={{ fill: "#dce5f3" }}
+                              label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
+                            />
+                            <YAxis
+                              type="number"
+                              dataKey="value"
+                              name="Value"
+                              tick={{ fill: "#dce5f3" }}
+                              label={{
+                                value:
+                                  analysisData.statistics.modelType === "ratio"
+                                    ? "Ratio"
+                                    : analysisData.statistics.modelType === "euclidean"
+                                      ? "Distance"
+                                      : "Spread",
+                                angle: -90,
+                                position: "insideLeft",
+                                fill: "#dce5f3",
+                              }}
+                            />
+                            <ZAxis range={[15, 15]} />
+                            <Tooltip
+                              cursor={{ strokeDasharray: "3 3" }}
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value) => [
+                                formatNumber(value as number, 4),
+                                analysisData.statistics.modelType === "ratio"
+                                  ? "Ratio"
+                                  : analysisData.statistics.modelType === "euclidean"
+                                    ? "Distance"
+                                    : "Spread",
+                              ]}
+                            />
+                            <Scatter
+                              name={
+                                analysisData.statistics.modelType === "ratio"
+                                  ? "Ratio"
+                                  : analysisData.statistics.modelType === "euclidean"
+                                    ? "Distance"
+                                    : "Spread"
+                              }
+                              data={analysisData.dates.map((date, i) => ({
+                                date: i,
+                                value: primaryChartData[i],
+                              }))}
+                              fill="#ffd700"
+                            />
+                          </ScatterChart>
+                        )
+                      } else {
+                        // Histogram
+                        const data = primaryChartData
                         const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
 
                         if (filteredData.length === 0) {
@@ -1100,8 +1130,8 @@ export default function PairAnalyzer() {
                             <Bar dataKey="count" fill="#ffd700" />
                           </BarChart>
                         )
-                      })()
-                    )}
+                      }
+                    })()}
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-4 text-sm text-gray-400">
@@ -1126,79 +1156,94 @@ export default function PairAnalyzer() {
                 <h3 className="text-xl font-semibold text-white mb-4">Z-Score Chart</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    {plotType === "line" ? (
-                      <LineChart
-                        data={analysisData.dates.map((date, i) => ({
-                          date,
-                          zScore: analysisData.zScores[i],
-                        }))}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fill: "#dce5f3" }}
-                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                          interval={Math.ceil(analysisData.dates.length / 10)}
-                        />
-                        <YAxis tick={{ fill: "#dce5f3" }} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
-                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                        />
-                        <ReferenceLine y={0} stroke="#ffffff" />
-                        <ReferenceLine y={1} stroke="#3a4894" strokeDasharray="3 3" />
-                        <ReferenceLine y={-1} stroke="#3a4894" strokeDasharray="3 3" />
-                        <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                        <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                        <Line type="monotone" dataKey="zScore" stroke="#ffd700" dot={false} strokeWidth={2} />
-                      </LineChart>
-                    ) : plotType === "scatter" ? (
-                      <ScatterChart
-                        data={analysisData.dates.map((date, i) => ({
-                          date: i,
-                          zScore: analysisData.zScores[i],
-                        }))}
-                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                        <XAxis
-                          type="number"
-                          dataKey="date"
-                          name="Time"
-                          tick={{ fill: "#dce5f3" }}
-                          label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
-                        />
-                        <YAxis
-                          type="number"
-                          dataKey="zScore"
-                          name="Z-Score"
-                          tick={{ fill: "#dce5f3" }}
-                          label={{ value: "Z-Score", angle: -90, position: "insideLeft", fill: "#dce5f3" }}
-                        />
-                        <ZAxis range={[15, 15]} />
-                        <Tooltip
-                          cursor={{ strokeDasharray: "3 3" }}
-                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
-                        />
-                        <ReferenceLine y={0} stroke="#ffffff" />
-                        <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                        <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                        <Scatter
-                          name="Z-Score"
-                          data={analysisData.dates.map((date, i) => ({
-                            date: i,
-                            zScore: analysisData.zScores[i],
-                          }))}
-                          fill="#ffd700"
-                        />
-                      </ScatterChart>
-                    ) : (
-                      // Histogram
-                      (() => {
-                        const data = analysisData.zScores.filter((z) => isFinite(z)) // Filter out NaN/Infinity
+                    {(() => {
+                      const primaryChartData = analysisData.zScores
+                      const hasValidPrimaryChartData = primaryChartData && primaryChartData.filter(isFinite).length > 0
+
+                      if (!hasValidPrimaryChartData) {
+                        return (
+                          <div className="flex items-center justify-center h-full text-gray-400">
+                            No valid Z-score data to display.
+                          </div>
+                        )
+                      }
+
+                      if (plotType === "line") {
+                        return (
+                          <LineChart
+                            data={analysisData.dates.map((date, i) => ({
+                              date,
+                              zScore: primaryChartData[i],
+                            }))}
+                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              dataKey="date"
+                              tick={{ fill: "#dce5f3" }}
+                              tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                              interval={Math.ceil(analysisData.dates.length / 10)}
+                            />
+                            <YAxis tick={{ fill: "#dce5f3" }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
+                              labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            />
+                            <ReferenceLine y={0} stroke="#ffffff" />
+                            <ReferenceLine y={1} stroke="#3a4894" strokeDasharray="3 3" />
+                            <ReferenceLine y={-1} stroke="#3a4894" strokeDasharray="3 3" />
+                            <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                            <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                            <Line type="monotone" dataKey="zScore" stroke="#ffd700" dot={false} strokeWidth={2} />
+                          </LineChart>
+                        )
+                      } else if (plotType === "scatter") {
+                        return (
+                          <ScatterChart
+                            data={analysisData.dates.map((date, i) => ({
+                              date: i,
+                              zScore: primaryChartData[i],
+                            }))}
+                            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              type="number"
+                              dataKey="date"
+                              name="Time"
+                              tick={{ fill: "#dce5f3" }}
+                              label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
+                            />
+                            <YAxis
+                              type="number"
+                              dataKey="zScore"
+                              name="Z-Score"
+                              tick={{ fill: "#dce5f3" }}
+                              label={{ value: "Z-Score", angle: -90, position: "insideLeft", fill: "#dce5f3" }}
+                            />
+                            <ZAxis range={[15, 15]} />
+                            <Tooltip
+                              cursor={{ strokeDasharray: "3 3" }}
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
+                            />
+                            <ReferenceLine y={0} stroke="#ffffff" />
+                            <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                            <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                            <Scatter
+                              name="Z-Score"
+                              data={analysisData.dates.map((date, i) => ({
+                                date: i,
+                                zScore: primaryChartData[i],
+                              }))}
+                              fill="#ffd700"
+                            />
+                          </ScatterChart>
+                        )
+                      } else {
+                        // Histogram
+                        const data = primaryChartData.filter((z) => isFinite(z)) // Filter out NaN/Infinity
 
                         if (data.length === 0) {
                           return (
@@ -1247,8 +1292,8 @@ export default function PairAnalyzer() {
                             <Bar dataKey="count" fill="#ffd700" />
                           </BarChart>
                         )
-                      })()
-                    )}
+                      }
+                    })()}
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-4 text-sm text-gray-400">
@@ -1273,145 +1318,166 @@ export default function PairAnalyzer() {
                 </h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    {plotType === "line" ? (
-                      <LineChart
-                        data={analysisData.dates.map((date, i) => ({
-                          date,
-                          stockA: analysisData.stockAPrices[i],
-                          stockB: analysisData.stockBPrices[i],
-                          ...(analysisData.statistics.modelType === "euclidean" && {
-                            normalizedA: analysisData.normalizedPricesA[i],
-                            normalizedB: analysisData.normalizedPricesB[i],
-                          }),
-                        }))}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fill: "#dce5f3" }}
-                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                          interval={Math.ceil(analysisData.dates.length / 10)}
-                        />
-                        <YAxis yAxisId="left" tick={{ fill: "#dce5f3" }} />
-                        <YAxis yAxisId="right" orientation="right" tick={{ fill: "#dce5f3" }} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value, name) => [formatNumber(value as number, 2), name]}
-                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                        />
-                        <Line
-                          yAxisId="left"
-                          type="monotone"
-                          dataKey="stockA"
-                          stroke="#ffd700"
-                          dot={false}
-                          name={selectedPair.stockA}
-                        />
-                        <Line
-                          yAxisId="right"
-                          type="monotone"
-                          dataKey="stockB"
-                          stroke="#ff6b6b"
-                          dot={false}
-                          name={selectedPair.stockB}
-                        />
-                        {analysisData.statistics.modelType === "euclidean" && (
-                          <>
+                    {(() => {
+                      const hasValidPriceData =
+                        (analysisData.stockAPrices && analysisData.stockAPrices.filter(isFinite).length > 0) ||
+                        (analysisData.stockBPrices && analysisData.stockBPrices.filter(isFinite).length > 0)
+
+                      if (!hasValidPriceData) {
+                        return (
+                          <div className="flex items-center justify-center h-full text-gray-400">
+                            No valid price data to display.
+                          </div>
+                        )
+                      }
+
+                      if (plotType === "line") {
+                        return (
+                          <LineChart
+                            data={analysisData.dates.map((date, i) => ({
+                              date,
+                              stockA: analysisData.stockAPrices[i],
+                              stockB: analysisData.stockBPrices[i],
+                              ...(analysisData.statistics.modelType === "euclidean" && {
+                                normalizedA: analysisData.normalizedPricesA[i],
+                                normalizedB: analysisData.normalizedPricesB[i],
+                              }),
+                            }))}
+                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              dataKey="date"
+                              tick={{ fill: "#dce5f3" }}
+                              tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                              interval={Math.ceil(analysisData.dates.length / 10)}
+                            />
+                            <YAxis yAxisId="left" tick={{ fill: "#dce5f3" }} />
+                            <YAxis yAxisId="right" orientation="right" tick={{ fill: "#dce5f3" }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value, name) => [formatNumber(value as number, 2), name]}
+                              labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            />
                             <Line
                               yAxisId="left"
                               type="monotone"
-                              dataKey="normalizedA"
-                              stroke="#00bfff" // Light blue for normalized A
+                              dataKey="stockA"
+                              stroke="#ffd700"
                               dot={false}
-                              name={`${selectedPair.stockA} (Normalized)`}
-                              strokeDasharray="5 5"
+                              name={selectedPair.stockA}
                             />
                             <Line
                               yAxisId="right"
                               type="monotone"
-                              dataKey="normalizedB"
-                              stroke="#90ee90" // Light green for normalized B
+                              dataKey="stockB"
+                              stroke="#ff6b6b"
                               dot={false}
-                              name={`${selectedPair.stockB} (Normalized)`}
-                              strokeDasharray="5 5"
+                              name={selectedPair.stockB}
                             />
-                          </>
-                        )}
-                      </LineChart>
-                    ) : plotType === "scatter" ? (
-                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                        <XAxis
-                          type="number"
-                          dataKey="stockB"
-                          name={selectedPair.stockB}
-                          tick={{ fill: "#dce5f3" }}
-                          label={{ value: selectedPair.stockB, position: "insideBottomRight", fill: "#dce5f3" }}
-                        />
-                        <YAxis
-                          type="number"
-                          dataKey="stockA"
-                          name={selectedPair.stockA}
-                          tick={{ fill: "#dce5f3" }}
-                          label={{ value: selectedPair.stockA, angle: -90, position: "insideLeft", fill: "#dce5f3" }}
-                        />
-                        <ZAxis range={[15, 15]} />
-                        <Tooltip
-                          cursor={{ strokeDasharray: "3 3" }}
-                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [formatNumber(value as number, 2), ""]}
-                        />
-                        <Scatter
-                          name="Stock Prices"
-                          data={analysisData.stockAPrices.map((priceA, i) => ({
-                            stockA: priceA,
-                            stockB: analysisData.stockBPrices[i],
-                            date: analysisData.dates[i],
-                          }))}
-                          fill="#ffd700"
-                        />
-                        {/* Add regression line for OLS/Kalman models */}
-                        {(() => {
-                          if (
-                            (analysisData.statistics.modelType === "ols" ||
-                              analysisData.statistics.modelType === "kalman") &&
-                            analysisData.stockBPrices.length > 0
-                          ) {
-                            const lastBeta = analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
-                            const lastAlpha = analysisData.alphas[analysisData.alphas.length - 1]
-                            const filteredBPrices = analysisData.stockBPrices.filter((p) => isFinite(p))
+                            {analysisData.statistics.modelType === "euclidean" && (
+                              <>
+                                <Line
+                                  yAxisId="left"
+                                  type="monotone"
+                                  dataKey="normalizedA"
+                                  stroke="#00bfff" // Light blue for normalized A
+                                  dot={false}
+                                  name={`${selectedPair.stockA} (Normalized)`}
+                                  strokeDasharray="5 5"
+                                />
+                                <Line
+                                  yAxisId="right"
+                                  type="monotone"
+                                  dataKey="normalizedB"
+                                  stroke="#90ee90" // Light green for normalized B
+                                  dot={false}
+                                  name={`${selectedPair.stockB} (Normalized)`}
+                                  strokeDasharray="5 5"
+                                />
+                              </>
+                            )}
+                          </LineChart>
+                        )
+                      } else if (plotType === "scatter") {
+                        return (
+                          <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                            <XAxis
+                              type="number"
+                              dataKey="stockB"
+                              name={selectedPair.stockB}
+                              tick={{ fill: "#dce5f3" }}
+                              label={{ value: selectedPair.stockB, position: "insideBottomRight", fill: "#dce5f3" }}
+                            />
+                            <YAxis
+                              type="number"
+                              dataKey="stockA"
+                              name={selectedPair.stockA}
+                              tick={{ fill: "#dce5f3" }}
+                              label={{
+                                value: selectedPair.stockA,
+                                angle: -90,
+                                position: "insideLeft",
+                                fill: "#dce5f3",
+                              }}
+                            />
+                            <ZAxis range={[15, 15]} />
+                            <Tooltip
+                              cursor={{ strokeDasharray: "3 3" }}
+                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                              formatter={(value) => [formatNumber(value as number, 2), ""]}
+                            />
+                            <Scatter
+                              name="Stock Prices"
+                              data={analysisData.stockAPrices.map((priceA, i) => ({
+                                stockA: priceA,
+                                stockB: analysisData.stockBPrices[i],
+                                date: analysisData.dates[i],
+                              }))}
+                              fill="#ffd700"
+                            />
+                            {/* Add regression line for OLS/Kalman models */}
+                            {(() => {
+                              if (
+                                (analysisData.statistics.modelType === "ols" ||
+                                  analysisData.statistics.modelType === "kalman") &&
+                                analysisData.stockBPrices.length > 0
+                              ) {
+                                const lastBeta = analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
+                                const lastAlpha = analysisData.alphas[analysisData.alphas.length - 1]
+                                const filteredBPrices = analysisData.stockBPrices.filter((p) => isFinite(p))
 
-                            if (filteredBPrices.length === 0) return null // No valid data for regression line
+                                if (filteredBPrices.length === 0) return null // No valid data for regression line
 
-                            const minB = Math.min(...filteredBPrices)
-                            const maxB = Math.max(...filteredBPrices)
+                                const minB = Math.min(...filteredBPrices)
+                                const maxB = Math.max(...filteredBPrices)
 
-                            // Ensure minB and maxB are not Infinity or -Infinity
-                            if (!isFinite(minB) || !isFinite(maxB)) return null
+                                // Ensure minB and maxB are not Infinity or -Infinity
+                                if (!isFinite(minB) || !isFinite(maxB)) return null
 
-                            return (
-                              <Line
-                                type="linear"
-                                dataKey="stockA"
-                                data={[
-                                  { stockB: minB, stockA: lastAlpha + lastBeta * minB },
-                                  { stockB: maxB, stockA: lastAlpha + lastBeta * maxB },
-                                ]}
-                                stroke="#ff6b6b"
-                                strokeWidth={2}
-                                dot={false}
-                                activeDot={false}
-                                legendType="none"
-                              />
-                            )
-                          }
-                          return null
-                        })()}
-                      </ScatterChart>
-                    ) : (
-                      // Histogram
-                      (() => {
+                                return (
+                                  <Line
+                                    type="linear"
+                                    dataKey="stockA"
+                                    data={[
+                                      { stockB: minB, stockA: lastAlpha + lastBeta * minB },
+                                      { stockB: maxB, stockA: lastAlpha + lastBeta * maxB },
+                                    ]}
+                                    stroke="#ff6b6b"
+                                    strokeWidth={2}
+                                    dot={false}
+                                    activeDot={false}
+                                    legendType="none"
+                                  />
+                                )
+                              }
+                              return null
+                            })()}
+                          </ScatterChart>
+                        )
+                      } else {
+                        // Histogram
                         const createBins = (data: number[], binCount = 15) => {
                           const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
 
@@ -1479,8 +1545,8 @@ export default function PairAnalyzer() {
                             <Bar dataKey={selectedPair.stockB} fill="#ff6b6b" />
                           </BarChart>
                         )
-                      })()
-                    )}
+                      }
+                    })()}
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-4 text-sm text-gray-400">
