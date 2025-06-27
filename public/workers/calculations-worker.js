@@ -4,6 +4,8 @@
 // Adjust the path based on where you placed your 'pkg' folder in the public directory
 import init, { get_adf_p_value_and_stationarity } from "../wasm/adf_test.js"
 
+console.log("Main calculations worker loaded")
+
 let wasmInitialized = false
 
 // Initialize WASM module once
@@ -684,6 +686,7 @@ const adfTestWasm = async (data, seriesType) => {
 
 // Main message handler for the worker
 self.onmessage = async (event) => {
+  console.log("Main worker received message:", event.data.type)
   const { type, data } = event.data
 
   if (type === "runAnalysis") {
@@ -699,6 +702,8 @@ self.onmessage = async (event) => {
       euclideanLookbackWindow,
       zScoreLookback,
     } = data.params
+
+    console.log("Starting main analysis for", modelType, "model")
 
     let analysisData = null
     let error = ""
@@ -719,10 +724,13 @@ self.onmessage = async (event) => {
       let stdDevValue = 0
       let seriesForADF = []
       let seriesTypeForADF = ""
+      let normalizedPricesA = []
+      let normalizedPricesB = []
 
       let dataForMeanStdDev = [] // New variable to hold the sliced data
 
       if (modelType === "ols") {
+        console.log("Processing OLS model")
         for (let i = 0; i < minLength; i++) {
           const { beta, alpha } = calculateHedgeRatio(data.pricesA, data.pricesB, i, olsLookbackWindow)
           const currentPriceA =
@@ -740,6 +748,7 @@ self.onmessage = async (event) => {
         seriesForADF = spreads
         seriesTypeForADF = "spreads"
       } else if (modelType === "kalman") {
+        console.log("Processing Kalman model")
         const kalmanResults = kalmanFilter(
           data.pricesA,
           data.pricesB,
@@ -756,10 +765,11 @@ self.onmessage = async (event) => {
         seriesForADF = spreads
         seriesTypeForADF = "spreads"
       } else if (modelType === "euclidean") {
+        console.log("Processing Euclidean model")
         const initialPriceA = data.pricesA[0].close
         const initialPriceB = data.pricesB[0].close
-        const normalizedPricesA = stockAPrices.map((p) => p / initialPriceA)
-        const normalizedPricesB = stockBPrices.map((p) => p / initialPriceB)
+        normalizedPricesA = stockAPrices.map((p) => p / initialPriceA)
+        normalizedPricesB = stockBPrices.map((p) => p / initialPriceB)
         distances = normalizedPricesA.map((normA, i) => Math.abs(normA - normalizedPricesB[i]))
         zScores = calculateZScore(distances, euclideanLookbackWindow)
         rollingHalfLifes = calculateRollingHalfLife(distances, euclideanLookbackWindow)
@@ -847,6 +857,8 @@ self.onmessage = async (event) => {
         zScores,
         stockAPrices,
         stockBPrices,
+        normalizedPricesA,
+        normalizedPricesB,
         statistics: {
           correlation,
           meanSpread: modelType === "ols" || modelType === "kalman" ? meanValue : undefined,
@@ -871,9 +883,54 @@ self.onmessage = async (event) => {
           rollingLowerBand2,
         },
       }
+
+      console.log("Main analysis completed successfully")
     } catch (e) {
-      console.error("Error in calculations worker:", e)
+      console.error("Error in main calculations worker:", e)
       error = e.message || "An unknown error occurred during analysis."
+    } finally {
+      self.postMessage({ type: "analysisComplete", analysisData, error })
+    }
+  } else if (type === "runCommonStats") {
+    console.log("Running common stats")
+    // Handle common statistics calculation for ratio model
+    await initializeWasm()
+
+    const { seriesForADF, zScores, entryThreshold, exitThreshold } = data.params
+
+    let analysisData = null
+    let error = ""
+
+    try {
+      const minLength = Math.min(data.pricesA.length, data.pricesB.length)
+
+      const validZScores = zScores.filter((z) => !isNaN(z))
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
+
+      const correlation = calculateCorrelation(data.pricesA.slice(0, minLength), data.pricesB.slice(0, minLength))
+      const adfResults = await adfTestWasm(seriesForADF, "ratios")
+      const halfLifeResult = calculateHalfLife(seriesForADF)
+      const hurstExponent = calculateHurstExponent(seriesForADF)
+      const practicalTradeHalfLife = calculatePracticalTradeHalfLife(zScores, entryThreshold, exitThreshold)
+
+      analysisData = {
+        statistics: {
+          correlation,
+          minZScore,
+          maxZScore,
+          adfResults,
+          halfLife: halfLifeResult.halfLife,
+          halfLifeValid: halfLifeResult.isValid,
+          hurstExponent,
+          practicalTradeHalfLife,
+        },
+      }
+
+      console.log("Common stats completed successfully")
+    } catch (e) {
+      console.error("Error in common stats calculation:", e)
+      error = e.message || "An unknown error occurred during common stats calculation."
     } finally {
       self.postMessage({ type: "analysisComplete", analysisData, error })
     }
@@ -907,7 +964,7 @@ self.onmessage = async (event) => {
       }
 
       // Simulate ADF test statistic calculation (replace with actual calculation)
-      const { statistic } = calculateAdfTestStatistic(cleanData) // This should be your actual ADF calculation
+      const statistic = calculateAdfTestStatistic(cleanData) // This should be your actual ADF calculation
 
       // Use the WASM function to get p-value and stationarity
       // Pass the sample size (length of the data used for the test)
@@ -928,6 +985,8 @@ self.onmessage = async (event) => {
 const matrixAdd2x2 = (A, B) => {
   return [
     [A[0][0] + B[0][0], A[0][1] + B[0][1]],
-    [A[1][0] + B[0][0], A[1][1] + B[1][1]],
+    [A[1][0] + B[1][0], A[1][1] + B[1][1]],
   ]
 }
+
+console.log("Main calculations worker ready")
