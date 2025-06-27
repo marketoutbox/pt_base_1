@@ -16,16 +16,30 @@ self.onmessage = async (event) => {
       const stockAPrices = data.pricesA.map((d) => d.close).slice(0, minLength)
       const stockBPrices = data.pricesB.map((d) => d.close).slice(0, minLength)
 
-      const initialPriceA = data.pricesA[0].close
-      const initialPriceB = data.pricesB[0].close
-      const normalizedPricesA = stockAPrices.map((p) => p / initialPriceA)
-      const normalizedPricesB = stockBPrices.map((p) => p / initialPriceB)
-      const distances = normalizedPricesA.map((normA, i) => Math.abs(normA - normalizedPricesB[i]))
+      const initialPriceA = stockAPrices[0]
+      const initialPriceB = stockBPrices[0]
+
+      let normalizedPricesA, normalizedPricesB, distances
+
+      if (initialPriceA === 0 || initialPriceB === 0 || isNaN(initialPriceA) || isNaN(initialPriceB)) {
+        normalizedPricesA = Array(minLength).fill(Number.NaN)
+        normalizedPricesB = Array(minLength).fill(Number.NaN)
+        distances = Array(minLength).fill(Number.NaN)
+      } else {
+        normalizedPricesA = stockAPrices.map((p) => (isNaN(p) ? Number.NaN : p / initialPriceA))
+        normalizedPricesB = stockBPrices.map((p) => (isNaN(p) ? Number.NaN : p / initialPriceB))
+        distances = normalizedPricesA.map((normA, i) => {
+          const normB = normalizedPricesB[i]
+          return isNaN(normA) || isNaN(normB) ? Number.NaN : Math.abs(normA - normB)
+        })
+      }
 
       const zScores = commonUtils.calculateZScore(distances, params.euclideanLookbackWindow)
       const rollingHalfLifes = commonUtils.calculateRollingHalfLife(distances, params.euclideanLookbackWindow)
 
-      const dataForMeanStdDev = distances.slice(params.euclideanLookbackWindow - 1)
+      const dataForMeanStdDev = distances
+        .slice(params.euclideanLookbackWindow - 1)
+        .filter((val) => typeof val === "number" && isFinite(val))
       let meanValue = 0
       let stdDevValue = 0
       if (dataForMeanStdDev.length > 0) {
@@ -78,7 +92,17 @@ self.onmessage = async (event) => {
 
       for (let i = 0; i < dataForBands.length; i++) {
         const windowStart = Math.max(0, i - rollingStatsWindow + 1)
-        const window = dataForBands.slice(windowStart, i + 1)
+        const window = dataForBands.slice(windowStart, i + 1).filter((val) => typeof val === "number" && isFinite(val))
+
+        if (window.length === 0) {
+          rollingMean.push(Number.NaN)
+          rollingUpperBand1.push(Number.NaN)
+          rollingLowerBand1.push(Number.NaN)
+          rollingUpperBand2.push(Number.NaN)
+          rollingLowerBand2.push(Number.NaN)
+          continue
+        }
+
         const mean = window.reduce((sum, val) => sum + val, 0) / window.length
         const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
 
