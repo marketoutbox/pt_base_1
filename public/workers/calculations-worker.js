@@ -267,12 +267,20 @@ function performADFTest(series) {
       }
     }
 
-    // Calculate ADF t-statistic in JavaScript
     const n = cleanSeries.length
-    const y = cleanSeries.slice(1).map((val, i) => val - cleanSeries[i]) // First differences
-    const x = cleanSeries.slice(0, -1) // Lagged values
-
-    if (y.length !== x.length || y.length < 5) {
+    
+    // ADF regression: Δy_t = α + γy_{t-1} + ε_t
+    // where Δy_t = y_t - y_{t-1} and we test if γ = 0 (unit root)
+    
+    const y = [] // First differences: Δy_t = y_t - y_{t-1}
+    const x = [] // Lagged levels: y_{t-1}
+    
+    for (let i = 1; i < n; i++) {
+      y.push(cleanSeries[i] - cleanSeries[i - 1]) // First difference
+      x.push(cleanSeries[i - 1]) // Lagged level
+    }
+    
+    if (y.length < 5) {
       return {
         statistic: -2.5,
         pValue: 1,
@@ -281,15 +289,35 @@ function performADFTest(series) {
       }
     }
 
-    // OLS regression: y = beta * x + error
     const n_reg = y.length
-    const sumX = x.reduce((sum, val) => sum + val, 0)
-    const sumY = y.reduce((sum, val) => sum + val, 0)
-    const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0)
-    const sumXX = x.reduce((sum, val) => sum + val * val, 0)
-
-    const denominator = n_reg * sumXX - sumX * sumX
-    if (denominator === 0) {
+    
+    // Add constant term for regression with intercept
+    // Regression: y = α + γ*x + ε
+    const X = [] // Design matrix [1, x_i] for each observation
+    for (let i = 0; i < n_reg; i++) {
+      X.push([1, x[i]]) // [constant, lagged_level]
+    }
+    
+    // Calculate (X'X)^(-1) for 2x2 case
+    let sumXX = 0, sumX = 0, sumXY = 0, sumY = 0, sumXX_lag = 0, sumXY_lag = 0
+    
+    for (let i = 0; i < n_reg; i++) {
+      sumX += X[i][0] // sum of 1's = n_reg
+      sumXX += X[i][0] * X[i][0] // sum of 1's = n_reg  
+      sumY += y[i]
+      sumXY += X[i][0] * y[i] // sum of y's
+      sumXX_lag += X[i][1] * X[i][1] // sum of x_i^2
+      sumXY_lag += X[i][1] * y[i] // sum of x_i * y_i
+    }
+    
+    // For matrix [[n, sum_x], [sum_x, sum_x^2]]
+    const XTX_11 = n_reg
+    const XTX_12 = x.reduce((sum, val) => sum + val, 0)
+    const XTX_21 = XTX_12
+    const XTX_22 = sumXX_lag
+    
+    const det = XTX_11 * XTX_22 - XTX_12 * XTX_21
+    if (Math.abs(det) < 1e-10) {
       return {
         statistic: -2.5,
         pValue: 1,
@@ -297,37 +325,72 @@ function performADFTest(series) {
         isStationary: false,
       }
     }
-
-    const beta = (n_reg * sumXY - sumX * sumY) / denominator
-
-    // Calculate residuals and standard error
-    const residuals = y.map((val, i) => val - beta * x[i])
+    
+    // (X'X)^(-1)
+    const XTX_inv_11 = XTX_22 / det
+    const XTX_inv_12 = -XTX_12 / det
+    const XTX_inv_21 = -XTX_21 / det
+    const XTX_inv_22 = XTX_11 / det
+    
+    // X'y vector
+    const XTy_1 = sumY
+    const XTy_2 = sumXY_lag
+    
+    // β = (X'X)^(-1) X'y
+    const alpha = XTX_inv_11 * XTy_1 + XTX_inv_12 * XTy_2 // intercept
+    const gamma = XTX_inv_21 * XTy_1 + XTX_inv_22 * XTy_2 // coefficient on lagged level
+    
+    // Calculate residuals and MSE
+    const residuals = []
+    for (let i = 0; i < n_reg; i++) {
+      const predicted = alpha + gamma * x[i]
+      residuals.push(y[i] - predicted)
+    }
+    
     const rss = residuals.reduce((sum, val) => sum + val * val, 0)
-    const mse = rss / (n_reg - 1)
-    const se_beta = Math.sqrt(mse / (sumXX - (sumX * sumX) / n_reg))
-
+    const mse = rss / (n_reg - 2) // degrees of freedom = n - k where k=2 (intercept + slope)
+    
+    // Standard error of gamma coefficient
+    const se_gamma = Math.sqrt(mse * XTX_inv_22)
+    
     // ADF t-statistic
-    const adf_statistic = beta / se_beta
+    const adf_statistic = gamma / se_gamma
+    
+    console.log(`ADF Test: n=${n}, gamma=${gamma}, se_gamma=${se_gamma}, t_stat=${adf_statistic}`)
 
     // Use WASM for p-value lookup
     if (isWasmReady && wasmModule && wasmModule.get_adf_p_value_and_stationarity) {
-      const result = wasmModule.get_adf_p_value_and_stationarity(adf_statistic, n)
-      return {
-        statistic: adf_statistic,
-        pValue: result.p_value,
-        criticalValues: result.critical_values,
-        isStationary: result.is_stationary,
-      }
-    } else {
-      // Fallback without WASM
-      console.warn("WASM not ready, using fallback p-value estimation")
-      return {
-        statistic: adf_statistic,
-        pValue: adf_statistic < -2.86 ? 0.05 : 0.1,
-        criticalValues: { "1%": -3.43, "5%": -2.86, "10%": -2.57 },
-        isStationary: adf_statistic < -2.86,
+      try {
+        const result = wasmModule.get_adf_p_value_and_stationarity(adf_statistic, n)
+        console.log(`WASM result: p_value=${result.p_value}, is_stationary=${result.is_stationary}`)
+        return {
+          statistic: adf_statistic,
+          pValue: result.p_value,
+          criticalValues: result.critical_values,
+          isStationary: result.is_stationary,
+        }
+      } catch (wasmError) {
+        console.error("WASM call failed:", wasmError)
+        // Fall through to fallback
       }
     }
+    
+    // Fallback without WASM
+    console.warn("WASM not ready, using fallback p-value estimation")
+    const criticalValues = { "1%": -3.43, "5%": -2.86, "10%": -2.57 }
+    let pValue = 0.1
+    if (adf_statistic < -3.43) pValue = 0.01
+    else if (adf_statistic < -2.86) pValue = 0.05
+    else if (adf_statistic < -2.57) pValue = 0.1
+    else pValue = 0.5
+    
+    return {
+      statistic: adf_statistic,
+      pValue: pValue,
+      criticalValues: criticalValues,
+      isStationary: adf_statistic < -2.86,
+    }
+    
   } catch (error) {
     console.error("ADF test error:", error)
     return {
@@ -570,7 +633,7 @@ self.addEventListener("message", async (e) => {
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Statistical tests
-      const adfResults = await performADFTest(modelSpecificData) // Await WASM call
+      const adfResults = performADFTest(modelSpecificData)
       const { halfLife, isValid: halfLifeValid } = calculateHalfLife(modelSpecificData)
       const hurstExponent = calculateHurstExponent(modelSpecificData)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(
@@ -660,7 +723,7 @@ self.addEventListener("message", async (e) => {
       const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Statistical tests
-      const adfResults = await performADFTest(seriesForADF) // Await WASM call
+      const adfResults = performADFTest(seriesForADF)
       const { halfLife, isValid: halfLifeValid } = calculateHalfLife(seriesForADF)
       const hurstExponent = calculateHurstExponent(seriesForADF)
       const practicalTradeHalfLife = calculatePracticalTradeHalfLife(
