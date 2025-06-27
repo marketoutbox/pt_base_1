@@ -372,12 +372,12 @@ export const calculateHalfLife = (spreads) => {
 export const calculateRollingHalfLife = (data, windowSize) => {
   const result = []
   if (data.length < windowSize + 1) {
-    return Array(data.length).fill(null)
+    return Array(data.length).fill(Number.NaN) // Changed from null
   }
 
   for (let i = 0; i < data.length; i++) {
     if (i < windowSize - 1) {
-      result.push(null)
+      result.push(Number.NaN) // Changed from null
       continue
     }
 
@@ -387,7 +387,7 @@ export const calculateRollingHalfLife = (data, windowSize) => {
 
     if (windowData.length < 20) {
       // Need enough data in the window for half-life calculation
-      result.push(null)
+      result.push(Number.NaN) // Changed from null
       continue
     }
 
@@ -414,17 +414,17 @@ export const calculateRollingHalfLife = (data, windowSize) => {
 
     const denominator = y.length * sumX2 - sumX * sumX
     if (denominator === 0) {
-      result.push(null)
+      result.push(Number.NaN) // Changed from null
       continue
     }
 
     const beta = (y.length * sumXY - sumX * sumY) / denominator
-    const halfLife = beta < 0 ? -Math.log(2) / beta : null
+    const halfLife = beta < 0 ? -Math.log(2) / beta : Number.NaN // Changed from null
 
     if (halfLife !== null && halfLife > 0) {
       result.push(halfLife)
     } else {
-      result.push(null)
+      result.push(Number.NaN) // Changed from null
     }
   }
   return result
