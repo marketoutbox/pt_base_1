@@ -24,12 +24,21 @@ self.onmessage = async (event) => {
       )
       const hedgeRatios = kalmanResults.hedgeRatios
       const alphas = kalmanResults.alphas
-      const spreads = stockAPrices.map((priceA, i) => priceA - (alphas[i] + hedgeRatios[i] * stockBPrices[i]))
+      const spreads = stockAPrices.map((priceA, i) => {
+        const alpha = alphas[i]
+        const beta = hedgeRatios[i]
+        const priceB = stockBPrices[i]
+        return isNaN(alpha) || isNaN(beta) || isNaN(priceA) || isNaN(priceB)
+          ? Number.NaN
+          : priceA - (alpha + beta * priceB)
+      })
 
       const zScores = commonUtils.calculateZScore(spreads, params.zScoreLookback)
       const rollingHalfLifes = commonUtils.calculateRollingHalfLife(spreads, params.kalmanInitialLookback)
 
-      const dataForMeanStdDev = spreads.slice(params.kalmanInitialLookback - 1)
+      const dataForMeanStdDev = spreads
+        .slice(params.kalmanInitialLookback - 1)
+        .filter((val) => typeof val === "number" && isFinite(val))
       let meanValue = 0
       let stdDevValue = 0
       if (dataForMeanStdDev.length > 0) {
@@ -82,7 +91,17 @@ self.onmessage = async (event) => {
 
       for (let i = 0; i < dataForBands.length; i++) {
         const windowStart = Math.max(0, i - rollingStatsWindow + 1)
-        const window = dataForBands.slice(windowStart, i + 1)
+        const window = dataForBands.slice(windowStart, i + 1).filter((val) => typeof val === "number" && isFinite(val))
+
+        if (window.length === 0) {
+          rollingMean.push(Number.NaN)
+          rollingUpperBand1.push(Number.NaN)
+          rollingLowerBand1.push(Number.NaN)
+          rollingUpperBand2.push(Number.NaN)
+          rollingLowerBand2.push(Number.NaN)
+          continue
+        }
+
         const mean = window.reduce((sum, val) => sum + val, 0) / window.length
         const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
 
