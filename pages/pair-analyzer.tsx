@@ -259,6 +259,25 @@ export default function PairAnalyzer() {
     }
   }
 
+  // Helper to get chart data and filter out non-finite values for domain calculation
+  const getFilteredChartData = (dataArray) => dataArray.filter((val) => typeof val === "number" && isFinite(val))
+
+  // Function to calculate Y-axis domain dynamically
+  const calculateYDomain = (dataValues) => {
+    const filteredValues = getFilteredChartData(dataValues)
+    if (filteredValues.length === 0) {
+      return ["auto", "auto"] // Let Recharts auto-calculate if no valid data
+    }
+    const min = Math.min(...filteredValues)
+    const max = Math.max(...filteredValues)
+    const padding = (max - min) * 0.1 // 10% padding
+    // Ensure min/max are not identical to avoid zero range, add a small epsilon if they are
+    if (min === max) {
+      return [min - 0.1, max + 0.1] // Small fixed padding for flat data
+    }
+    return [min - padding, max + padding]
+  }
+
   return (
     <div className="space-y-8">
       <div className="text-center space-y-2">
@@ -886,7 +905,7 @@ export default function PairAnalyzer() {
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       {/* Check if hedgeRatios has valid data before rendering */}
-                      {analysisData.hedgeRatios && analysisData.hedgeRatios.filter((h) => isFinite(h)).length > 0 ? (
+                      {analysisData.hedgeRatios && getFilteredChartData(analysisData.hedgeRatios).length > 0 ? (
                         <LineChart
                           data={analysisData.dates.map((date, i) => ({
                             date,
@@ -901,7 +920,10 @@ export default function PairAnalyzer() {
                             tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
                             interval={Math.ceil(analysisData.dates.length / 10)}
                           />
-                          <YAxis tick={{ fill: "#dce5f3" }} />
+                          <YAxis
+                            tick={{ fill: "#dce5f3" }}
+                            domain={calculateYDomain(analysisData.hedgeRatios)} // Apply dynamic domain
+                          />
                           <Tooltip
                             contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                             formatter={(value) => [formatNumber(value as number, 4), "Hedge Ratio (β)"]}
@@ -942,7 +964,8 @@ export default function PairAnalyzer() {
                           : analysisData.statistics.modelType === "euclidean"
                             ? analysisData.distances
                             : analysisData.spreads
-                      const hasValidPrimaryChartData = primaryChartData && primaryChartData.filter(isFinite).length > 0
+                      const hasValidPrimaryChartData =
+                        primaryChartData && getFilteredChartData(primaryChartData).length > 0
 
                       if (!hasValidPrimaryChartData) {
                         return (
@@ -979,7 +1002,18 @@ export default function PairAnalyzer() {
                               tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
                               interval={Math.ceil(analysisData.dates.length / 10)}
                             />
-                            <YAxis tick={{ fill: "#dce5f3" }} />
+                            <YAxis
+                              tick={{ fill: "#dce5f3" }}
+                              domain={calculateYDomain(
+                                primaryChartData.concat(
+                                  analysisData.chartData.rollingMean,
+                                  analysisData.chartData.rollingUpperBand1,
+                                  analysisData.chartData.rollingLowerBand1,
+                                  analysisData.chartData.rollingUpperBand2,
+                                  analysisData.chartData.rollingLowerBand2,
+                                ),
+                              )} // Apply dynamic domain to all lines
+                            />
                             <Tooltip
                               contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                               formatter={(value) => [formatNumber(value as number, 4), "Value"]}
@@ -1050,6 +1084,7 @@ export default function PairAnalyzer() {
                                 position: "insideLeft",
                                 fill: "#dce5f3",
                               }}
+                              domain={calculateYDomain(primaryChartData)} // Apply dynamic domain
                             />
                             <ZAxis range={[15, 15]} />
                             <Tooltip
@@ -1158,7 +1193,8 @@ export default function PairAnalyzer() {
                   <ResponsiveContainer width="100%" height="100%">
                     {(() => {
                       const primaryChartData = analysisData.zScores
-                      const hasValidPrimaryChartData = primaryChartData && primaryChartData.filter(isFinite).length > 0
+                      const hasValidPrimaryChartData =
+                        primaryChartData && getFilteredChartData(primaryChartData).length > 0
 
                       if (!hasValidPrimaryChartData) {
                         return (
@@ -1184,7 +1220,10 @@ export default function PairAnalyzer() {
                               tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
                               interval={Math.ceil(analysisData.dates.length / 10)}
                             />
-                            <YAxis tick={{ fill: "#dce5f3" }} />
+                            <YAxis
+                              tick={{ fill: "#dce5f3" }}
+                              domain={calculateYDomain(primaryChartData)} // Apply dynamic domain
+                            />
                             <Tooltip
                               contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                               formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
@@ -1221,6 +1260,7 @@ export default function PairAnalyzer() {
                               name="Z-Score"
                               tick={{ fill: "#dce5f3" }}
                               label={{ value: "Z-Score", angle: -90, position: "insideLeft", fill: "#dce5f3" }}
+                              domain={calculateYDomain(primaryChartData)} // Apply dynamic domain
                             />
                             <ZAxis range={[15, 15]} />
                             <Tooltip
@@ -1320,8 +1360,8 @@ export default function PairAnalyzer() {
                   <ResponsiveContainer width="100%" height="100%">
                     {(() => {
                       const hasValidPriceData =
-                        (analysisData.stockAPrices && analysisData.stockAPrices.filter(isFinite).length > 0) ||
-                        (analysisData.stockBPrices && analysisData.stockBPrices.filter(isFinite).length > 0)
+                        (analysisData.stockAPrices && getFilteredChartData(analysisData.stockAPrices).length > 0) ||
+                        (analysisData.stockBPrices && getFilteredChartData(analysisData.stockBPrices).length > 0)
 
                       if (!hasValidPriceData) {
                         return (
@@ -1352,8 +1392,29 @@ export default function PairAnalyzer() {
                               tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
                               interval={Math.ceil(analysisData.dates.length / 10)}
                             />
-                            <YAxis yAxisId="left" tick={{ fill: "#dce5f3" }} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: "#dce5f3" }} />
+                            <YAxis
+                              yAxisId="left"
+                              tick={{ fill: "#dce5f3" }}
+                              domain={calculateYDomain(
+                                analysisData.stockAPrices.concat(
+                                  analysisData.statistics.modelType === "euclidean"
+                                    ? analysisData.normalizedPricesA
+                                    : [],
+                                ),
+                              )} // Apply dynamic domain
+                            />
+                            <YAxis
+                              yAxisId="right"
+                              orientation="right"
+                              tick={{ fill: "#dce5f3" }}
+                              domain={calculateYDomain(
+                                analysisData.stockBPrices.concat(
+                                  analysisData.statistics.modelType === "euclidean"
+                                    ? analysisData.normalizedPricesB
+                                    : [],
+                                ),
+                              )} // Apply dynamic domain
+                            />
                             <Tooltip
                               contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                               formatter={(value, name) => [formatNumber(value as number, 2), name]}
@@ -1409,6 +1470,7 @@ export default function PairAnalyzer() {
                               name={selectedPair.stockB}
                               tick={{ fill: "#dce5f3" }}
                               label={{ value: selectedPair.stockB, position: "insideBottomRight", fill: "#dce5f3" }}
+                              domain={calculateYDomain(analysisData.stockBPrices)} // Apply dynamic domain for X-axis (stockB)
                             />
                             <YAxis
                               type="number"
@@ -1421,6 +1483,7 @@ export default function PairAnalyzer() {
                                 position: "insideLeft",
                                 fill: "#dce5f3",
                               }}
+                              domain={calculateYDomain(analysisData.stockAPrices)} // Apply dynamic domain for Y-axis (stockA)
                             />
                             <ZAxis range={[15, 15]} />
                             <Tooltip
