@@ -1,5 +1,7 @@
 // public/workers/ratio-calculations-worker.js
 
+console.log("Ratio calculations worker loaded")
+
 // Helper functions specific to the Ratio Model
 const calculateZScore = (data, lookback) => {
   if (data.length < lookback) {
@@ -111,11 +113,14 @@ const calculateRollingHalfLife = (data, windowSize) => {
 
 // Main message handler for the Ratio Model worker
 self.onmessage = async (event) => {
+  console.log("Ratio worker received message:", event.data.type)
   const { type, data } = event.data
 
   if (type === "runRatioAnalysis") {
     const { pricesA, pricesB } = data.data
     const { ratioLookbackWindow } = data.params
+
+    console.log("Starting ratio analysis with", pricesA.length, "data points")
 
     let analysisData = null
     let error = ""
@@ -126,8 +131,13 @@ self.onmessage = async (event) => {
       const stockAPrices = pricesA.map((d) => d.close).slice(0, minLength)
       const stockBPrices = pricesB.map((d) => d.close).slice(0, minLength)
 
+      console.log("Calculating ratios...")
       const ratios = stockAPrices.map((priceA, i) => priceA / stockBPrices[i])
+
+      console.log("Calculating z-scores...")
       const zScores = calculateZScore(ratios, ratioLookbackWindow)
+
+      console.log("Calculating rolling half-lives...")
       const rollingHalfLifes = calculateRollingHalfLife(ratios, ratioLookbackWindow)
 
       // Calculate mean and std dev only on the "warmed up" data
@@ -195,6 +205,8 @@ self.onmessage = async (event) => {
           rollingLowerBand2,
         },
       }
+
+      console.log("Ratio analysis completed successfully")
     } catch (e) {
       console.error("Error in ratio calculations worker:", e)
       error = e.message || "An unknown error occurred during ratio analysis."
@@ -203,3 +215,5 @@ self.onmessage = async (event) => {
     }
   }
 }
+
+console.log("Ratio calculations worker ready")
