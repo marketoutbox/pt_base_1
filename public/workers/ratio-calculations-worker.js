@@ -64,7 +64,10 @@ function calculateHalfLife(series) {
     const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0)
     const sumXX = x.reduce((sum, val) => sum + val * val, 0)
 
-    const beta = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
+    const denominator = n * sumXX - sumX * sumX
+    if (denominator === 0) return { halfLife: -1, isValid: false } // Avoid division by zero
+
+    const beta = (n * sumXY - sumX * sumY) / denominator
 
     if (beta >= 1 || beta <= 0) return { halfLife: -1, isValid: false }
 
@@ -160,12 +163,13 @@ self.addEventListener("message", (e) => {
       const validRatios = ratios.filter((r) => !isNaN(r))
       const validZScores = zScores.filter((z) => !isNaN(z))
 
-      const meanRatio = validRatios.reduce((sum, r) => sum + r, 0) / validRatios.length
-      const stdDevRatio = Math.sqrt(
-        validRatios.reduce((sum, r) => sum + Math.pow(r - meanRatio, 2), 0) / validRatios.length,
-      )
-      const minZScore = Math.min(...validZScores)
-      const maxZScore = Math.max(...validZScores)
+      const meanRatio = validRatios.length > 0 ? validRatios.reduce((sum, r) => sum + r, 0) / validRatios.length : 0
+      const stdDevRatio =
+        validRatios.length > 0
+          ? Math.sqrt(validRatios.reduce((sum, r) => sum + Math.pow(r - meanRatio, 2), 0) / validRatios.length)
+          : 0
+      const minZScore = validZScores.length > 0 ? Math.min(...validZScores) : 0
+      const maxZScore = validZScores.length > 0 ? Math.max(...validZScores) : 0
 
       // Calculate half-life
       const { halfLife, isValid: halfLifeValid } = calculateHalfLife(ratios)
@@ -203,6 +207,11 @@ self.addEventListener("message", (e) => {
           halfLife,
           halfLifeValid,
           modelType: "ratio",
+          // These will be filled by the main worker's common stats
+          correlation: 0,
+          adfResults: { statistic: 0, pValue: 1, criticalValues: { "1%": 0, "5%": 0, "10%": 0 }, isStationary: false },
+          hurstExponent: 0.5,
+          practicalTradeHalfLife: { tradeCycleLength: 0, successRate: 0, isValid: false },
         },
         tableData,
         chartData,
@@ -221,6 +230,7 @@ self.addEventListener("message", (e) => {
     self.postMessage({
       type: "ratioAnalysisComplete",
       error: error.message,
+      analysisData: null, // Ensure analysisData is null on error
     })
   }
 })
