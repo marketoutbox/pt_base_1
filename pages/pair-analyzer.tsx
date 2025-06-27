@@ -17,7 +17,7 @@ import {
   BarChart,
   Bar,
 } from "recharts"
-import { getWorker } from "../pages/_app" // Import the getter function for the shared worker
+import { getCalculationsWorker, getRatioCalculationsWorker } from "../pages/_app" // Import both getter functions
 
 // Matrix operations for 2x2 matrices (these are no longer directly used in pair-analyzer.tsx, but kept for completeness if other parts of the app still use them)
 const matrixMultiply2x2 = (A: number[][], B: number[][]): number[][] => {
@@ -73,14 +73,6 @@ const matrixInverse2x2 = (A: number[][]): number[][] => {
 
 const scalarInverse = (x: number): number => {
   return Math.abs(x) < 1e-10 ? 1.0 : 1.0 / x
-}
-
-// Helper function to safely format numbers
-const formatNumber = (value: number, decimals = 4): string => {
-  if (isNaN(value) || !isFinite(value)) {
-    return "N/A"
-  }
-  return value.toFixed(decimals)
 }
 
 export default function PairAnalyzer() {
@@ -199,42 +191,173 @@ export default function PairAnalyzer() {
         return
       }
 
-      // Get the shared worker instance
-      const worker = getWorker(activeTab) // Get the specific worker instance based on the active tab
+      const minLength = Math.min(pricesA.length, pricesB.length)
+      const dates = pricesA.map((d) => d.date).slice(0, minLength)
+      const stockAPrices = pricesA.map((d) => d.close).slice(0, minLength)
+      const stockBPrices = pricesB.map((d) => d.close).slice(0, minLength)
 
-      // Use a Promise to handle the worker's response for this specific analysis run
-      const analysisPromise = new Promise((resolve, reject) => {
+      let modelSpecificData = null // This will hold ratios, spreads, or distances
+      let modelSpecificZScores = []
+      let modelSpecificRollingHalfLifes = []
+      let modelSpecificMean = 0
+      let modelSpecificStdDev = 0
+      let modelSpecificTableData = []
+      let modelSpecificChartData = {}
+      let hedgeRatios = []
+      let alphas = []
+      let normalizedPricesA = []
+      let normalizedPricesB = []
+
+      // Step 1: Run model-specific calculations on the appropriate worker
+      if (activeTab === "ratio") {
+        const ratioWorker = getRatioCalculationsWorker()
+        const ratioAnalysisPromise = new Promise((resolve, reject) => {
+          const messageHandler = (event) => {
+            if (event.data.type === "ratioAnalysisComplete") {
+              ratioWorker.port.removeEventListener("message", messageHandler)
+              ratioWorker.port.removeEventListener("error", errorHandler)
+              if (event.data.error) {
+                reject(new Error(event.data.error))
+              } else {
+                resolve(event.data.analysisData)
+              }
+            } else if (event.data.type === "debug") {
+              console.log("[Ratio Worker Debug]", event.data.message)
+            } else if (event.data.type === "error") {
+              console.error("[Ratio Worker Error]", event.data.message)
+            }
+          }
+
+          const errorHandler = (e) => {
+            ratioWorker.port.removeEventListener("message", messageHandler)
+            ratioWorker.port.removeEventListener("error", errorHandler)
+            reject(new Error("An error occurred in the ratio analysis worker. Please check console for details."))
+          }
+
+          ratioWorker.port.addEventListener("message", messageHandler)
+          ratioWorker.port.addEventListener("error", errorHandler)
+
+          ratioWorker.port.postMessage({
+            type: "runRatioAnalysis",
+            data: { pricesA, pricesB },
+            params: { ratioLookbackWindow },
+          })
+        })
+        const result = await ratioAnalysisPromise
+        modelSpecificData = result.ratios
+        modelSpecificZScores = result.zScores
+        modelSpecificRollingHalfLifes = result.rollingHalfLifes
+        modelSpecificMean = result.statistics.meanRatio
+        modelSpecificStdDev = result.statistics.stdDevRatio
+        modelSpecificTableData = result.tableData
+        modelSpecificChartData = result.chartData
+      } else {
+        // For OLS, Kalman, Euclidean, use the main calculations worker
+        const mainWorker = getCalculationsWorker()
+        const mainAnalysisPromise = new Promise((resolve, reject) => {
+          const messageHandler = (event) => {
+            if (event.data.type === "analysisComplete") {
+              mainWorker.port.removeEventListener("message", messageHandler)
+              mainWorker.port.removeEventListener("error", errorHandler)
+              if (event.data.error) {
+                reject(new Error(event.data.error))
+              } else {
+                resolve(event.data.analysisData)
+              }
+            } else if (event.data.type === "debug") {
+              console.log("[Main Worker Debug]", event.data.message)
+            } else if (event.data.type === "error") {
+              console.error("[Main Worker Error]", event.data.message)
+            }
+          }
+
+          const errorHandler = (e) => {
+            mainWorker.port.removeEventListener("message", messageHandler)
+            mainWorker.port.removeEventListener("error", errorHandler)
+            reject(new Error("An error occurred in the main analysis worker. Please check console for details."))
+          }
+
+          mainWorker.port.addEventListener("message", messageHandler)
+          mainWorker.port.addEventListener("error", errorHandler)
+
+          mainWorker.port.postMessage({
+            type: "runAnalysis",
+            data: { pricesA, pricesB },
+            params: {
+              modelType: activeTab,
+              olsLookbackWindow,
+              kalmanProcessNoise,
+              kalmanMeasurementNoise,
+              kalmanInitialLookback,
+              euclideanLookbackWindow,
+              zScoreLookback,
+              entryThreshold,
+              exitThreshold,
+            },
+            selectedPair: selectedPair,
+          })
+        })
+        const result = await mainAnalysisPromise
+
+        if (activeTab === "ols" || activeTab === "kalman") {
+          modelSpecificData = result.spreads
+          hedgeRatios = result.hedgeRatios
+          alphas = result.alphas
+          modelSpecificMean = result.statistics.meanSpread
+          modelSpecificStdDev = result.statistics.stdDevSpread
+        } else if (activeTab === "euclidean") {
+          modelSpecificData = result.distances
+          normalizedPricesA = result.normalizedPricesA
+          normalizedPricesB = result.normalizedPricesB
+          modelSpecificMean = result.statistics.meanDistance
+          modelSpecificStdDev = result.statistics.stdDevDistance
+        }
+        modelSpecificZScores = result.zScores
+        modelSpecificRollingHalfLifes = result.rollingHalfLifes
+        modelSpecificTableData = result.tableData
+        modelSpecificChartData = result.chartData
+      }
+
+      // Step 2: Calculate common statistics using the main worker (ADF, Hurst, Practical Half-Life, Correlation)
+      const mainWorkerForStats = getCalculationsWorker()
+      const statsPromise = new Promise((resolve, reject) => {
         const messageHandler = (event) => {
           if (event.data.type === "analysisComplete") {
-            worker.removeEventListener("message", messageHandler) // Clean up listener
-            worker.removeEventListener("error", errorHandler) // Clean up listener
+            // Re-using analysisComplete for stats
+            mainWorkerForStats.port.removeEventListener("message", messageHandler)
+            mainWorkerForStats.port.removeEventListener("error", errorHandler)
             if (event.data.error) {
               reject(new Error(event.data.error))
             } else {
               resolve(event.data.analysisData)
             }
           } else if (event.data.type === "debug") {
-            console.log("[Worker Debug]", event.data.message)
+            console.log("[Main Worker Stats Debug]", event.data.message)
           } else if (event.data.type === "error") {
-            console.error("[Worker Error]", event.data.message)
+            console.error("[Main Worker Stats Error]", event.data.message)
           }
         }
 
         const errorHandler = (e) => {
-          worker.removeEventListener("message", messageHandler) // Clean up listener
-          worker.removeEventListener("error", errorHandler) // Clean up listener
-          reject(new Error("An error occurred in the background analysis. Please check console for details."))
+          mainWorkerForStats.port.removeEventListener("message", messageHandler)
+          mainWorkerForStats.port.removeEventListener("error", errorHandler)
+          reject(new Error("An error occurred in the main stats worker. Please check console for details."))
         }
 
-        worker.addEventListener("message", messageHandler)
-        worker.addEventListener("error", errorHandler)
+        mainWorkerForStats.port.addEventListener("message", messageHandler)
+        mainWorkerForStats.port.addEventListener("error", errorHandler)
 
-        // Send data and parameters to the worker
-        worker.postMessage({
-          type: "runAnalysis",
-          data: { pricesA, pricesB },
+        // Send data and parameters to the worker for common stats
+        mainWorkerForStats.port.postMessage({
+          type: "runAnalysis", // Re-using this type, worker will handle based on modelType
+          data: { pricesA, pricesB }, // Pass original prices for correlation
           params: {
-            modelType: activeTab,
+            modelType: activeTab, // Pass the activeTab to let the worker know which series to use for stats
+            seriesForADF: modelSpecificData, // Pass the calculated series for ADF, Hurst, Half-Life
+            zScores: modelSpecificZScores, // Pass zScores for practical half-life
+            entryThreshold,
+            exitThreshold,
+            // Also pass lookback windows for consistency, though not directly used for these specific stats
             ratioLookbackWindow,
             olsLookbackWindow,
             kalmanProcessNoise,
@@ -242,40 +365,54 @@ export default function PairAnalyzer() {
             kalmanInitialLookback,
             euclideanLookbackWindow,
             zScoreLookback,
-            entryThreshold,
-            exitThreshold,
           },
           selectedPair: selectedPair,
         })
       })
 
-      const result = await analysisPromise
+      const commonStatsResult = await statsPromise
+
+      // Combine all results
+      const finalAnalysisData = {
+        dates,
+        ratios: activeTab === "ratio" ? modelSpecificData : [],
+        spreads: activeTab === "ols" || activeTab === "kalman" ? modelSpecificData : [],
+        distances: activeTab === "euclidean" ? modelSpecificData : [],
+        hedgeRatios,
+        alphas,
+        zScores: modelSpecificZScores,
+        stockAPrices,
+        stockBPrices,
+        normalizedPricesA,
+        normalizedPricesB,
+        statistics: {
+          correlation: commonStatsResult.statistics.correlation,
+          meanRatio: activeTab === "ratio" ? modelSpecificMean : undefined,
+          stdDevRatio: activeTab === "ratio" ? modelSpecificStdDev : undefined,
+          meanSpread: activeTab === "ols" || activeTab === "kalman" ? modelSpecificMean : undefined,
+          stdDevSpread: activeTab === "ols" || activeTab === "kalman" ? modelSpecificStdDev : undefined,
+          meanDistance: activeTab === "euclidean" ? modelSpecificMean : undefined,
+          stdDevDistance: activeTab === "euclidean" ? modelSpecificStdDev : undefined,
+          minZScore: commonStatsResult.statistics.minZScore,
+          maxZScore: commonStatsResult.statistics.maxZScore,
+          adfResults: commonStatsResult.statistics.adfResults,
+          halfLife: commonStatsResult.statistics.halfLife,
+          halfLifeValid: commonStatsResult.statistics.halfLifeValid,
+          hurstExponent: commonStatsResult.statistics.hurstExponent,
+          practicalTradeHalfLife: commonStatsResult.statistics.practicalTradeHalfLife,
+          modelType: activeTab,
+        },
+        tableData: modelSpecificTableData,
+        chartData: modelSpecificChartData,
+      }
+
       setIsLoading(false)
-      setAnalysisData(result)
+      setAnalysisData(finalAnalysisData)
     } catch (error) {
       console.error("Error initiating analysis:", error)
       setError(error.message || "An error occurred while preparing data for analysis. Please try again.")
       setIsLoading(false)
     }
-  }
-
-  // Helper to get chart data and filter out non-finite values for domain calculation
-  const getFilteredChartData = (dataArray) => dataArray.filter((val) => typeof val === "number" && isFinite(val))
-
-  // Function to calculate Y-axis domain dynamically
-  const calculateYDomain = (dataValues) => {
-    const filteredValues = getFilteredChartData(dataValues)
-    if (filteredValues.length === 0) {
-      return ["auto", "auto"] // Let Recharts auto-calculate if no valid data
-    }
-    const min = Math.min(...filteredValues)
-    const max = Math.max(...filteredValues)
-    const padding = (max - min) * 0.1 // 10% padding
-    // Ensure min/max are not identical to avoid zero range, add a small epsilon if they are
-    if (min === max) {
-      return [min - 0.1, max + 0.1] // Small fixed padding for flat data
-    }
-    return [min - padding, max + padding]
   }
 
   return (
@@ -600,9 +737,7 @@ export default function PairAnalyzer() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-300">Correlation:</span>
-                    <span className="text-gold-400 font-medium">
-                      {formatNumber(analysisData.statistics.correlation, 4)}
-                    </span>
+                    <span className="text-gold-400 font-medium">{analysisData.statistics.correlation.toFixed(4)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">
@@ -616,10 +751,10 @@ export default function PairAnalyzer() {
                     </span>
                     <span className="text-gold-400 font-medium">
                       {analysisData.statistics.modelType === "ratio"
-                        ? formatNumber(analysisData.statistics.meanRatio, 4)
+                        ? analysisData.statistics.meanRatio.toFixed(4)
                         : analysisData.statistics.modelType === "euclidean"
-                          ? formatNumber(analysisData.statistics.meanDistance, 4)
-                          : formatNumber(analysisData.statistics.meanSpread, 4)}
+                          ? analysisData.statistics.meanDistance.toFixed(4)
+                          : analysisData.statistics.meanSpread.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -634,31 +769,27 @@ export default function PairAnalyzer() {
                     </span>
                     <span className="text-gold-400 font-medium">
                       {analysisData.statistics.modelType === "ratio"
-                        ? formatNumber(analysisData.statistics.stdDevRatio, 4)
+                        ? analysisData.statistics.stdDevRatio.toFixed(4)
                         : analysisData.statistics.modelType === "euclidean"
-                          ? formatNumber(analysisData.statistics.stdDevDistance, 4)
-                          : formatNumber(analysisData.statistics.stdDevSpread, 4)}
+                          ? analysisData.statistics.stdDevDistance.toFixed(4)
+                          : analysisData.statistics.stdDevSpread.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Min Z-score:</span>
-                    <span className="text-gold-400 font-medium">
-                      {formatNumber(analysisData.statistics.minZScore, 4)}
-                    </span>
+                    <span className="text-gold-400 font-medium">{analysisData.statistics.minZScore.toFixed(4)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Max Z-score:</span>
-                    <span className="text-gold-400 font-medium">
-                      {formatNumber(analysisData.statistics.maxZScore, 4)}
-                    </span>
+                    <span className="text-gold-400 font-medium">{analysisData.statistics.maxZScore.toFixed(4)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Statistical Half-Life (days):</span>
                     <span
                       className={`font-medium ${analysisData.statistics.halfLifeValid ? "text-gold-400" : "text-red-400"}`}
                     >
-                      {analysisData.statistics.halfLife > 0 && isFinite(analysisData.statistics.halfLife)
-                        ? `${formatNumber(analysisData.statistics.halfLife, 2)}${!analysisData.statistics.halfLifeValid ? " (Too slow)" : ""}`
+                      {analysisData.statistics.halfLife > 0
+                        ? `${analysisData.statistics.halfLife.toFixed(2)}${!analysisData.statistics.halfLifeValid ? " (Too slow)" : ""}`
                         : "Invalid"}
                     </span>
                   </div>
@@ -670,10 +801,9 @@ export default function PairAnalyzer() {
                       }`}
                     >
                       {analysisData.statistics.practicalTradeHalfLife.isValid
-                        ? `${formatNumber(analysisData.statistics.practicalTradeHalfLife.tradeCycleLength, 1)} (${formatNumber(
-                            analysisData.statistics.practicalTradeHalfLife.successRate * 100,
-                            0,
-                          )}% success)`
+                        ? `${analysisData.statistics.practicalTradeHalfLife.tradeCycleLength.toFixed(1)} (${(
+                            analysisData.statistics.practicalTradeHalfLife.successRate * 100
+                          ).toFixed(0)}% success)`
                         : "Insufficient data"}
                     </span>
                   </div>
@@ -688,7 +818,7 @@ export default function PairAnalyzer() {
                             : "text-gold-400"
                       }`}
                     >
-                      {formatNumber(analysisData.statistics.hurstExponent, 4)}
+                      {analysisData.statistics.hurstExponent.toFixed(4)}
                       {analysisData.statistics.hurstExponent < 0.5
                         ? " (Mean-reverting)"
                         : analysisData.statistics.hurstExponent > 0.5
@@ -705,25 +835,25 @@ export default function PairAnalyzer() {
                   <div className="flex justify-between">
                     <span className="text-gray-300">Test Statistic:</span>
                     <span className="text-gold-400 font-medium">
-                      {formatNumber(analysisData.statistics.adfResults.statistic, 4)}
+                      {analysisData.statistics.adfResults.statistic.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">p-value:</span>
                     <span className="text-gold-400 font-medium">
-                      {formatNumber(analysisData.statistics.adfResults.pValue, 4)}
+                      {analysisData.statistics.adfResults.pValue.toFixed(4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (1%):</span>
                     <span className="text-gold-400 font-medium">
-                      {formatNumber(analysisData.statistics.adfResults.criticalValues["1%"])}
+                      {analysisData.statistics.adfResults.criticalValues["1%"]}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (5%):</span>
                     <span className="text-gold-400 font-medium">
-                      {formatNumber(analysisData.statistics.adfResults.criticalValues["5%"])}
+                      {analysisData.statistics.adfResults.criticalValues["5%"]}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -794,9 +924,9 @@ export default function PairAnalyzer() {
                           ></div>
                           <span className="text-gray-300">
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
-                              ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${formatNumber(analysisData.zScores[analysisData.zScores.length - 1], 2)})`
+                              ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${formatNumber(analysisData.zScores[analysisData.zScores.length - 1], 2)})`
+                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
@@ -870,7 +1000,7 @@ export default function PairAnalyzer() {
                       <span className="text-gray-400 text-sm">{selectedPair.stockA} Position:</span>
                       <p className="text-white font-medium">
                         {analysisData.stockAPrices.length > 0
-                          ? `${formatNumber(5000, 2)} (${formatNumber(5000 / analysisData.stockAPrices[analysisData.stockAPrices.length - 1], 0)} shares)`
+                          ? `${(5000).toFixed(2)} (${(5000 / analysisData.stockAPrices[analysisData.stockAPrices.length - 1]).toFixed(0)} shares)`
                           : "N/A"}
                       </p>
                     </div>
@@ -881,15 +1011,14 @@ export default function PairAnalyzer() {
                         (analysisData.hedgeRatios
                           ? analysisData.hedgeRatios.length > 0
                           : analysisData.ratios || analysisData.distances)
-                          ? `${formatNumber(5000, 2)} (${formatNumber(
+                          ? `${(5000).toFixed(2)} (${(
                               (5000 / analysisData.stockBPrices[analysisData.stockBPrices.length - 1]) *
                                 (analysisData.statistics.modelType === "ols" ||
                                 analysisData.statistics.modelType === "kalman"
                                   ? analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
                                   : analysisData.stockAPrices[analysisData.stockAPrices.length - 1] /
-                                    analysisData.stockBPrices[analysisData.stockBPrices.length - 1]),
-                              0,
-                            )} shares)`
+                                    analysisData.stockBPrices[analysisData.stockBPrices.length - 1])
+                            ).toFixed(0)} shares)`
                           : "N/A"}
                       </p>
                     </div>
@@ -904,38 +1033,28 @@ export default function PairAnalyzer() {
                   <h3 className="text-xl font-semibold text-white mb-4">Rolling Hedge Ratio Plot</h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      {/* Check if hedgeRatios has valid data before rendering */}
-                      {analysisData.hedgeRatios && getFilteredChartData(analysisData.hedgeRatios).length > 0 ? (
-                        <LineChart
-                          data={analysisData.dates.map((date, i) => ({
-                            date,
-                            hedgeRatio: analysisData.hedgeRatios[i],
-                          }))}
-                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                          <XAxis
-                            dataKey="date"
-                            tick={{ fill: "#dce5f3" }}
-                            tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                            interval={Math.ceil(analysisData.dates.length / 10)}
-                          />
-                          <YAxis
-                            tick={{ fill: "#dce5f3" }}
-                            domain={calculateYDomain(analysisData.hedgeRatios)} // Apply dynamic domain
-                          />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                            formatter={(value) => [formatNumber(value as number, 4), "Hedge Ratio (β)"]}
-                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                          />
-                          <Line type="monotone" dataKey="hedgeRatio" stroke="#ffd700" dot={false} />
-                        </LineChart>
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-gray-400">
-                          No valid hedge ratio data to display.
-                        </div>
-                      )}
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          hedgeRatio: analysisData.hedgeRatios[i],
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Hedge Ratio (β)"]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Line type="monotone" dataKey="hedgeRatio" stroke="#ffd700" dot={false} />
+                      </LineChart>
                     </ResponsiveContainer>
                   </div>
                   <p className="mt-4 text-sm text-gray-400">
@@ -957,192 +1076,138 @@ export default function PairAnalyzer() {
                 </h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    {(() => {
-                      const primaryChartData =
-                        analysisData.statistics.modelType === "ratio"
-                          ? analysisData.ratios
-                          : analysisData.statistics.modelType === "euclidean"
-                            ? analysisData.distances
-                            : analysisData.spreads
-                      const hasValidPrimaryChartData =
-                        primaryChartData && getFilteredChartData(primaryChartData).length > 0
-
-                      if (!hasValidPrimaryChartData) {
-                        return (
-                          <div className="flex items-center justify-center h-full text-gray-400">
-                            No valid{" "}
-                            {analysisData.statistics.modelType === "ratio"
-                              ? "ratio"
+                    {plotType === "line" ? (
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          value:
+                            analysisData.statistics.modelType === "ratio"
+                              ? analysisData.ratios[i]
                               : analysisData.statistics.modelType === "euclidean"
-                                ? "distance"
-                                : "spread"}{" "}
-                            data to display.
-                          </div>
-                        )
-                      }
-
-                      if (plotType === "line") {
-                        return (
-                          <LineChart
-                            data={analysisData.dates.map((date, i) => ({
-                              date,
-                              value: primaryChartData[i],
-                              mean: analysisData.chartData.rollingMean[i],
-                              upperBand1: analysisData.chartData.rollingUpperBand1[i],
-                              lowerBand1: analysisData.chartData.rollingLowerBand1[i],
-                              upperBand2: analysisData.chartData.rollingUpperBand2[i],
-                              lowerBand2: analysisData.chartData.rollingLowerBand2[i],
-                            }))}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                            <XAxis
-                              dataKey="date"
-                              tick={{ fill: "#dce5f3" }}
-                              tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                              interval={Math.ceil(analysisData.dates.length / 10)}
-                            />
-                            <YAxis
-                              tick={{ fill: "#dce5f3" }}
-                              domain={calculateYDomain(
-                                primaryChartData.concat(
-                                  analysisData.chartData.rollingMean,
-                                  analysisData.chartData.rollingUpperBand1,
-                                  analysisData.chartData.rollingLowerBand1,
-                                  analysisData.chartData.rollingUpperBand2,
-                                  analysisData.chartData.rollingLowerBand2,
-                                ),
-                              )} // Apply dynamic domain to all lines
-                            />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                              formatter={(value) => [formatNumber(value as number, 4), "Value"]}
-                              labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                            />
-                            <Line type="monotone" dataKey="value" stroke="#ffd700" dot={false} />
-                            <Line type="monotone" dataKey="mean" stroke="#ffffff" dot={false} strokeDasharray="5 5" />
-                            <Line
-                              type="monotone"
-                              dataKey="upperBand1"
-                              stroke="#3a4894"
-                              dot={false}
-                              strokeDasharray="3 3"
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="lowerBand1"
-                              stroke="#3a4894"
-                              dot={false}
-                              strokeDasharray="3 3"
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="upperBand2"
-                              stroke="#ff6b6b"
-                              dot={false}
-                              strokeDasharray="3 3"
-                            />
-                            <Line
-                              type="monotone"
-                              dataKey="lowerBand2"
-                              stroke="#ff6b6b"
-                              dot={false}
-                              strokeDasharray="3 3"
-                            />
-                          </LineChart>
-                        )
-                      } else if (plotType === "scatter") {
-                        return (
-                          <ScatterChart
-                            data={analysisData.dates.map((date, i) => ({
-                              date: i, // Use index for x-axis
-                              value: primaryChartData[i],
-                            }))}
-                            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                            <XAxis
-                              type="number"
-                              dataKey="date"
-                              name="Time"
-                              tick={{ fill: "#dce5f3" }}
-                              label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
-                            />
-                            <YAxis
-                              type="number"
-                              dataKey="value"
-                              name="Value"
-                              tick={{ fill: "#dce5f3" }}
-                              label={{
-                                value:
-                                  analysisData.statistics.modelType === "ratio"
-                                    ? "Ratio"
-                                    : analysisData.statistics.modelType === "euclidean"
-                                      ? "Distance"
-                                      : "Spread",
-                                angle: -90,
-                                position: "insideLeft",
-                                fill: "#dce5f3",
-                              }}
-                              domain={calculateYDomain(primaryChartData)} // Apply dynamic domain
-                            />
-                            <ZAxis range={[15, 15]} />
-                            <Tooltip
-                              cursor={{ strokeDasharray: "3 3" }}
-                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                              formatter={(value) => [
-                                formatNumber(value as number, 4),
-                                analysisData.statistics.modelType === "ratio"
-                                  ? "Ratio"
-                                  : analysisData.statistics.modelType === "euclidean"
-                                    ? "Distance"
-                                    : "Spread",
-                              ]}
-                            />
-                            <Scatter
-                              name={
-                                analysisData.statistics.modelType === "ratio"
-                                  ? "Ratio"
-                                  : analysisData.statistics.modelType === "euclidean"
-                                    ? "Distance"
-                                    : "Spread"
-                              }
-                              data={analysisData.dates.map((date, i) => ({
-                                date: i,
-                                value: primaryChartData[i],
-                              }))}
-                              fill="#ffd700"
-                            />
-                          </ScatterChart>
-                        )
-                      } else {
-                        // Histogram
-                        const data = primaryChartData
-                        const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
-
-                        if (filteredData.length === 0) {
-                          return (
-                            <div className="flex items-center justify-center h-full text-gray-400">
-                              No valid data for histogram.
-                            </div>
-                          )
-                        }
-
-                        const min = Math.min(...filteredData)
-                        const max = Math.max(...filteredData)
+                                ? analysisData.distances[i]
+                                : analysisData.spreads[i],
+                          mean: analysisData.chartData.rollingMean[i],
+                          upperBand1: analysisData.chartData.rollingUpperBand1[i],
+                          lowerBand1: analysisData.chartData.rollingLowerBand1[i],
+                          upperBand2: analysisData.chartData.rollingUpperBand2[i],
+                          lowerBand2: analysisData.chartData.rollingLowerBand2[i],
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Value"]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Line type="monotone" dataKey="value" stroke="#ffd700" dot={false} />
+                        <Line type="monotone" dataKey="mean" stroke="#ffffff" dot={false} strokeDasharray="5 5" />
+                        <Line type="monotone" dataKey="upperBand1" stroke="#3a4894" dot={false} strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="lowerBand1" stroke="#3a4894" dot={false} strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="upperBand2" stroke="#ff6b6b" dot={false} strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="lowerBand2" stroke="#ff6b6b" dot={false} strokeDasharray="3 3" />
+                      </LineChart>
+                    ) : plotType === "scatter" ? (
+                      <ScatterChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date: i, // Use index for x-axis
+                          value:
+                            analysisData.statistics.modelType === "ratio"
+                              ? analysisData.ratios[i]
+                              : analysisData.statistics.modelType === "euclidean"
+                                ? analysisData.distances[i]
+                                : analysisData.spreads[i],
+                        }))}
+                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          type="number"
+                          dataKey="date"
+                          name="Time"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="value"
+                          name="Value"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{
+                            value:
+                              analysisData.statistics.modelType === "ratio"
+                                ? "Ratio"
+                                : analysisData.statistics.modelType === "euclidean"
+                                  ? "Distance"
+                                  : "Spread",
+                            angle: -90,
+                            position: "insideLeft",
+                            fill: "#dce5f3",
+                          }}
+                        />
+                        <ZAxis range={[15, 15]} />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [
+                            value.toFixed(4),
+                            analysisData.statistics.modelType === "ratio"
+                              ? "Ratio"
+                              : analysisData.statistics.modelType === "euclidean"
+                                ? "Distance"
+                                : "Spread",
+                          ]}
+                        />
+                        <Scatter
+                          name={
+                            analysisData.statistics.modelType === "ratio"
+                              ? "Ratio"
+                              : analysisData.statistics.modelType === "euclidean"
+                                ? "Distance"
+                                : "Spread"
+                          }
+                          data={analysisData.dates.map((date, i) => ({
+                            date: i,
+                            value:
+                              analysisData.statistics.modelType === "ratio"
+                                ? analysisData.ratios[i]
+                                : analysisData.statistics.modelType === "euclidean"
+                                  ? analysisData.distances[i]
+                                  : analysisData.spreads[i],
+                          }))}
+                          fill="#ffd700"
+                        />
+                      </ScatterChart>
+                    ) : (
+                      // Histogram
+                      (() => {
+                        const data =
+                          analysisData.statistics.modelType === "ratio"
+                            ? analysisData.ratios
+                            : analysisData.statistics.modelType === "euclidean"
+                              ? analysisData.distances
+                              : analysisData.spreads
+                        const min = Math.min(...data)
+                        const max = Math.max(...data)
                         const binCount = 20
-                        // Ensure binSize is not zero if min === max
-                        const binSize = max - min === 0 ? 1 : (max - min) / binCount
+                        const binSize = (max - min) / binCount
 
                         const bins = Array(binCount)
                           .fill(0)
                           .map((_, i) => ({
-                            range: `${formatNumber(min + i * binSize, 3)}-${formatNumber(min + (i + 1) * binSize, 3)}`,
+                            range: `${(min + i * binSize).toFixed(3)}-${(min + (i + 1) * binSize).toFixed(3)}`,
                             count: 0,
                             midpoint: min + (i + 0.5) * binSize,
                           }))
 
-                        filteredData.forEach((value) => {
+                        data.forEach((value) => {
                           const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1)
                           bins[binIndex].count++
                         })
@@ -1153,20 +1218,20 @@ export default function PairAnalyzer() {
                             <XAxis
                               dataKey="midpoint"
                               tick={{ fill: "#dce5f3", fontSize: 10 }}
-                              tickFormatter={(value) => formatNumber(value, 2)}
+                              tickFormatter={(value) => value.toFixed(2)}
                               interval={Math.floor(binCount / 5)}
                             />
                             <YAxis tick={{ fill: "#dce5f3" }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                               formatter={(value) => [value, "Frequency"]}
-                              labelFormatter={(label) => `Range: ${formatNumber(label as number, 3)}`}
+                              labelFormatter={(label) => `Range: ${label.toFixed(3)}`}
                             />
                             <Bar dataKey="count" fill="#ffd700" />
                           </BarChart>
                         )
-                      }
-                    })()}
+                      })()
+                    )}
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-4 text-sm text-gray-400">
@@ -1191,117 +1256,88 @@ export default function PairAnalyzer() {
                 <h3 className="text-xl font-semibold text-white mb-4">Z-Score Chart</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    {(() => {
-                      const primaryChartData = analysisData.zScores
-                      const hasValidPrimaryChartData =
-                        primaryChartData && getFilteredChartData(primaryChartData).length > 0
-
-                      if (!hasValidPrimaryChartData) {
-                        return (
-                          <div className="flex items-center justify-center h-full text-gray-400">
-                            No valid Z-score data to display.
-                          </div>
-                        )
-                      }
-
-                      if (plotType === "line") {
-                        return (
-                          <LineChart
-                            data={analysisData.dates.map((date, i) => ({
-                              date,
-                              zScore: primaryChartData[i],
-                            }))}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                            <XAxis
-                              dataKey="date"
-                              tick={{ fill: "#dce5f3" }}
-                              tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                              interval={Math.ceil(analysisData.dates.length / 10)}
-                            />
-                            <YAxis
-                              tick={{ fill: "#dce5f3" }}
-                              domain={calculateYDomain(primaryChartData)} // Apply dynamic domain
-                            />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                              formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
-                              labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                            />
-                            <ReferenceLine y={0} stroke="#ffffff" />
-                            <ReferenceLine y={1} stroke="#3a4894" strokeDasharray="3 3" />
-                            <ReferenceLine y={-1} stroke="#3a4894" strokeDasharray="3 3" />
-                            <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                            <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                            <Line type="monotone" dataKey="zScore" stroke="#ffd700" dot={false} strokeWidth={2} />
-                          </LineChart>
-                        )
-                      } else if (plotType === "scatter") {
-                        return (
-                          <ScatterChart
-                            data={analysisData.dates.map((date, i) => ({
-                              date: i,
-                              zScore: primaryChartData[i],
-                            }))}
-                            margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                            <XAxis
-                              type="number"
-                              dataKey="date"
-                              name="Time"
-                              tick={{ fill: "#dce5f3" }}
-                              label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
-                            />
-                            <YAxis
-                              type="number"
-                              dataKey="zScore"
-                              name="Z-Score"
-                              tick={{ fill: "#dce5f3" }}
-                              label={{ value: "Z-Score", angle: -90, position: "insideLeft", fill: "#dce5f3" }}
-                              domain={calculateYDomain(primaryChartData)} // Apply dynamic domain
-                            />
-                            <ZAxis range={[15, 15]} />
-                            <Tooltip
-                              cursor={{ strokeDasharray: "3 3" }}
-                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                              formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
-                            />
-                            <ReferenceLine y={0} stroke="#ffffff" />
-                            <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                            <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
-                            <Scatter
-                              name="Z-Score"
-                              data={analysisData.dates.map((date, i) => ({
-                                date: i,
-                                zScore: primaryChartData[i],
-                              }))}
-                              fill="#ffd700"
-                            />
-                          </ScatterChart>
-                        )
-                      } else {
-                        // Histogram
-                        const data = primaryChartData.filter((z) => isFinite(z)) // Filter out NaN/Infinity
-
-                        if (data.length === 0) {
-                          return (
-                            <div className="flex items-center justify-center h-full text-gray-400">
-                              No valid Z-score data for histogram.
-                            </div>
-                          )
-                        }
-
+                    {plotType === "line" ? (
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          zScore: analysisData.zScores[i],
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Z-Score"]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <ReferenceLine y={0} stroke="#ffffff" />
+                        <ReferenceLine y={1} stroke="#3a4894" strokeDasharray="3 3" />
+                        <ReferenceLine y={-1} stroke="#3a4894" strokeDasharray="3 3" />
+                        <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <Line type="monotone" dataKey="zScore" stroke="#ffd700" dot={false} strokeWidth={2} />
+                      </LineChart>
+                    ) : plotType === "scatter" ? (
+                      <ScatterChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date: i,
+                          zScore: analysisData.zScores[i],
+                        }))}
+                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          type="number"
+                          dataKey="date"
+                          name="Time"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: "Time (Days)", position: "insideBottomRight", fill: "#dce5f3" }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="zScore"
+                          name="Z-Score"
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: "Z-Score", angle: -90, position: "insideLeft", fill: "#dce5f3" }}
+                        />
+                        <ZAxis range={[15, 15]} />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(4), "Z-Score"]}
+                        />
+                        <ReferenceLine y={0} stroke="#ffffff" />
+                        <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <ReferenceLine y={-2} stroke="#ff6b6b" strokeDasharray="3 3" />
+                        <Scatter
+                          name="Z-Score"
+                          data={analysisData.dates.map((date, i) => ({
+                            date: i,
+                            zScore: analysisData.zScores[i],
+                          }))}
+                          fill="#ffd700"
+                        />
+                      </ScatterChart>
+                    ) : (
+                      // Histogram
+                      (() => {
+                        const data = analysisData.zScores.filter((z) => !isNaN(z))
                         const min = Math.min(...data)
                         const max = Math.max(...data)
                         const binCount = 20
-                        const binSize = max - min === 0 ? 1 : (max - min) / binCount
+                        const binSize = (max - min) / binCount
 
                         const bins = Array(binCount)
                           .fill(0)
                           .map((_, i) => ({
-                            range: `${formatNumber(min + i * binSize, 2)}-${formatNumber(min + (i + 1) * binSize, 2)}`,
+                            range: `${(min + i * binSize).toFixed(2)}-${(min + (i + 1) * binSize).toFixed(2)}`,
                             count: 0,
                             midpoint: min + (i + 0.5) * binSize,
                           }))
@@ -1317,14 +1353,14 @@ export default function PairAnalyzer() {
                             <XAxis
                               dataKey="midpoint"
                               tick={{ fill: "#dce5f3", fontSize: 10 }}
-                              tickFormatter={(value) => formatNumber(value, 1)}
+                              tickFormatter={(value) => value.toFixed(1)}
                               interval={Math.floor(binCount / 5)}
                             />
                             <YAxis tick={{ fill: "#dce5f3" }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                               formatter={(value) => [value, "Frequency"]}
-                              labelFormatter={(label) => `Z-Score: ${formatNumber(label as number, 2)}`}
+                              labelFormatter={(label) => `Z-Score: ${label.toFixed(2)}`}
                             />
                             <ReferenceLine x={0} stroke="#ffffff" strokeDasharray="3 3" />
                             <ReferenceLine x={2} stroke="#ff6b6b" strokeDasharray="3 3" />
@@ -1332,8 +1368,8 @@ export default function PairAnalyzer() {
                             <Bar dataKey="count" fill="#ffd700" />
                           </BarChart>
                         )
-                      }
-                    })()}
+                      })()
+                    )}
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-4 text-sm text-gray-400">
@@ -1358,197 +1394,142 @@ export default function PairAnalyzer() {
                 </h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    {(() => {
-                      const hasValidPriceData =
-                        (analysisData.stockAPrices && getFilteredChartData(analysisData.stockAPrices).length > 0) ||
-                        (analysisData.stockBPrices && getFilteredChartData(analysisData.stockBPrices).length > 0)
-
-                      if (!hasValidPriceData) {
-                        return (
-                          <div className="flex items-center justify-center h-full text-gray-400">
-                            No valid price data to display.
-                          </div>
-                        )
-                      }
-
-                      if (plotType === "line") {
-                        return (
-                          <LineChart
-                            data={analysisData.dates.map((date, i) => ({
-                              date,
-                              stockA: analysisData.stockAPrices[i],
-                              stockB: analysisData.stockBPrices[i],
-                              ...(analysisData.statistics.modelType === "euclidean" && {
-                                normalizedA: analysisData.normalizedPricesA[i],
-                                normalizedB: analysisData.normalizedPricesB[i],
-                              }),
-                            }))}
-                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                            <XAxis
-                              dataKey="date"
-                              tick={{ fill: "#dce5f3" }}
-                              tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
-                              interval={Math.ceil(analysisData.dates.length / 10)}
-                            />
-                            <YAxis
-                              yAxisId="left"
-                              tick={{ fill: "#dce5f3" }}
-                              domain={calculateYDomain(
-                                analysisData.stockAPrices.concat(
-                                  analysisData.statistics.modelType === "euclidean"
-                                    ? analysisData.normalizedPricesA
-                                    : [],
-                                ),
-                              )} // Apply dynamic domain
-                            />
-                            <YAxis
-                              yAxisId="right"
-                              orientation="right"
-                              tick={{ fill: "#dce5f3" }}
-                              domain={calculateYDomain(
-                                analysisData.stockBPrices.concat(
-                                  analysisData.statistics.modelType === "euclidean"
-                                    ? analysisData.normalizedPricesB
-                                    : [],
-                                ),
-                              )} // Apply dynamic domain
-                            />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                              formatter={(value, name) => [formatNumber(value as number, 2), name]}
-                              labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                            />
+                    {plotType === "line" ? (
+                      <LineChart
+                        data={analysisData.dates.map((date, i) => ({
+                          date,
+                          stockA: analysisData.stockAPrices[i],
+                          stockB: analysisData.stockBPrices[i],
+                          ...(analysisData.statistics.modelType === "euclidean" && {
+                            normalizedA: analysisData.normalizedPricesA[i],
+                            normalizedB: analysisData.normalizedPricesB[i],
+                          }),
+                        }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#dce5f3" }}
+                          tickFormatter={(tick) => new Date(tick).toLocaleDateString()}
+                          interval={Math.ceil(analysisData.dates.length / 10)}
+                        />
+                        <YAxis yAxisId="left" tick={{ fill: "#dce5f3" }} />
+                        <YAxis yAxisId="right" orientation="right" tick={{ fill: "#dce5f3" }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value, name) => [value.toFixed(2), name]}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        />
+                        <Line
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="stockA"
+                          stroke="#ffd700"
+                          dot={false}
+                          name={selectedPair.stockA}
+                        />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="stockB"
+                          stroke="#ff6b6b"
+                          dot={false}
+                          name={selectedPair.stockB}
+                        />
+                        {analysisData.statistics.modelType === "euclidean" && (
+                          <>
                             <Line
                               yAxisId="left"
                               type="monotone"
-                              dataKey="stockA"
-                              stroke="#ffd700"
+                              dataKey="normalizedA"
+                              stroke="#00bfff" // Light blue for normalized A
                               dot={false}
-                              name={selectedPair.stockA}
+                              name={`${selectedPair.stockA} (Normalized)`}
+                              strokeDasharray="5 5"
                             />
                             <Line
                               yAxisId="right"
                               type="monotone"
-                              dataKey="stockB"
-                              stroke="#ff6b6b"
+                              dataKey="normalizedB"
+                              stroke="#90ee90" // Light green for normalized B
                               dot={false}
-                              name={selectedPair.stockB}
+                              name={`${selectedPair.stockB} (Normalized)`}
+                              strokeDasharray="5 5"
                             />
-                            {analysisData.statistics.modelType === "euclidean" && (
-                              <>
-                                <Line
-                                  yAxisId="left"
-                                  type="monotone"
-                                  dataKey="normalizedA"
-                                  stroke="#00bfff" // Light blue for normalized A
-                                  dot={false}
-                                  name={`${selectedPair.stockA} (Normalized)`}
-                                  strokeDasharray="5 5"
-                                />
-                                <Line
-                                  yAxisId="right"
-                                  type="monotone"
-                                  dataKey="normalizedB"
-                                  stroke="#90ee90" // Light green for normalized B
-                                  dot={false}
-                                  name={`${selectedPair.stockB} (Normalized)`}
-                                  strokeDasharray="5 5"
-                                />
-                              </>
-                            )}
-                          </LineChart>
-                        )
-                      } else if (plotType === "scatter") {
-                        return (
-                          <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
-                            <XAxis
-                              type="number"
-                              dataKey="stockB"
-                              name={selectedPair.stockB}
-                              tick={{ fill: "#dce5f3" }}
-                              label={{ value: selectedPair.stockB, position: "insideBottomRight", fill: "#dce5f3" }}
-                              domain={calculateYDomain(analysisData.stockBPrices)} // Apply dynamic domain for X-axis (stockB)
-                            />
-                            <YAxis
-                              type="number"
-                              dataKey="stockA"
-                              name={selectedPair.stockA}
-                              tick={{ fill: "#dce5f3" }}
-                              label={{
-                                value: selectedPair.stockA,
-                                angle: -90,
-                                position: "insideLeft",
-                                fill: "#dce5f3",
-                              }}
-                              domain={calculateYDomain(analysisData.stockAPrices)} // Apply dynamic domain for Y-axis (stockA)
-                            />
-                            <ZAxis range={[15, 15]} />
-                            <Tooltip
-                              cursor={{ strokeDasharray: "3 3" }}
-                              contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                              formatter={(value) => [formatNumber(value as number, 2), ""]}
-                            />
-                            <Scatter
-                              name="Stock Prices"
-                              data={analysisData.stockAPrices.map((priceA, i) => ({
-                                stockA: priceA,
-                                stockB: analysisData.stockBPrices[i],
-                                date: analysisData.dates[i],
-                              }))}
-                              fill="#ffd700"
-                            />
-                            {/* Add regression line for OLS/Kalman models */}
-                            {(() => {
-                              if (
-                                (analysisData.statistics.modelType === "ols" ||
-                                  analysisData.statistics.modelType === "kalman") &&
-                                analysisData.stockBPrices.length > 0
-                              ) {
-                                const lastBeta = analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
-                                const lastAlpha = analysisData.alphas[analysisData.alphas.length - 1]
-                                const filteredBPrices = analysisData.stockBPrices.filter((p) => isFinite(p))
+                          </>
+                        )}
+                      </LineChart>
+                    ) : plotType === "scatter" ? (
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#3a4894" />
+                        <XAxis
+                          type="number"
+                          dataKey="stockB"
+                          name={selectedPair.stockB}
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: selectedPair.stockB, position: "insideBottomRight", fill: "#dce5f3" }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="stockA"
+                          name={selectedPair.stockA}
+                          tick={{ fill: "#dce5f3" }}
+                          label={{ value: selectedPair.stockA, angle: -90, position: "insideLeft", fill: "#dce5f3" }}
+                        />
+                        <ZAxis range={[15, 15]} />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
+                          formatter={(value) => [value.toFixed(2), ""]}
+                        />
+                        <Scatter
+                          name="Stock Prices"
+                          data={analysisData.stockAPrices.map((priceA, i) => ({
+                            stockA: priceA,
+                            stockB: analysisData.stockBPrices[i],
+                            date: analysisData.dates[i],
+                          }))}
+                          fill="#ffd700"
+                        />
+                        {/* Add regression line for OLS/Kalman models */}
+                        {(() => {
+                          if (
+                            (analysisData.statistics.modelType === "ols" ||
+                              analysisData.statistics.modelType === "kalman") &&
+                            analysisData.stockBPrices.length > 0
+                          ) {
+                            const lastBeta = analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
+                            const lastAlpha = analysisData.alphas[analysisData.alphas.length - 1]
+                            const minB = Math.min(...analysisData.stockBPrices)
+                            const maxB = Math.max(...analysisData.stockBPrices)
 
-                                if (filteredBPrices.length === 0) return null // No valid data for regression line
-
-                                const minB = Math.min(...filteredBPrices)
-                                const maxB = Math.max(...filteredBPrices)
-
-                                // Ensure minB and maxB are not Infinity or -Infinity
-                                if (!isFinite(minB) || !isFinite(maxB)) return null
-
-                                return (
-                                  <Line
-                                    type="linear"
-                                    dataKey="stockA"
-                                    data={[
-                                      { stockB: minB, stockA: lastAlpha + lastBeta * minB },
-                                      { stockB: maxB, stockA: lastAlpha + lastBeta * maxB },
-                                    ]}
-                                    stroke="#ff6b6b"
-                                    strokeWidth={2}
-                                    dot={false}
-                                    activeDot={false}
-                                    legendType="none"
-                                  />
-                                )
-                              }
-                              return null
-                            })()}
-                          </ScatterChart>
-                        )
-                      } else {
-                        // Histogram
-                        const createBins = (data: number[], binCount = 15) => {
-                          const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
-
-                          if (filteredData.length === 0) return [] // Return empty array if no valid data
-
-                          const min = Math.min(...filteredData)
-                          const max = Math.max(...filteredData)
-                          const binSize = max - min === 0 ? 1 : (max - min) / binCount
+                            return (
+                              <Line
+                                type="linear"
+                                dataKey="stockA"
+                                data={[
+                                  { stockB: minB, stockA: lastAlpha + lastBeta * minB },
+                                  { stockB: maxB, stockA: lastAlpha + lastBeta * maxB },
+                                ]}
+                                stroke="#ff6b6b"
+                                strokeWidth={2}
+                                dot={false}
+                                activeDot={false}
+                                legendType="none"
+                              />
+                            )
+                          }
+                          return null
+                        })()}
+                      </ScatterChart>
+                    ) : (
+                      // Histogram
+                      (() => {
+                        const createBins = (data, binCount = 15) => {
+                          const min = Math.min(...data)
+                          const max = Math.max(...data)
+                          const binSize = (max - min) / binCount
 
                           const bins = Array(binCount)
                             .fill(0)
@@ -1557,7 +1538,7 @@ export default function PairAnalyzer() {
                               count: 0,
                             }))
 
-                          filteredData.forEach((value) => {
+                          data.forEach((value) => {
                             const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1)
                             bins[binIndex].count++
                           })
@@ -1567,14 +1548,6 @@ export default function PairAnalyzer() {
 
                         const binsA = createBins(analysisData.stockAPrices)
                         const binsB = createBins(analysisData.stockBPrices)
-
-                        if (binsA.length === 0 && binsB.length === 0) {
-                          return (
-                            <div className="flex items-center justify-center h-full text-gray-400">
-                              No valid price data for histogram.
-                            </div>
-                          )
-                        }
 
                         // Combine bins for side-by-side display
                         const combinedData = []
@@ -1608,8 +1581,8 @@ export default function PairAnalyzer() {
                             <Bar dataKey={selectedPair.stockB} fill="#ff6b6b" />
                           </BarChart>
                         )
-                      }
-                    })()}
+                      })()
+                    )}
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-4 text-sm text-gray-400">
@@ -1667,25 +1640,25 @@ export default function PairAnalyzer() {
                     {analysisData.tableData.map((row, index) => (
                       <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
                         <td className="table-cell">{row.date}</td>
-                        <td className="table-cell">{formatNumber(row.priceA, 2)}</td>
-                        <td className="table-cell">{formatNumber(row.priceB, 2)}</td>
+                        <td className="table-cell">{row.priceA.toFixed(2)}</td>
+                        <td className="table-cell">{row.priceB.toFixed(2)}</td>
                         {analysisData.statistics.modelType === "euclidean" && (
                           <>
-                            <td className="table-cell">{formatNumber(row.normalizedA, 4)}</td>
-                            <td className="table-cell">{formatNumber(row.normalizedB, 4)}</td>
+                            <td className="table-cell">{row.normalizedA.toFixed(4)}</td>
+                            <td className="table-cell">{row.normalizedB.toFixed(4)}</td>
                           </>
                         )}
                         {analysisData.statistics.modelType !== "ratio" &&
                           analysisData.statistics.modelType !== "euclidean" && (
                             <>
-                              <td className="table-cell">{formatNumber(row.alpha, 4)}</td>
-                              <td className="table-cell">{formatNumber(row.hedgeRatio, 4)}</td>
+                              <td className="table-cell">{row.alpha.toFixed(4)}</td>
+                              <td className="table-cell">{row.hedgeRatio.toFixed(4)}</td>
                             </>
                           )}
                         <td className="table-cell">
                           {analysisData.statistics.modelType === "ratio"
-                            ? formatNumber(row.ratio, 4)
-                            : formatNumber(row.distance, 4)}
+                            ? row.ratio.toFixed(4)
+                            : row.distance?.toFixed(4) || row.spread?.toFixed(4)}
                         </td>
                         <td
                           className={`table-cell font-medium ${
@@ -1696,9 +1669,9 @@ export default function PairAnalyzer() {
                                 : "text-white"
                           }`}
                         >
-                          {formatNumber(row.zScore, 4)}
+                          {row.zScore.toFixed(4)}
                         </td>
-                        <td className="table-cell">{row.halfLife ? formatNumber(row.halfLife, 2) : "N/A"}</td>
+                        <td className="table-cell">{row.halfLife || "N/A"}</td>
                       </tr>
                     ))}
                   </tbody>
