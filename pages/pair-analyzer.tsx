@@ -17,7 +17,7 @@ import {
   BarChart,
   Bar,
 } from "recharts"
-import { getCalculationsWorker } from "../pages/_app" // Import the getter function for the shared worker
+import { getWorker } from "../pages/_app" // Import the getter function for the shared worker
 
 // Matrix operations for 2x2 matrices (these are no longer directly used in pair-analyzer.tsx, but kept for completeness if other parts of the app still use them)
 const matrixMultiply2x2 = (A: number[][], B: number[][]): number[][] => {
@@ -101,9 +101,7 @@ export default function PairAnalyzer() {
   const [isLoading, setIsLoading] = useState(false)
   const [analysisData, setAnalysisData] = useState(null)
   const [error, setError] = useState("")
-
-  // No longer need a useRef for the worker, as it's managed globally
-  // const workerRef = useRef<Worker | null>(null) // REMOVED
+  // Removed isPyodideReady state, as we are now using WASM
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -140,10 +138,10 @@ export default function PairAnalyzer() {
     }
     fetchStocks()
 
-    // The worker is now initialized globally in _app.tsx.
-    // No need for worker initialization or cleanup here.
-    // The global worker will be terminated when the app unmounts.
-  }, [])
+    // No need for a specific WASM ready listener here, as the worker handles its own initialization
+    // and the main thread doesn't need to wait for it before sending messages.
+    // The worker will queue messages until WASM is ready.
+  }, []) // Empty dependency array ensures this runs once on component mount
 
   const handleSelection = (event) => {
     const { name, value } = event.target
@@ -194,7 +192,7 @@ export default function PairAnalyzer() {
       }
 
       // Get the shared worker instance
-      const worker = getCalculationsWorker()
+      const worker = getWorker(activeTab) // Get the specific worker instance based on the active tab
 
       // Use a Promise to handle the worker's response for this specific analysis run
       const analysisPromise = new Promise((resolve, reject) => {
@@ -1496,9 +1494,7 @@ export default function PairAnalyzer() {
                         <td className="table-cell">
                           {analysisData.statistics.modelType === "ratio"
                             ? row.ratio.toFixed(4)
-                            : analysisData.statistics.modelType === "euclidean"
-                              ? row.distance.toFixed(4)
-                              : row.spread.toFixed(4)}
+                            : row.distance.toFixed(4)}
                         </td>
                         <td
                           className={`table-cell font-medium ${
