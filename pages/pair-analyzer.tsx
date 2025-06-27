@@ -75,6 +75,14 @@ const scalarInverse = (x: number): number => {
   return Math.abs(x) < 1e-10 ? 1.0 : 1.0 / x
 }
 
+// Helper function to safely format numbers
+const formatNumber = (value: number, decimals = 4): string => {
+  if (isNaN(value) || !isFinite(value)) {
+    return "N/A"
+  }
+  return value.toFixed(decimals)
+}
+
 export default function PairAnalyzer() {
   const [stocks, setStocks] = useState([])
   const [selectedPair, setSelectedPair] = useState({ stockA: "", stockB: "" })
@@ -573,7 +581,9 @@ export default function PairAnalyzer() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-300">Correlation:</span>
-                    <span className="text-gold-400 font-medium">{analysisData.statistics.correlation.toFixed(4)}</span>
+                    <span className="text-gold-400 font-medium">
+                      {formatNumber(analysisData.statistics.correlation, 4)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">
@@ -587,10 +597,10 @@ export default function PairAnalyzer() {
                     </span>
                     <span className="text-gold-400 font-medium">
                       {analysisData.statistics.modelType === "ratio"
-                        ? analysisData.statistics.meanRatio.toFixed(4)
+                        ? formatNumber(analysisData.statistics.meanRatio, 4)
                         : analysisData.statistics.modelType === "euclidean"
-                          ? analysisData.statistics.meanDistance.toFixed(4)
-                          : analysisData.statistics.meanSpread.toFixed(4)}
+                          ? formatNumber(analysisData.statistics.meanDistance, 4)
+                          : formatNumber(analysisData.statistics.meanSpread, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -605,27 +615,31 @@ export default function PairAnalyzer() {
                     </span>
                     <span className="text-gold-400 font-medium">
                       {analysisData.statistics.modelType === "ratio"
-                        ? analysisData.statistics.stdDevRatio.toFixed(4)
+                        ? formatNumber(analysisData.statistics.stdDevRatio, 4)
                         : analysisData.statistics.modelType === "euclidean"
-                          ? analysisData.statistics.stdDevDistance.toFixed(4)
-                          : analysisData.statistics.stdDevSpread.toFixed(4)}
+                          ? formatNumber(analysisData.statistics.stdDevDistance, 4)
+                          : formatNumber(analysisData.statistics.stdDevSpread, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Min Z-score:</span>
-                    <span className="text-gold-400 font-medium">{analysisData.statistics.minZScore.toFixed(4)}</span>
+                    <span className="text-gold-400 font-medium">
+                      {formatNumber(analysisData.statistics.minZScore, 4)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Max Z-score:</span>
-                    <span className="text-gold-400 font-medium">{analysisData.statistics.maxZScore.toFixed(4)}</span>
+                    <span className="text-gold-400 font-medium">
+                      {formatNumber(analysisData.statistics.maxZScore, 4)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Statistical Half-Life (days):</span>
                     <span
                       className={`font-medium ${analysisData.statistics.halfLifeValid ? "text-gold-400" : "text-red-400"}`}
                     >
-                      {analysisData.statistics.halfLife > 0
-                        ? `${analysisData.statistics.halfLife.toFixed(2)}${!analysisData.statistics.halfLifeValid ? " (Too slow)" : ""}`
+                      {analysisData.statistics.halfLife > 0 && isFinite(analysisData.statistics.halfLife)
+                        ? `${formatNumber(analysisData.statistics.halfLife, 2)}${!analysisData.statistics.halfLifeValid ? " (Too slow)" : ""}`
                         : "Invalid"}
                     </span>
                   </div>
@@ -637,9 +651,10 @@ export default function PairAnalyzer() {
                       }`}
                     >
                       {analysisData.statistics.practicalTradeHalfLife.isValid
-                        ? `${analysisData.statistics.practicalTradeHalfLife.tradeCycleLength.toFixed(1)} (${(
-                            analysisData.statistics.practicalTradeHalfLife.successRate * 100
-                          ).toFixed(0)}% success)`
+                        ? `${formatNumber(analysisData.statistics.practicalTradeHalfLife.tradeCycleLength, 1)} (${formatNumber(
+                            analysisData.statistics.practicalTradeHalfLife.successRate * 100,
+                            0,
+                          )}% success)`
                         : "Insufficient data"}
                     </span>
                   </div>
@@ -654,7 +669,7 @@ export default function PairAnalyzer() {
                             : "text-gold-400"
                       }`}
                     >
-                      {analysisData.statistics.hurstExponent.toFixed(4)}
+                      {formatNumber(analysisData.statistics.hurstExponent, 4)}
                       {analysisData.statistics.hurstExponent < 0.5
                         ? " (Mean-reverting)"
                         : analysisData.statistics.hurstExponent > 0.5
@@ -671,25 +686,25 @@ export default function PairAnalyzer() {
                   <div className="flex justify-between">
                     <span className="text-gray-300">Test Statistic:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.statistic.toFixed(4)}
+                      {formatNumber(analysisData.statistics.adfResults.statistic, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">p-value:</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.pValue.toFixed(4)}
+                      {formatNumber(analysisData.statistics.adfResults.pValue, 4)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (1%):</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.criticalValues["1%"]}
+                      {formatNumber(analysisData.statistics.adfResults.criticalValues["1%"])}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-300">Critical Value (5%):</span>
                     <span className="text-gold-400 font-medium">
-                      {analysisData.statistics.adfResults.criticalValues["5%"]}
+                      {formatNumber(analysisData.statistics.adfResults.criticalValues["5%"])}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -760,9 +775,9 @@ export default function PairAnalyzer() {
                           ></div>
                           <span className="text-gray-300">
                             {analysisData.zScores[analysisData.zScores.length - 1] > 2
-                              ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                              ? `Short ${selectedPair.stockA}, Long ${selectedPair.stockB} (Z-score: ${formatNumber(analysisData.zScores[analysisData.zScores.length - 1], 2)})`
                               : analysisData.zScores[analysisData.zScores.length - 1] < -2
-                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${analysisData.zScores[analysisData.zScores.length - 1].toFixed(2)})`
+                                ? `Long ${selectedPair.stockA}, Short ${selectedPair.stockB} (Z-score: ${formatNumber(analysisData.zScores[analysisData.zScores.length - 1], 2)})`
                                 : "No trading signal (Z-score within normal range)"}
                           </span>
                         </>
@@ -836,7 +851,7 @@ export default function PairAnalyzer() {
                       <span className="text-gray-400 text-sm">{selectedPair.stockA} Position:</span>
                       <p className="text-white font-medium">
                         {analysisData.stockAPrices.length > 0
-                          ? `${(5000).toFixed(2)} (${(5000 / analysisData.stockAPrices[analysisData.stockAPrices.length - 1]).toFixed(0)} shares)`
+                          ? `${formatNumber(5000, 2)} (${formatNumber(5000 / analysisData.stockAPrices[analysisData.stockAPrices.length - 1], 0)} shares)`
                           : "N/A"}
                       </p>
                     </div>
@@ -847,14 +862,15 @@ export default function PairAnalyzer() {
                         (analysisData.hedgeRatios
                           ? analysisData.hedgeRatios.length > 0
                           : analysisData.ratios || analysisData.distances)
-                          ? `${(5000).toFixed(2)} (${(
+                          ? `${formatNumber(5000, 2)} (${formatNumber(
                               (5000 / analysisData.stockBPrices[analysisData.stockBPrices.length - 1]) *
                                 (analysisData.statistics.modelType === "ols" ||
                                 analysisData.statistics.modelType === "kalman"
                                   ? analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
                                   : analysisData.stockAPrices[analysisData.stockAPrices.length - 1] /
-                                    analysisData.stockBPrices[analysisData.stockBPrices.length - 1])
-                            ).toFixed(0)} shares)`
+                                    analysisData.stockBPrices[analysisData.stockBPrices.length - 1]),
+                              0,
+                            )} shares)`
                           : "N/A"}
                       </p>
                     </div>
@@ -886,7 +902,7 @@ export default function PairAnalyzer() {
                         <YAxis tick={{ fill: "#dce5f3" }} />
                         <Tooltip
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [value.toFixed(4), "Hedge Ratio (β)"]}
+                          formatter={(value) => [formatNumber(value as number, 4), "Hedge Ratio (β)"]}
                           labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
                         <Line type="monotone" dataKey="hedgeRatio" stroke="#ffd700" dot={false} />
@@ -940,7 +956,7 @@ export default function PairAnalyzer() {
                         <YAxis tick={{ fill: "#dce5f3" }} />
                         <Tooltip
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [value.toFixed(4), "Value"]}
+                          formatter={(value) => [formatNumber(value as number, 4), "Value"]}
                           labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
                         <Line type="monotone" dataKey="value" stroke="#ffd700" dot={false} />
@@ -993,7 +1009,7 @@ export default function PairAnalyzer() {
                           cursor={{ strokeDasharray: "3 3" }}
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                           formatter={(value) => [
-                            value.toFixed(4),
+                            formatNumber(value as number, 4),
                             analysisData.statistics.modelType === "ratio"
                               ? "Ratio"
                               : analysisData.statistics.modelType === "euclidean"
@@ -1030,20 +1046,21 @@ export default function PairAnalyzer() {
                             : analysisData.statistics.modelType === "euclidean"
                               ? analysisData.distances
                               : analysisData.spreads
-                        const min = Math.min(...data)
-                        const max = Math.max(...data)
+                        const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
+                        const min = Math.min(...filteredData)
+                        const max = Math.max(...filteredData)
                         const binCount = 20
                         const binSize = (max - min) / binCount
 
                         const bins = Array(binCount)
                           .fill(0)
                           .map((_, i) => ({
-                            range: `${(min + i * binSize).toFixed(3)}-${(min + (i + 1) * binSize).toFixed(3)}`,
+                            range: `${formatNumber(min + i * binSize, 3)}-${formatNumber(min + (i + 1) * binSize, 3)}`,
                             count: 0,
                             midpoint: min + (i + 0.5) * binSize,
                           }))
 
-                        data.forEach((value) => {
+                        filteredData.forEach((value) => {
                           const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1)
                           bins[binIndex].count++
                         })
@@ -1054,14 +1071,14 @@ export default function PairAnalyzer() {
                             <XAxis
                               dataKey="midpoint"
                               tick={{ fill: "#dce5f3", fontSize: 10 }}
-                              tickFormatter={(value) => value.toFixed(2)}
+                              tickFormatter={(value) => formatNumber(value, 2)}
                               interval={Math.floor(binCount / 5)}
                             />
                             <YAxis tick={{ fill: "#dce5f3" }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                               formatter={(value) => [value, "Frequency"]}
-                              labelFormatter={(label) => `Range: ${label.toFixed(3)}`}
+                              labelFormatter={(label) => `Range: ${formatNumber(label as number, 3)}`}
                             />
                             <Bar dataKey="count" fill="#ffd700" />
                           </BarChart>
@@ -1110,7 +1127,7 @@ export default function PairAnalyzer() {
                         <YAxis tick={{ fill: "#dce5f3" }} />
                         <Tooltip
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [value.toFixed(4), "Z-Score"]}
+                          formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
                           labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
                         <ReferenceLine y={0} stroke="#ffffff" />
@@ -1147,7 +1164,7 @@ export default function PairAnalyzer() {
                         <Tooltip
                           cursor={{ strokeDasharray: "3 3" }}
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [value.toFixed(4), "Z-Score"]}
+                          formatter={(value) => [formatNumber(value as number, 4), "Z-Score"]}
                         />
                         <ReferenceLine y={0} stroke="#ffffff" />
                         <ReferenceLine y={2} stroke="#ff6b6b" strokeDasharray="3 3" />
@@ -1164,7 +1181,7 @@ export default function PairAnalyzer() {
                     ) : (
                       // Histogram
                       (() => {
-                        const data = analysisData.zScores.filter((z) => !isNaN(z))
+                        const data = analysisData.zScores.filter((z) => isFinite(z)) // Filter out NaN/Infinity
                         const min = Math.min(...data)
                         const max = Math.max(...data)
                         const binCount = 20
@@ -1173,7 +1190,7 @@ export default function PairAnalyzer() {
                         const bins = Array(binCount)
                           .fill(0)
                           .map((_, i) => ({
-                            range: `${(min + i * binSize).toFixed(2)}-${(min + (i + 1) * binSize).toFixed(2)}`,
+                            range: `${formatNumber(min + i * binSize, 2)}-${formatNumber(min + (i + 1) * binSize, 2)}`,
                             count: 0,
                             midpoint: min + (i + 0.5) * binSize,
                           }))
@@ -1189,14 +1206,14 @@ export default function PairAnalyzer() {
                             <XAxis
                               dataKey="midpoint"
                               tick={{ fill: "#dce5f3", fontSize: 10 }}
-                              tickFormatter={(value) => value.toFixed(1)}
+                              tickFormatter={(value) => formatNumber(value, 1)}
                               interval={Math.floor(binCount / 5)}
                             />
                             <YAxis tick={{ fill: "#dce5f3" }} />
                             <Tooltip
                               contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
                               formatter={(value) => [value, "Frequency"]}
-                              labelFormatter={(label) => `Z-Score: ${label.toFixed(2)}`}
+                              labelFormatter={(label) => `Z-Score: ${formatNumber(label as number, 2)}`}
                             />
                             <ReferenceLine x={0} stroke="#ffffff" strokeDasharray="3 3" />
                             <ReferenceLine x={2} stroke="#ff6b6b" strokeDasharray="3 3" />
@@ -1254,7 +1271,7 @@ export default function PairAnalyzer() {
                         <YAxis yAxisId="right" orientation="right" tick={{ fill: "#dce5f3" }} />
                         <Tooltip
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value, name) => [value.toFixed(2), name]}
+                          formatter={(value, name) => [formatNumber(value as number, 2), name]}
                           labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
                         <Line
@@ -1317,7 +1334,7 @@ export default function PairAnalyzer() {
                         <Tooltip
                           cursor={{ strokeDasharray: "3 3" }}
                           contentStyle={{ backgroundColor: "#192042", borderColor: "#3a4894", color: "#dce5f3" }}
-                          formatter={(value) => [value.toFixed(2), ""]}
+                          formatter={(value) => [formatNumber(value as number, 2), ""]}
                         />
                         <Scatter
                           name="Stock Prices"
@@ -1337,8 +1354,8 @@ export default function PairAnalyzer() {
                           ) {
                             const lastBeta = analysisData.hedgeRatios[analysisData.hedgeRatios.length - 1]
                             const lastAlpha = analysisData.alphas[analysisData.alphas.length - 1]
-                            const minB = Math.min(...analysisData.stockBPrices)
-                            const maxB = Math.max(...analysisData.stockBPrices)
+                            const minB = Math.min(...analysisData.stockBPrices.filter((p) => isFinite(p)))
+                            const maxB = Math.max(...analysisData.stockBPrices.filter((p) => isFinite(p)))
 
                             return (
                               <Line
@@ -1362,9 +1379,10 @@ export default function PairAnalyzer() {
                     ) : (
                       // Histogram
                       (() => {
-                        const createBins = (data, binCount = 15) => {
-                          const min = Math.min(...data)
-                          const max = Math.max(...data)
+                        const createBins = (data: number[], binCount = 15) => {
+                          const filteredData = data.filter((d) => isFinite(d)) // Filter out NaN/Infinity
+                          const min = Math.min(...filteredData)
+                          const max = Math.max(...filteredData)
                           const binSize = (max - min) / binCount
 
                           const bins = Array(binCount)
@@ -1374,7 +1392,7 @@ export default function PairAnalyzer() {
                               count: 0,
                             }))
 
-                          data.forEach((value) => {
+                          filteredData.forEach((value) => {
                             const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1)
                             bins[binIndex].count++
                           })
@@ -1476,25 +1494,25 @@ export default function PairAnalyzer() {
                     {analysisData.tableData.map((row, index) => (
                       <tr key={index} className={index % 2 === 0 ? "bg-navy-900/50" : "bg-navy-900/30"}>
                         <td className="table-cell">{row.date}</td>
-                        <td className="table-cell">{row.priceA.toFixed(2)}</td>
-                        <td className="table-cell">{row.priceB.toFixed(2)}</td>
+                        <td className="table-cell">{formatNumber(row.priceA, 2)}</td>
+                        <td className="table-cell">{formatNumber(row.priceB, 2)}</td>
                         {analysisData.statistics.modelType === "euclidean" && (
                           <>
-                            <td className="table-cell">{row.normalizedA.toFixed(4)}</td>
-                            <td className="table-cell">{row.normalizedB.toFixed(4)}</td>
+                            <td className="table-cell">{formatNumber(row.normalizedA, 4)}</td>
+                            <td className="table-cell">{formatNumber(row.normalizedB, 4)}</td>
                           </>
                         )}
                         {analysisData.statistics.modelType !== "ratio" &&
                           analysisData.statistics.modelType !== "euclidean" && (
                             <>
-                              <td className="table-cell">{row.alpha.toFixed(4)}</td>
-                              <td className="table-cell">{row.hedgeRatio.toFixed(4)}</td>
+                              <td className="table-cell">{formatNumber(row.alpha, 4)}</td>
+                              <td className="table-cell">{formatNumber(row.hedgeRatio, 4)}</td>
                             </>
                           )}
                         <td className="table-cell">
                           {analysisData.statistics.modelType === "ratio"
-                            ? row.ratio.toFixed(4)
-                            : row.distance.toFixed(4)}
+                            ? formatNumber(row.ratio, 4)
+                            : formatNumber(row.distance, 4)}
                         </td>
                         <td
                           className={`table-cell font-medium ${
@@ -1505,9 +1523,9 @@ export default function PairAnalyzer() {
                                 : "text-white"
                           }`}
                         >
-                          {row.zScore.toFixed(4)}
+                          {formatNumber(row.zScore, 4)}
                         </td>
-                        <td className="table-cell">{row.halfLife || "N/A"}</td>
+                        <td className="table-cell">{row.halfLife ? formatNumber(row.halfLife, 2) : "N/A"}</td>
                       </tr>
                     ))}
                   </tbody>
