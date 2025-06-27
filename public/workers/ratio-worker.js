@@ -16,11 +16,16 @@ self.onmessage = async (event) => {
       const stockAPrices = data.pricesA.map((d) => d.close).slice(0, minLength)
       const stockBPrices = data.pricesB.map((d) => d.close).slice(0, minLength)
 
-      const ratios = stockAPrices.map((priceA, i) => priceA / stockBPrices[i])
+      const ratios = stockAPrices.map((priceA, i) => {
+        const priceB = stockBPrices[i]
+        return priceB === 0 || isNaN(priceA) || isNaN(priceB) ? Number.NaN : priceA / priceB
+      })
       const zScores = commonUtils.calculateZScore(ratios, params.ratioLookbackWindow)
       const rollingHalfLifes = commonUtils.calculateRollingHalfLife(ratios, params.ratioLookbackWindow)
 
-      const dataForMeanStdDev = ratios.slice(params.ratioLookbackWindow - 1)
+      const dataForMeanStdDev = ratios
+        .slice(params.ratioLookbackWindow - 1)
+        .filter((val) => typeof val === "number" && isFinite(val))
       let meanValue = 0
       let stdDevValue = 0
       if (dataForMeanStdDev.length > 0) {
@@ -71,7 +76,17 @@ self.onmessage = async (event) => {
 
       for (let i = 0; i < dataForBands.length; i++) {
         const windowStart = Math.max(0, i - rollingStatsWindow + 1)
-        const window = dataForBands.slice(windowStart, i + 1)
+        const window = dataForBands.slice(windowStart, i + 1).filter((val) => typeof val === "number" && isFinite(val))
+
+        if (window.length === 0) {
+          rollingMean.push(Number.NaN)
+          rollingUpperBand1.push(Number.NaN)
+          rollingLowerBand1.push(Number.NaN)
+          rollingUpperBand2.push(Number.NaN)
+          rollingLowerBand2.push(Number.NaN)
+          continue
+        }
+
         const mean = window.reduce((sum, val) => sum + val, 0) / window.length
         const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
 
