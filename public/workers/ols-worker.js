@@ -24,7 +24,12 @@ self.onmessage = async (event) => {
         const { beta, alpha } = commonUtils.calculateHedgeRatio(data.pricesA, data.pricesB, i, params.olsLookbackWindow)
         const currentPriceA = stockAPrices[i]
         const currentPriceB = stockBPrices[i]
-        const spread = currentPriceA - (alpha + beta * currentPriceB)
+
+        let spread = Number.NaN
+        if (!isNaN(alpha) && !isNaN(beta) && !isNaN(currentPriceA) && !isNaN(currentPriceB)) {
+          spread = currentPriceA - (alpha + beta * currentPriceB)
+        }
+
         hedgeRatios.push(beta)
         alphas.push(alpha)
         spreads.push(spread)
@@ -33,7 +38,9 @@ self.onmessage = async (event) => {
       const zScores = commonUtils.calculateZScore(spreads, params.zScoreLookback)
       const rollingHalfLifes = commonUtils.calculateRollingHalfLife(spreads, params.olsLookbackWindow)
 
-      const dataForMeanStdDev = spreads.slice(params.olsLookbackWindow - 1)
+      const dataForMeanStdDev = spreads
+        .slice(params.olsLookbackWindow - 1)
+        .filter((val) => typeof val === "number" && isFinite(val))
       let meanValue = 0
       let stdDevValue = 0
       if (dataForMeanStdDev.length > 0) {
@@ -86,7 +93,17 @@ self.onmessage = async (event) => {
 
       for (let i = 0; i < dataForBands.length; i++) {
         const windowStart = Math.max(0, i - rollingStatsWindow + 1)
-        const window = dataForBands.slice(windowStart, i + 1)
+        const window = dataForBands.slice(windowStart, i + 1).filter((val) => typeof val === "number" && isFinite(val))
+
+        if (window.length === 0) {
+          rollingMean.push(Number.NaN)
+          rollingUpperBand1.push(Number.NaN)
+          rollingLowerBand1.push(Number.NaN)
+          rollingUpperBand2.push(Number.NaN)
+          rollingLowerBand2.push(Number.NaN)
+          continue
+        }
+
         const mean = window.reduce((sum, val) => sum + val, 0) / window.length
         const stdDev = Math.sqrt(window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length)
 
