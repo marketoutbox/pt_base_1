@@ -26,25 +26,26 @@ export async function initializeWasm() {
 
 // Utility functions
 export const calculateZScore = (data, lookback) => {
-  if (data.length < lookback) {
-    return Array(data.length).fill(0)
-  }
-
   const zScores = []
   for (let i = 0; i < data.length; i++) {
-    const windowStart = Math.max(0, i - lookback + 1)
-    const windowData = data.slice(windowStart, i + 1)
+    // If the current data point is not a finite number, its z-score is NaN
+    if (typeof data[i] !== "number" || !isFinite(data[i])) {
+      zScores.push(Number.NaN)
+      continue
+    }
 
-    if (windowData.length === lookback) {
+    const windowStart = Math.max(0, i - lookback + 1)
+    // Filter out non-finite numbers from the window data
+    const windowData = data.slice(windowStart, i + 1).filter((val) => typeof val === "number" && isFinite(val))
+
+    if (windowData.length === lookback && windowData.length > 1) {
+      // Need at least 2 points for std dev
       const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
-      const variance =
-        windowData.length > 1
-          ? windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1)
-          : 0
+      const variance = windowData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (windowData.length - 1)
       const stdDev = Math.sqrt(variance)
       zScores.push(stdDev > 0 ? (data[i] - mean) / stdDev : 0)
     } else {
-      zScores.push(0)
+      zScores.push(Number.NaN) // Not enough valid data in window or window too small for std dev
     }
   }
   return zScores
@@ -100,7 +101,7 @@ export const invertMatrix = (matrix) => {
 
     const pivot = augmentedMatrix[i][i]
     if (Math.abs(pivot) < 1e-9) {
-      return null
+      return null // Matrix is singular or nearly singular
     }
 
     for (let j = i; j < 2 * n; j++) {
@@ -124,6 +125,16 @@ export const runMultiLinearRegression = (y_values, x_matrix) => {
   const numObservations = y_values.length
   const numPredictors = x_matrix[0].length
 
+  if (numObservations < numPredictors) {
+    return {
+      coefficients: Array(numPredictors).fill(Number.NaN),
+      stdErrors: Array(numPredictors).fill(Number.NaN),
+      SSR: Number.NaN,
+      nobs: numObservations,
+      nparams: numPredictors,
+    }
+  }
+
   const XtX = Array(numPredictors)
     .fill(0)
     .map(() => Array(numPredictors).fill(0))
@@ -146,9 +157,9 @@ export const runMultiLinearRegression = (y_values, x_matrix) => {
 
   if (!XtX_inv) {
     return {
-      coefficients: Array(numPredictors).fill(0),
-      stdErrors: Array(numPredictors).fill(Number.POSITIVE_INFINITY),
-      SSR: Number.POSITIVE_INFINITY,
+      coefficients: Array(numPredictors).fill(Number.NaN),
+      stdErrors: Array(numPredictors).fill(Number.NaN),
+      SSR: Number.NaN,
       nobs: numObservations,
       nparams: numPredictors,
     }
@@ -171,7 +182,7 @@ export const runMultiLinearRegression = (y_values, x_matrix) => {
   }
 
   const SSR = residuals.reduce((sum, r) => sum + r * r, 0)
-  const MSE = SSR / (numObservations - numPredictors)
+  const MSE = numObservations - numPredictors > 0 ? SSR / (numObservations - numPredictors) : Number.NaN
 
   const stdErrors = Array(numPredictors).fill(0)
   for (let i = 0; i < numPredictors; i++) {
@@ -227,7 +238,8 @@ export const calculateAdfTestStatistic = (data) => {
       !regressionResults ||
       typeof regressionResults.SSR === "undefined" ||
       !regressionResults.coefficients ||
-      !regressionResults.stdErrors
+      !regressionResults.stdErrors ||
+      isNaN(regressionResults.SSR)
     ) {
       continue
     }
@@ -258,16 +270,6 @@ export const adfTestWasm = async (data, seriesType) => {
     type: "debug",
     message: `ADF Test: Received ${data.length} raw data points for ${seriesType}. Cleaned to ${cleanData.length} points.`,
   })
-  if (cleanData.length > 0) {
-    self.postMessage({
-      type: "debug",
-      message: `ADF Test: Sample of clean data (first 5): ${cleanData.slice(0, 5).join(", ")}`,
-    })
-    self.postMessage({
-      type: "debug",
-      message: `ADF Test: Sample of clean data (last 5): ${cleanData.slice(-5).join(", ")}`,
-    })
-  }
 
   if (cleanData.length < 5) {
     self.postMessage({
@@ -306,31 +308,42 @@ export const calculateCorrelation = (pricesA, pricesB) => {
     sumAB = 0,
     sumA2 = 0,
     sumB2 = 0
+  let count = 0
 
   for (let i = 0; i < n; i++) {
-    sumA += pricesA[i].close
-    sumB += pricesB[i].close
-    sumAB += pricesA[i].close * pricesB[i].close
-    sumA2 += pricesA[i].close * pricesA[i].close
-    sumB2 += pricesB[i].close * pricesB[i].close
+    const priceA = typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
+    const priceB = typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+
+    if (isNaN(priceA) || isNaN(priceB)) {
+      continue
+    }
+    sumA += priceA
+    sumB += priceB
+    sumAB += priceA * priceB
+    sumA2 += priceA * priceA
+    sumB2 += priceB * priceB
+    count++
   }
 
-  const numerator = n * sumAB - sumA * sumB
-  const denominator = Math.sqrt((n * sumA2 - sumA * sumA) * (n * sumB2 - sumB * sumB))
+  if (count < 2) return Number.NaN // Need at least 2 points for correlation
+
+  const numerator = count * sumAB - sumA * sumB
+  const denominator = Math.sqrt((count * sumA2 - sumA * sumA) * (count * sumB2 - sumB * sumB))
 
   return denominator === 0 ? 0 : numerator / denominator
 }
 
 export const calculateHalfLife = (spreads) => {
-  const n = spreads.length
+  const cleanSpreads = spreads.filter((s) => typeof s === "number" && isFinite(s))
+  const n = cleanSpreads.length
   if (n < 20) return { halfLife: 0, isValid: false }
 
   const y = []
   const x = []
 
   for (let i = 1; i < n; i++) {
-    y.push(spreads[i] - spreads[i - 1])
-    x.push(spreads[i - 1])
+    y.push(cleanSpreads[i] - cleanSpreads[i - 1])
+    x.push(cleanSpreads[i - 1])
   }
 
   let sumX = 0,
@@ -344,7 +357,10 @@ export const calculateHalfLife = (spreads) => {
     sumX2 += x[i] * x[i]
   }
 
-  const beta = (y.length * sumXY - sumX * sumY) / (y.length * sumX2 - sumX * sumX)
+  const denominator = y.length * sumX2 - sumX * sumX
+  if (denominator === 0) return { halfLife: 0, isValid: false } // Avoid division by zero
+
+  const beta = (y.length * sumXY - sumX * sumY) / denominator
   const halfLife = -Math.log(2) / beta
 
   return {
@@ -365,7 +381,16 @@ export const calculateRollingHalfLife = (data, windowSize) => {
       continue
     }
 
-    const windowData = data.slice(Math.max(0, i - windowSize + 1), i + 1)
+    const windowData = data
+      .slice(Math.max(0, i - windowSize + 1), i + 1)
+      .filter((val) => typeof val === "number" && isFinite(val))
+
+    if (windowData.length < 20) {
+      // Need enough data in the window for half-life calculation
+      result.push(null)
+      continue
+    }
+
     const mean = windowData.reduce((sum, val) => sum + val, 0) / windowData.length
 
     const y = []
@@ -387,12 +412,13 @@ export const calculateRollingHalfLife = (data, windowSize) => {
       sumX2 += x[j] * x[j]
     }
 
-    if (sumX2 === 0) {
+    const denominator = y.length * sumX2 - sumX * sumX
+    if (denominator === 0) {
       result.push(null)
       continue
     }
 
-    const beta = (y.length * sumXY - sumX * sumY) / (y.length * sumX2 - sumX * sumX)
+    const beta = (y.length * sumXY - sumX * sumY) / denominator
     const halfLife = beta < 0 ? -Math.log(2) / beta : null
 
     if (halfLife !== null && halfLife > 0) {
@@ -405,13 +431,14 @@ export const calculateRollingHalfLife = (data, windowSize) => {
 }
 
 export const calculatePracticalTradeHalfLife = (zScores, entryThreshold = 2.0, exitThreshold = 0.5) => {
+  const cleanZScores = zScores.filter((z) => typeof z === "number" && isFinite(z))
   const tradeCycles = []
   let inTrade = false
   let entryDay = 0
   let entryDirection = ""
 
-  for (let i = 0; i < zScores.length; i++) {
-    const currentZScore = zScores[i]
+  for (let i = 0; i < cleanZScores.length; i++) {
+    const currentZScore = cleanZScores[i]
 
     if (!inTrade && Math.abs(currentZScore) >= entryThreshold) {
       inTrade = true
@@ -458,7 +485,8 @@ export const calculatePracticalTradeHalfLife = (zScores, entryThreshold = 2.0, e
 }
 
 export const calculateHurstExponent = (data) => {
-  const n = data.length
+  const cleanData = data.filter((d) => typeof d === "number" && isFinite(d))
+  const n = cleanData.length
   if (n < 100) return 0.5
 
   const maxLag = Math.min(100, Math.floor(n / 2))
@@ -469,7 +497,7 @@ export const calculateHurstExponent = (data) => {
     const rsValues = []
 
     for (let i = 0; i < n - lag; i += lag) {
-      const series = data.slice(i, i + lag)
+      const series = cleanData.slice(i, i + lag)
       const mean = series.reduce((sum, val) => sum + val, 0) / lag
 
       const cumDevs = []
@@ -493,6 +521,8 @@ export const calculateHurstExponent = (data) => {
     }
   }
 
+  if (lags.length < 2) return 0.5 // Need at least 2 points for regression
+
   let sumX = 0,
     sumY = 0,
     sumXY = 0,
@@ -504,7 +534,10 @@ export const calculateHurstExponent = (data) => {
     sumX2 += lags[i] * lags[i]
   }
 
-  const hurstExponent = (lags.length * sumXY - sumX * sumY) / (lags.length * sumX2 - sumX * sumX)
+  const denominator = lags.length * sumX2 - sumX * sumX
+  if (denominator === 0) return 0.5 // Avoid division by zero
+
+  const hurstExponent = (lags.length * sumXY - sumX * sumY) / denominator
   return hurstExponent
 }
 
@@ -533,8 +566,9 @@ export const calculateHedgeRatio = (pricesA, pricesB, currentIndex, windowSize) 
     count++
   }
 
-  if (count === 0 || count * sumB2 - sumB * sumB === 0) {
-    return { beta: 1, alpha: 0 }
+  if (count < 2 || count * sumB2 - sumB * sumB === 0) {
+    // Need at least 2 points for regression, and non-zero denominator
+    return { beta: Number.NaN, alpha: Number.NaN }
   }
 
   const numerator = count * sumAB - sumA * sumB
@@ -549,7 +583,7 @@ export const kalmanFilter = (pricesA, pricesB, processNoise, initialLookback) =>
   const n = pricesA.length
 
   if (n < initialLookback) {
-    return { hedgeRatios: Array(n).fill(1), alphas: Array(n).fill(0) }
+    return { hedgeRatios: Array(n).fill(Number.NaN), alphas: Array(n).fill(Number.NaN) }
   }
 
   let sumA = 0,
@@ -559,6 +593,9 @@ export const kalmanFilter = (pricesA, pricesB, processNoise, initialLookback) =>
   for (let i = 0; i < initialLookback; i++) {
     const priceA = typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
     const priceB = typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
+    if (isNaN(priceA) || isNaN(priceB)) {
+      return { hedgeRatios: Array(n).fill(Number.NaN), alphas: Array(n).fill(Number.NaN) }
+    }
     sumA += priceA
     sumB += priceB
     sumAB += priceA * priceB
@@ -569,8 +606,19 @@ export const kalmanFilter = (pricesA, pricesB, processNoise, initialLookback) =>
   const meanB = sumB / initialLookback
   const numerator = initialLookback * sumAB - sumA * sumB
   const denominator = initialLookback * sumB2 - sumB * sumB
-  const initialBeta = Math.abs(denominator) > 1e-10 ? numerator / denominator : 1.0
-  const initialAlpha = meanA - initialBeta * meanB
+
+  let initialBeta, initialAlpha
+  if (Math.abs(denominator) < 1e-10) {
+    initialBeta = Number.NaN
+    initialAlpha = Number.NaN
+  } else {
+    initialBeta = numerator / denominator
+    initialAlpha = meanA - initialBeta * meanB
+  }
+
+  if (isNaN(initialBeta) || isNaN(initialAlpha)) {
+    return { hedgeRatios: Array(n).fill(Number.NaN), alphas: Array(n).fill(Number.NaN) }
+  }
 
   let residualSumSquares = 0
   for (let i = 0; i < initialLookback; i++) {
@@ -580,7 +628,7 @@ export const kalmanFilter = (pricesA, pricesB, processNoise, initialLookback) =>
     const residual = priceA - predicted
     residualSumSquares += residual * residual
   }
-  const adaptiveR = residualSumSquares / (initialLookback - 2)
+  const adaptiveR = initialLookback - 2 > 0 ? residualSumSquares / (initialLookback - 2) : 1.0
 
   let x = [initialAlpha, initialBeta]
   let P = [
@@ -604,6 +652,12 @@ export const kalmanFilter = (pricesA, pricesB, processNoise, initialLookback) =>
     const priceA = typeof pricesA[i].close === "string" ? Number.parseFloat(pricesA[i].close) : pricesA[i].close
     const priceB = typeof pricesB[i].close === "string" ? Number.parseFloat(pricesB[i].close) : pricesB[i].close
 
+    if (isNaN(priceA) || isNaN(priceB)) {
+      alphas.push(Number.NaN)
+      hedgeRatios.push(Number.NaN)
+      continue
+    }
+
     const x_pred = [...x]
     const P_pred = matrixAdd2x2(P, Q)
 
@@ -614,11 +668,13 @@ export const kalmanFilter = (pricesA, pricesB, processNoise, initialLookback) =>
     const H_P_pred = [P_pred[0][0] * H_t[0] + P_pred[0][1] * H_t[1], P_pred[1][0] * H_t[0] + P_pred[1][1] * H_t[1]]
     const innovation_covariance = H_P_pred[0] * H_t[0] + H_P_pred[1] * H_t[1] + adaptiveR
 
-    const P_pred_H_T = [P_pred[0][0] * H_t[0] + P_pred[0][1] * H_t[1], P_pred[1][0] * H_t[0] + P_pred[1][1] * H_t[1]]
-    const K = [
-      P_pred_H_T[0] * scalarInverse(innovation_covariance),
-      P_pred_H_T[1] * scalarInverse(innovation_covariance),
-    ]
+    let K
+    if (Math.abs(innovation_covariance) < 1e-10) {
+      K = [0, 0]
+    } else {
+      const P_pred_H_T = [P_pred[0][0] * H_t[0] + P_pred[0][1] * H_t[1], P_pred[1][0] * H_t[0] + P_pred[1][1] * H_t[1]]
+      K = [P_pred_H_T[0] * scalarInverse(innovation_covariance), P_pred_H_T[1] * scalarInverse(innovation_covariance)]
+    }
 
     x = [x_pred[0] + K[0] * innovation, x_pred[1] + K[1] * innovation]
 
